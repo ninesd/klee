@@ -146,6 +146,13 @@ cl::opt<bool> EmitAllErrors(
              "(default=false, i.e. one per (error,instruction) pair)"),
     cl::cat(TestGenCat));
 
+cl::opt<bool> EmitAllErrorsInSamePath(
+    "emit-all-errors-in-same-path", cl::init(false),
+    cl::desc("Enables detection of multiple errors "
+             "in same paths (default=false (off)). Note: Specially used "
+             "for achieving MC/DC."),
+    cl::cat(TestGenCat));
+
 
 /* Constraint solving options */
 
@@ -4009,7 +4016,9 @@ void Executor::terminateStateOnError(ExecutionState &state,
     interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
   }
     
-  terminateState(state);
+  if (!EmitAllErrorsInSamePath) {
+    terminateState(state);
+  }
 
   if (shouldExitOn(termReason))
     haltExecution = true;
