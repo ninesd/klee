@@ -282,6 +282,7 @@ cl::list<Executor::TerminateReason> ExitOnErrorType(
     cl::values(
         clEnumValN(Executor::Abort, "Abort", "The program crashed"),
         clEnumValN(Executor::Assert, "Assert", "An assertion was hit"),
+        clEnumValN(Executor::Trigger, "Trigger", "An trigger was hit"),
         clEnumValN(Executor::BadVectorAccess, "BadVectorAccess",
                    "Vector accessed out of bounds"),
         clEnumValN(Executor::Exec, "Exec",
@@ -447,6 +448,7 @@ unsigned dumpStates = 0, dumpPTree = 0;
 const char *Executor::TerminateReasonNames[] = {
   [ Abort ] = "abort",
   [ Assert ] = "assert",
+  [ Trigger ] = "trigger",
   [ BadVectorAccess ] = "bad_vector_access",
   [ Exec ] = "exec",
   [ External ] = "external",
@@ -4016,7 +4018,7 @@ void Executor::terminateStateOnError(ExecutionState &state,
     interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
   }
     
-  if (!EmitAllErrorsInSamePath) {
+  if (!EmitAllErrorsInSamePath || termReason == Executor::Trigger) {
     terminateState(state);
   }
 

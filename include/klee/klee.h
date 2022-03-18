@@ -95,6 +95,24 @@ extern "C" {
    ? (void) (0)                                                         \
    : __assert_fail (#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__))    \
 
+  /* special klee trigger if false macro. this trigger should be used when
+   * path consistency across platforms is desired (e.g., in tests).
+   * NB: __assert_trigger is a klee "special" function
+   */
+# define klee_trigger_if_false(expr)                                             \
+  ((expr)                                                               \
+   ? (void) (0)                                                         \
+   : __assert_trigger (#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__)) \
+
+  /* special klee trigger if true macro. this trigger should be used when
+   * path consistency across platforms is desired (e.g., in tests).
+   * NB: __assert_trigger is a klee "special" function
+   */
+# define klee_trigger_if_true(expr)                                             \
+  ((expr)                                                               \
+   ? __assert_trigger (#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__)) \
+   : (void) (0)                                                         \
+
   /* Return true if the given value is symbolic (represented by an
    * expression) in the current state. This is primarily for debugging
    * and writing tests but can also be used to enable prints in replay
