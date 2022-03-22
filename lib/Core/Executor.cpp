@@ -4051,7 +4051,7 @@ void Executor::callExternalFunction(ExecutionState &state,
 
   if (IgnorePrintf)
     if (function->getName().str() == "printf")
-      klee_warning_once("Ignored external function: %s\n",
+      klee_warning_once(function, "Ignored external function: %s\n",
                    function->getName().str().c_str());
 
   if (ExternalCalls == ExternalCallPolicy::None &&
