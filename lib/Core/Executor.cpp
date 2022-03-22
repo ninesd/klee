@@ -205,6 +205,12 @@ cl::opt<ExternalCallPolicy> ExternalCalls(
     cl::init(ExternalCallPolicy::Concrete),
     cl::cat(ExtCallsCat));
 
+cl::opt<bool> IgnorePrintf(
+    "ignore-printf",
+    cl::init(false),
+    cl::desc("Ignore Printf (default=false)"),
+    cl::cat(ExtCallsCat));
+
 cl::opt<bool> SuppressExternalWarnings(
     "suppress-external-warnings",
     cl::init(false),
@@ -4042,6 +4048,11 @@ void Executor::callExternalFunction(ExecutionState &state,
   // check if specialFunctionHandler wants it
   if (specialFunctionHandler->handle(state, function, target, arguments))
     return;
+
+  if (IgnorePrintf)
+    if (function->getName().str() == "printf")
+      klee_warning_once("Ignored external function: %s\n",
+                   function->getName().str().c_str());
 
   if (ExternalCalls == ExternalCallPolicy::None &&
       !okExternals.count(function->getName().str())) {
