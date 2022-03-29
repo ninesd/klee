@@ -4024,7 +4024,7 @@ void Executor::terminateStateOnError(ExecutionState &state,
     interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
   }
     
-  if (!EmitAllErrorsInSamePath && termReason != Executor::Trigger) {
+  if (!EmitAllErrorsInSamePath) {
     terminateState(state);
   }
 
