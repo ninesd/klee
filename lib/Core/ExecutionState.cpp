@@ -10,6 +10,7 @@
 #include "ExecutionState.h"
 
 #include "Memory.h"
+#include "TxTree.h"
 
 #include "klee/Expr/Expr.h"
 #include "klee/Module/Cell.h"
@@ -79,17 +80,24 @@ ExecutionState::ExecutionState(KFunction *kf) :
     instsSinceCovNew(0),
     roundingMode(llvm::APFloat::rmNearestTiesToEven),
     coveredNew(false),
-    forkDisabled(false) {
+    forkDisabled(false),
+    txTreeNode(0) {
   pushFrame(nullptr, kf);
   setID();
 }
+
+ExecutionState::ExecutionState(const KInstIterator &srcPrevPC, const std::vector<ref<Expr> > &assumptions) :
+    prevPC(srcPrevPC),
+    constraints(assumptions),
+    ptreeNode(nullptr),
+    txTreeNode(0) {}
 
 ExecutionState::~ExecutionState() {
   for (const auto &cur_mergehandler: openMergeStack){
     cur_mergehandler->removeOpenState(this);
   }
 
-  while (!stack.empty()) popFrame();
+  while (!stack.empty()) popFrame(0, ConstantExpr::alloc(0, Expr::Bool));
 }
 
 ExecutionState::ExecutionState(const ExecutionState& state):
@@ -113,9 +121,23 @@ ExecutionState::ExecutionState(const ExecutionState& state):
                              ? state.unwindingInformation->clone()
                              : nullptr),
     coveredNew(state.coveredNew),
-    forkDisabled(state.forkDisabled) {
+    forkDisabled(state.forkDisabled),
+    txTreeNode(state.txTreeNode) {
   for (const auto &cur_mergehandler: openMergeStack)
     cur_mergehandler->addOpenState(this);
+}
+
+void ExecutionState::addTxTreeConstraint(ref<Expr> e, llvm::Instruction *instr) {
+  if (!INTERPOLATION_ENABLED)
+    return;
+
+  llvm::BranchInst *binstr = llvm::dyn_cast<llvm::BranchInst>(instr);
+
+  if (txTreeNode && binstr && binstr->isConditional()) {
+    txTreeNode->addConstraint(e, binstr->getCondition());
+  } else if (txTreeNode && !binstr) {
+    txTreeNode->addConstraint(e, instr->getOperand(0));
+  }
 }
 
 ExecutionState *ExecutionState::branch() {
@@ -133,11 +155,16 @@ void ExecutionState::pushFrame(KInstIterator caller, KFunction *kf) {
   stack.emplace_back(StackFrame(caller, kf));
 }
 
-void ExecutionState::popFrame() {
+void ExecutionState::popFrame(KInstruction *ki, ref<Expr> returnValue) {
   const StackFrame &sf = stack.back();
+  llvm::CallInst *site =
+      (sf.caller ? llvm::dyn_cast<CallInst>(sf.caller->inst) : 0);
   for (const auto * memoryObject : sf.allocas)
     addressSpace.unbindObject(memoryObject);
   stack.pop_back();
+
+  if (INTERPOLATION_ENABLED && site && ki)
+    txTreeNode->bindReturnValue(site, ki->inst, returnValue);
 }
 
 void ExecutionState::addSymbolic(const MemoryObject *mo, const Array *array) {
@@ -359,4 +386,21 @@ void ExecutionState::dumpStack(llvm::raw_ostream &out) const {
 void ExecutionState::addConstraint(ref<Expr> e) {
   ConstraintManager c(constraints);
   c.addConstraint(e);
+  addTxTreeConstraint(e, prevPC->inst);
+}
+
+void ExecutionState::debugSubsumption(uint64_t level) {
+  txTreeNode->dependency->debugSubsumptionLevel = level;
+}
+
+void ExecutionState::debugSubsumptionOff() {
+  txTreeNode->dependency->debugSubsumptionLevel = DebugSubsumption;
+}
+
+void ExecutionState::debugState(uint64_t level) {
+  txTreeNode->dependency->debugStateLevel = level;
+}
+
+void ExecutionState::debugStateOff() {
+  txTreeNode->dependency->debugStateLevel = DebugState;
 }

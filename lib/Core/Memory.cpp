@@ -12,6 +12,7 @@
 #include "Context.h"
 #include "ExecutionState.h"
 #include "MemoryManager.h"
+#include "TxShadowArray.h"
 
 #include "klee/ADT/BitArray.h"
 #include "klee/Expr/ArrayCache.h"
@@ -88,6 +89,13 @@ ObjectState::ObjectState(const MemoryObject *mo)
     const Array *array =
         getArrayCache()->CreateArray("tmp_arr" + llvm::utostr(++id), size);
     updates = UpdateList(array, 0);
+
+    if (INTERPOLATION_ENABLED) {
+      // We create shadow array as existentially-quantified
+      // variables for subsumption checking
+      const Array *shadow = getArrayCache()->CreateArray(TxShadowArray::getShadowName(arrayName), arrayWidth);
+      TxShadowArray::addShadowArrayMap(array, shadow);
+    }
   }
   memset(concreteStore, 0, size);
 }
@@ -187,6 +195,13 @@ const UpdateList &ObjectState::getUpdates() const {
     // Apply the remaining (non-constant) writes.
     for (; Begin != End; ++Begin)
       updates.extend(Writes[Begin].first, Writes[Begin].second);
+
+    if (INTERPOLATION_ENABLED) {
+      // We create shadow array as existentially-quantified
+      // variables for subsumption checking
+      const Array *shadow = getArrayCache()->CreateArray(TxShadowArray::getShadowName(arrayName), arrayWidth);
+      TxShadowArray::addShadowArrayMap(array, shadow);
+    }
   }
 
   return updates;

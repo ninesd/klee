@@ -11,6 +11,7 @@
 #define KLEE_SPECIALFUNCTIONHANDLER_H
 
 #include "klee/Config/config.h"
+#include "TxTree.h"
 
 #include <iterator>
 #include <map>

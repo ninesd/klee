@@ -52,6 +52,10 @@
 #include "klee/System/MemoryUsage.h"
 #include "klee/System/Time.h"
 #include "klee/Support/RoundingModeUtil.h"
+#include "klee/util/TxPrintUtil.h"
+#include "TxShadowArray.h"
+#include "TxTree.h"
+#include "TxSpeculation.h"
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringExtras.h"
@@ -94,6 +98,9 @@ typedef unsigned TypeSize;
 #include <sys/mman.h>
 #include <vector>
 
+#define INTERPOLATION_ENABLED (!NoInterpolation)
+#define OUTPUT_INTERPOLATION_TREE (INTERPOLATION_ENABLED &&OutputTree)
+
 using namespace llvm;
 using namespace klee;
 
@@ -122,6 +129,147 @@ cl::opt<std::string> MaxTime(
              "Set to 0s to disable (default=0s)"),
     cl::init("0s"),
     cl::cat(TerminationCat));
+
+// TracerX cmd options
+enum SpecType {
+  NO_SPEC,
+  SAFETY,
+  COVERAGE
+};
+
+enum SpecStrategy {
+  TIMID,
+  AGGRESSIVE,
+  CUSTOM
+};
+
+llvm::cl::opt<bool> NoInterpolation(
+    "no-interpolation",
+    llvm::cl::desc("Disable interpolation for search space reduction. "
+                   "Interpolation is enabled by default when Z3 was the solver "
+                   "used. This option has no effect when Z3 was not used."));
+
+llvm::cl::opt<bool> OutputTree(
+    "output-tree",
+    llvm::cl::desc("Outputs tree.dot: the execution tree in .dot file "
+                   "format. At present, this feature is only available when "
+                   "Z3 is compiled in and interpolation is enabled."));
+
+llvm::cl::opt<bool>
+    SubsumedTest("subsumed-test",
+                 llvm::cl::desc("Enables generation of test cases for subsumed "
+                                "paths. This is needed for the computation of "
+                                "coverage using gcov or llvm-cov, as otherwise the "
+                                "part of code visited by the subsumed paths are "
+                                "not considered in the coverage computation."),
+                 llvm::cl::init(false));
+
+llvm::cl::opt<bool> NoExistential(
+    "no-existential",
+    llvm::cl::desc(
+        "This option avoids existential quantification in subsumption "
+        "check by equating each existential variable with its corresponding "
+        "free variable. For example, when checking if x < 10 is subsumed by "
+        "another state where there is x' s.t., x' <= 0 && x = x' + 20 (here "
+        "the existential variable x' represents the value of x before adding "
+        "20), we strengthen the query by adding the constraint x' = x. This "
+        "has an effect of removing all existentially-quantified variables "
+        "most solvers are not very powerful at solving, however, at likely "
+        "less number of subsumptions due to the strengthening of the query."));
+
+llvm::cl::opt<int> MaxFailSubsumption(
+    "max-subsumption-failure",
+    llvm::cl::desc("To set the maximum number of failed subsumption check. "
+                   "When this options is specified and the number of "
+                   "subsumption table entries is more than the specified "
+                   "value, the oldest entry will be deleted (default=0 (off))"),
+    llvm::cl::init(0));
+
+llvm::cl::opt<int>
+    DebugState("debug-state",
+               llvm::cl::desc("Dump information on symbolic execution state when "
+                              "visited (default=0 (off))."),
+               llvm::cl::init(0));
+
+llvm::cl::opt<int> DebugSubsumption(
+    "debug-subsumption",
+    llvm::cl::desc("Set level of debug information on subsumption checks: the "
+                   "higher the more (default=0 (off))."),
+    llvm::cl::init(0));
+
+llvm::cl::opt<int>
+    BBCoverage("write-BB-cov",
+               llvm::cl::desc("Set level of distinct basic block coverage: the "
+                              "higher the more (default=0 (off))\n"
+                              "= 1 Only report Basic Block Coverage\n"
+                              "= 2 Also Report Covered Basic Blocks\n"
+                              "= 3 Report Live Coverage\n"
+                              "= 4 Report ICMP/Atomic Condition Coverage. Note: "
+                              "Useful to compare coverage with CBMC\n"
+                              "= 5 Generate Coverage by Time Plot\n"),
+               llvm::cl::init(0));
+
+llvm::cl::opt<bool> EmitAllErrorsInSamePath(
+    "emit-all-errors-in-same-path",
+    llvm::cl::desc("Enables detection of multiple errors "
+                   "in same paths (default=false (off)). Note: Specially used "
+                   "for achieving MC/DC."),
+    llvm::cl::init(false));
+
+llvm::cl::opt<bool> ExactAddressInterpolant(
+    "exact-address-interpolant",
+    llvm::cl::desc("This option uses exact address for interpolating "
+                   "successful out-of-bound memory access instead of the "
+                   "default memory offset bound."));
+
+llvm::cl::opt<bool> SpecialFunctionBoundInterpolation(
+    "special-function-bound-interpolation",
+    llvm::cl::desc("Perform memory access interpolation only within function "
+                   "named tracerx_check, either memory offset bound or exact "
+                   "address (enabled with -exact-address-interpolant)."),
+    llvm::cl::init(false));
+
+llvm::cl::opt<bool> TracerXPointerError(
+    "tracerx-pointer-error",
+    llvm::cl::desc("Enables detection of more memory errors by interpolation "
+                   "shadow memory (may be false positives)."),
+    llvm::cl::init(false));
+
+llvm::cl::opt<SpecType>
+    SpecTypeToUse("spec-type",
+                  llvm::cl::desc("Speculation type: coverage or safety"),
+                  llvm::cl::values(clEnumValN(SAFETY, "safety", "safety"),
+                                   clEnumValN(COVERAGE, "coverage", "coverage")),
+                  llvm::cl::init(NO_SPEC));
+
+llvm::cl::opt<SpecStrategy> SpecStrategyToUse(
+    "spec-strategy",
+    llvm::cl::desc(
+        "Strategy used by speculation, timid, aggressive or custom."),
+    llvm::cl::values(clEnumValN(TIMID, "timid", "timid"),
+                     clEnumValN(AGGRESSIVE, "aggressive", "aggressive"),
+                     clEnumValN(CUSTOM, "custom", "custom")),
+    llvm::cl::init(CUSTOM));
+
+llvm::cl::opt<std::string> DependencyFolder(
+    "spec-dependency",
+    llvm::cl::desc(
+        "Path to a folder containing basic blocks' dependency."
+        "One file for each BB with name format: \"BB_Dep_{order}.txt\""
+        "An initial file containing visited BBs with name "
+        "\"InitialVisitedBB.txt\""
+        "also must be put in this folder"),
+    llvm::cl::init("."));
+
+llvm::cl::opt<bool>
+    WPInterpolant("wp-interpolant",
+                  llvm::cl::desc("Perform weakest-precondition interpolation"),
+                  llvm::cl::init(false));
+
+llvm::cl::opt<bool>
+    MarkGlobal("mark-global",
+               llvm::cl::desc("Decide whether global variables are marked or not"),
+               llvm::cl::init(true));
 } // namespace klee
 
 namespace {
@@ -505,7 +653,7 @@ Executor::Executor(LLVMContext &ctx, const InterpreterOptions &opts,
       pathWriter(0), symPathWriter(0), specialFunctionHandler(0), timers{time::Span(TimerInterval)},
       replayKTest(0), replayPath(0), usingSeeds(0),
       atMemoryLimit(false), inhibitForking(false), haltExecution(false),
-      ivcEnabled(false), debugLogBuffer(debugBufferString) {
+      ivcEnabled(false), txTree(0), debugLogBuffer(debugBufferString) {
 
 
   const time::Span maxTime{MaxTime};
@@ -960,6 +1108,13 @@ void Executor::branch(ExecutionState &state,
       result.push_back(ns);
       processTree->attach(es->ptreeNode, ns, es);
     }
+
+    if (INTERPOLATION_ENABLED) {
+      std::pair<TxTreeNode *, TxTreeNode *> ires =
+          txTree->split(es->txTreeNode, ns, es);
+      ns->txTreeNode = ires.first;
+      es->txTreeNode = ires.second;
+    }
   }
 
   // If necessary redistribute seeds to match conditions, killing
@@ -1175,12 +1330,26 @@ Executor::fork(ExecutionState &current, ref<Expr> condition, bool isInternal) {
       }
     }
 
+    if (INTERPOLATION_ENABLED) {
+      // Validity proof succeeded of a query: antecedent -> consequent.
+      // We then extract the unsatisfiability core of antecedent and not
+      // consequent as the Craig interpolant.
+      txTree->markPathCondition(current, unsatCore);
+    }
+
     return StatePair(&current, 0);
   } else if (res==Solver::False) {
     if (!isInternal) {
       if (pathWriter) {
         current.pathOS << "0";
       }
+    }
+
+    if (INTERPOLATION_ENABLED) {
+      // Falsity proof succeeded of a query: antecedent -> consequent,
+      // which means that antecedent -> not(consequent) is valid. In this
+      // case also we extract the unsat core of the proof
+      txTree->markPathCondition(current, unsatCore);
     }
 
     return StatePair(0, &current);
@@ -1247,6 +1416,13 @@ Executor::fork(ExecutionState &current, ref<Expr> condition, bool isInternal) {
       }
     }
 
+    if (INTERPOLATION_ENABLED) {
+      std::pair<TxTreeNode *, TxTreeNode *> ires =
+          txTree->split(current.txTreeNode, falseState, trueState);
+      falseState->txTreeNode = ires.first;
+      trueState->txTreeNode = ires.second;
+    }
+
     addConstraint(*trueState, condition);
     addConstraint(*falseState, Expr::createIsZero(condition));
 
@@ -1259,6 +1435,1223 @@ Executor::fork(ExecutionState &current, ref<Expr> condition, bool isInternal) {
 
     return StatePair(trueState, falseState);
   }
+}
+
+std::set<std::string> Executor::extractVarNames(ExecutionState &current,
+                                                llvm::Value *v) {
+  std::set<std::string> res;
+  if (isa<GlobalVariable>(v)) {
+    GlobalVariable *gv = cast<GlobalVariable>(v);
+    res.insert(gv->getName().data());
+  } else if (isa<Instruction>(v)) {
+    Instruction *ins = dyn_cast<Instruction>(v);
+    switch (ins->getOpcode()) {
+    case Instruction::Alloca: {
+      AllocaInst *ai = cast<AllocaInst>(ins);
+      if (ai->getName() == "") {
+        llvm::Function *f = ai->getParent()->getParent();
+        if (ai == &f->getEntryBlock().front()) {
+          res.insert(f->arg_begin()->getName().data());
+        } else if (ai == f->getEntryBlock().front().getNextNode()) {
+          res.insert(f->arg_begin()->getNextNode()->getName().data());
+        }
+      } else {
+        res.insert(ai->getName().data());
+      }
+      break;
+    }
+    default: {
+      for (unsigned i = 0u; i < ins->getNumOperands(); i++) {
+        std::set<std::string> tmp =
+            extractVarNames(current, ins->getOperand(i));
+        res.insert(tmp.begin(), tmp.end());
+      }
+    }
+    }
+  }
+  return res;
+}
+
+Executor::StatePair Executor::branchFork(ExecutionState &current,
+                                         ref<Expr> condition, bool isInternal) {
+  start = clock();
+  // The current node is in the speculation node
+  if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
+      txTree->isSpeculationNode()) {
+    if (SpecStrategyToUse != TIMID) {
+      Executor::StatePair res = speculationFork(current, condition, isInternal);
+      end = clock();
+      txTree->incSpecTime(double(end - start));
+      return res;
+    }
+  }
+
+  Solver::Validity res;
+  std::map<ExecutionState *, std::vector<SeedInfo> >::iterator it =
+      seedMap.find(&current);
+  bool isSeeding = it != seedMap.end();
+
+  if (!isSeeding && !isa<ConstantExpr>(condition) &&
+      (MaxStaticForkPct != 1. || MaxStaticSolvePct != 1. ||
+       MaxStaticCPForkPct != 1. || MaxStaticCPSolvePct != 1.) &&
+      statsTracker->elapsed() > 60.) {
+    StatisticManager &sm = *theStatisticManager;
+    CallPathNode *cpn = current.stack.back().callPathNode;
+    if ((MaxStaticForkPct < 1. &&
+         sm.getIndexedValue(stats::forks, sm.getIndex()) >
+             stats::forks * MaxStaticForkPct) ||
+        (MaxStaticCPForkPct < 1. && cpn &&
+         (cpn->statistics.getValue(stats::forks) >
+          stats::forks * MaxStaticCPForkPct)) ||
+        (MaxStaticSolvePct < 1 &&
+         sm.getIndexedValue(stats::solverTime, sm.getIndex()) >
+             stats::solverTime * MaxStaticSolvePct) ||
+        (MaxStaticCPForkPct < 1. && cpn &&
+         (cpn->statistics.getValue(stats::solverTime) >
+          stats::solverTime * MaxStaticCPSolvePct))) {
+      ref<ConstantExpr> value;
+      bool success = solver->getValue(current, condition, value);
+      assert(success && "FIXME: Unhandled solver failure");
+      (void)success;
+      addConstraint(current, EqExpr::create(value, condition));
+      condition = value;
+    }
+  }
+
+  double timeout = coreSolverTimeout;
+  if (isSeeding)
+    timeout *= it->second.size();
+
+  // llvm::errs() << "Calling solver->evaluate on query:\n";
+  // ExprPPrinter::printQuery(llvm::errs(), current.constraints, condition);
+
+  solver->setTimeout(timeout);
+  std::vector<ref<Expr> > unsatCore;
+  bool success = solver->evaluate(current, condition, res, unsatCore);
+  solver->setTimeout(0);
+
+  if (!success) {
+    current.pc = current.prevPC;
+    terminateStateEarly(current, "Query timed out (fork).");
+    return StatePair(0, 0);
+  }
+
+  if (!isSeeding) {
+    if (replayPath && !isInternal) {
+      assert(replayPosition < replayPath->size() &&
+             "ran out of branches in replay path mode");
+      bool branch = (*replayPath)[replayPosition++];
+
+      if (res == Solver::True) {
+        assert(branch && "hit invalid branch in replay path mode");
+      } else if (res == Solver::False) {
+        assert(!branch && "hit invalid branch in replay path mode");
+      } else {
+        // add constraints
+        if (branch) {
+          res = Solver::True;
+          addConstraint(current, condition);
+        } else {
+          res = Solver::False;
+          addConstraint(current, Expr::createIsZero(condition));
+        }
+      }
+    } else if (res == Solver::Unknown) {
+      assert(!replayKTest && "in replay mode, only one branch can be true.");
+
+      if ((MaxMemoryInhibit && atMemoryLimit) || current.forkDisabled ||
+          inhibitForking || (MaxForks != ~0u && stats::forks >= MaxForks)) {
+
+        if (MaxMemoryInhibit && atMemoryLimit)
+          klee_warning_once(0, "skipping fork (memory cap exceeded)");
+        else if (current.forkDisabled)
+          klee_warning_once(0, "skipping fork (fork disabled on current path)");
+        else if (inhibitForking)
+          klee_warning_once(0, "skipping fork (fork disabled globally)");
+        else
+          klee_warning_once(0, "skipping fork (max-forks reached)");
+
+        TimerStatIncrementer timer(stats::forkTime);
+        if (theRNG.getBool()) {
+          addConstraint(current, condition);
+          res = Solver::True;
+        } else {
+          addConstraint(current, Expr::createIsZero(condition));
+          res = Solver::False;
+        }
+      }
+    }
+  }
+
+  // Fix branch in only-replay-seed mode, if we don't have both true
+  // and false seeds.
+  if (isSeeding && (current.forkDisabled || OnlyReplaySeeds) &&
+      res == Solver::Unknown) {
+    bool trueSeed = false, falseSeed = false;
+    // Is seed extension still ok here?
+    for (std::vector<SeedInfo>::iterator siit = it->second.begin(),
+                                         siie = it->second.end();
+         siit != siie; ++siit) {
+      ref<ConstantExpr> res;
+      bool success =
+          solver->getValue(current, siit->assignment.evaluate(condition), res);
+      assert(success && "FIXME: Unhandled solver failure");
+      (void)success;
+      if (res->isTrue()) {
+        trueSeed = true;
+      } else {
+        falseSeed = true;
+      }
+      if (trueSeed && falseSeed)
+        break;
+    }
+    if (!(trueSeed && falseSeed)) {
+      assert(trueSeed || falseSeed);
+
+      res = trueSeed ? Solver::True : Solver::False;
+      addConstraint(current,
+                    trueSeed ? condition : Expr::createIsZero(condition));
+    }
+  }
+
+  if (condition->isTrue()) {
+    // do speculation if SpecTypeToUse is SAFETY or COVERAGE
+    // the default is NO_SPEC
+    if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
+        TxSpeculationHelper::isStateSpeculable(current)) {
+      llvm::BranchInst *binst =
+          llvm::dyn_cast<llvm::BranchInst>(current.prevPC->inst);
+      llvm::BasicBlock *curBB = current.txTreeNode->getBasicBlock();
+
+      if (SpecTypeToUse == SAFETY) {
+        if (SpecStrategyToUse == TIMID) {
+          klee_error("SPECULATION: timid is not supported with safety!");
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          // open speculation & result may be success or fail
+          StatsTracker::increaseEle(curBB, 0, true);
+          return addSpeculationNode(current, condition, binst, isInternal,
+                                    true);
+        } else if (SpecStrategyToUse == CUSTOM) {
+          // open speculation & result may be success or fail and Now second
+          // check
+          if (specSnap[binst] != visitedBlocks.size()) {
+            dynamicYes++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            return addSpeculationNode(current, condition, binst, isInternal,
+                                      true);
+          } else {
+            dynamicNo++;
+            // then close speculation & do marking as deletion
+            txTree->markPathCondition(current, unsatCore);
+            return StatePair(&current, 0);
+          }
+        }
+      } else {
+        if (SpecStrategyToUse == TIMID) {
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            independenceYes++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            StatsTracker::increaseEle(curBB, 2, false);
+          } else {
+            independenceNo++;
+            StatsTracker::increaseEle(curBB, 1, true);
+          }
+          return StatePair(&current, 0);
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          // check independency
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            // open speculation & assume success
+            independenceYes++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            StatsTracker::increaseEle(curBB, 2, false);
+            return StatePair(&current, 0);
+          } else {
+            // open speculation & result may be success or fail
+            independenceNo++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            return addSpeculationNode(current, condition, binst, isInternal,
+                                      true);
+          }
+        } else if (SpecStrategyToUse == CUSTOM) {
+          // check independency
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            // open speculation & assume success
+            independenceYes++;
+            //          StatsTracker::increaseEle(curBB, 0, true);
+            //          StatsTracker::increaseEle(curBB, 2, false);
+            return StatePair(&current, 0);
+          } else {
+            // open speculation & result may be success or fail and Now second
+            // check
+            independenceNo++;
+            if (specSnap[binst] != visitedBlocks.size()) {
+              dynamicYes++;
+              StatsTracker::increaseEle(curBB, 0, true);
+              return addSpeculationNode(current, condition, binst, isInternal,
+                                        true);
+            } else {
+              dynamicNo++;
+              // then close speculation & do marking as deletion
+              txTree->markPathCondition(current, unsatCore);
+              return StatePair(&current, 0);
+            }
+          }
+        }
+      }
+    }
+  } else if (condition->isFalse()) {
+    // do speculation if SpecTypeToUse is SAFETY or COVERAGE
+    // the default is NO_SPEC
+    if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
+        TxSpeculationHelper::isStateSpeculable(current)) {
+      llvm::BranchInst *binst =
+          llvm::dyn_cast<llvm::BranchInst>(current.prevPC->inst);
+      llvm::BasicBlock *curBB = current.txTreeNode->getBasicBlock();
+
+      if (SpecTypeToUse == SAFETY) {
+        if (SpecStrategyToUse == TIMID) {
+          klee_error("SPECULATION: timid is not supported with safety!");
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          // open speculation & result may be success or fail
+          StatsTracker::increaseEle(curBB, 0, true);
+          return addSpeculationNode(current, condition, binst, isInternal,
+                                    false);
+        } else if (SpecStrategyToUse == CUSTOM) {
+          // open speculation & result may be success or fail and Now second
+          // check
+          if (specSnap[binst] != visitedBlocks.size()) {
+            dynamicYes++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            return addSpeculationNode(current, condition, binst, isInternal,
+                                      false);
+          } else {
+            dynamicNo++;
+            // then close speculation & do marking as deletion
+            txTree->markPathCondition(current, unsatCore);
+            return StatePair(0, &current);
+          }
+        }
+      } else {
+        if (SpecStrategyToUse == TIMID) {
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            independenceYes++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            StatsTracker::increaseEle(curBB, 2, false);
+          } else {
+            independenceNo++;
+            StatsTracker::increaseEle(curBB, 1, true);
+          }
+          return StatePair(0, &current);
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            // open speculation & assume success
+            independenceYes++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            StatsTracker::increaseEle(curBB, 2, false);
+            return StatePair(0, &current);
+          } else {
+            // open speculation & result may be success or fail
+            independenceNo++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            return addSpeculationNode(current, condition, binst, isInternal,
+                                      false);
+          }
+        } else if (SpecStrategyToUse == CUSTOM) {
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            // open speculation & assume success
+            independenceYes++;
+            //          StatsTracker::increaseEle(curBB, 0, true);
+            //          StatsTracker::increaseEle(curBB, 2, false);
+            return StatePair(0, &current);
+          } else {
+            independenceNo++;
+            // open speculation & result may be success or fail and Now second
+            // check
+            if (specSnap[binst] != visitedBlocks.size()) {
+              dynamicYes++;
+              StatsTracker::increaseEle(curBB, 0, true);
+              return addSpeculationNode(current, condition, binst, isInternal,
+                                        false);
+            } else {
+              dynamicNo++;
+              // then close speculation & do marking as deletion
+              txTree->markPathCondition(current, unsatCore);
+              return StatePair(0, &current);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // XXX - even if the constraint is provable one way or the other we
+  // can probably benefit by adding this constraint and allowing it to
+  // reduce the other constraints. For example, if we do a binary
+  // search on a particular value, and then see a comparison against
+  // the value it has been fixed at, we should take this as a nice
+  // hint to just use the single constraint instead of all the binary
+  // search ones. If that makes sense.
+  if (res == Solver::True) {
+
+    if (!isInternal) {
+      if (pathWriter) {
+        current.pathOS << "1";
+      }
+    }
+    // do speculation if SpecTypeToUse is SAFETY or COVERAGE
+    // the default is NO_SPEC
+    if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
+        TxSpeculationHelper::isStateSpeculable(current)) {
+      llvm::BranchInst *binst =
+          llvm::dyn_cast<llvm::BranchInst>(current.prevPC->inst);
+      llvm::BasicBlock *curBB = current.txTreeNode->getBasicBlock();
+
+      if (SpecTypeToUse == SAFETY) {
+        if (SpecStrategyToUse == TIMID) {
+          klee_error("SPECULATION: timid is not supported with safety!");
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          // save unsat core
+          // open speculation & result may be success or fail
+          StatsTracker::increaseEle(curBB, 0, true);
+          txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+          return addSpeculationNode(current, condition, binst, isInternal,
+                                    true);
+        } else if (SpecStrategyToUse == CUSTOM) {
+          // save unsat core
+          // open speculation & result may be success or fail
+          if (specSnap[binst] != visitedBlocks.size()) {
+            dynamicYes++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+            return addSpeculationNode(current, condition, binst, isInternal,
+                                      true);
+          } else {
+            dynamicNo++;
+            // then close speculation & do marking as deletion
+            txTree->markPathCondition(current, unsatCore);
+            return StatePair(&current, 0);
+          }
+        }
+      } else {
+        if (SpecStrategyToUse == TIMID) {
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            // open speculation & assume success
+            independenceYes++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            StatsTracker::increaseEle(curBB, 2, false);
+            return StatePair(&current, 0);
+          } else {
+            // marking
+            independenceNo++;
+            StatsTracker::increaseEle(curBB, 1, true);
+            txTree->markPathCondition(current, unsatCore);
+            return StatePair(&current, 0);
+          }
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            // open speculation & assume success
+            independenceYes++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            StatsTracker::increaseEle(curBB, 2, false);
+            return StatePair(&current, 0);
+          } else {
+            // save unsat core
+            // open speculation & result may be success or fail
+            independenceNo++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+            return addSpeculationNode(current, condition, binst, isInternal,
+                                      true);
+          }
+        } else if (SpecStrategyToUse == CUSTOM) {
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            // open speculation & assume success
+            independenceYes++;
+            //          StatsTracker::increaseEle(curBB, 0, true);
+            //          StatsTracker::increaseEle(curBB, 2, false);
+            return StatePair(&current, 0);
+          } else {
+            independenceNo++;
+            // save unsat core
+            // open speculation & result may be success or fail
+            if (specSnap[binst] != visitedBlocks.size()) {
+              dynamicYes++;
+              StatsTracker::increaseEle(curBB, 0, true);
+              txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+              return addSpeculationNode(current, condition, binst, isInternal,
+                                        true);
+            } else {
+              dynamicNo++;
+              // then close speculation & do marking as deletion
+              txTree->markPathCondition(current, unsatCore);
+              return StatePair(&current, 0);
+            }
+          }
+        }
+      }
+    }
+
+    if (INTERPOLATION_ENABLED) {
+      // Validity proof succeeded of a query: antecedent -> consequent.
+      // We then extract the unsatisfiability core of antecedent and not
+      // consequent as the Craig interpolant.
+      txTree->markPathCondition(current, unsatCore);
+      if (WPInterpolant)
+        txTree->markInstruction(current.prevPC, true);
+    }
+
+    return StatePair(&current, 0);
+
+  } else if (res == Solver::False) {
+    if (!isInternal) {
+      if (pathWriter) {
+        current.pathOS << "0";
+      }
+    }
+    // do speculation if SpecTypeToUse is SAFETY or COVERAGE
+    // the default is NO_SPEC
+    if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
+        TxSpeculationHelper::isStateSpeculable(current)) {
+      llvm::BranchInst *binst =
+          llvm::dyn_cast<llvm::BranchInst>(current.prevPC->inst);
+      llvm::BasicBlock *curBB = current.txTreeNode->getBasicBlock();
+
+      if (SpecTypeToUse == SAFETY) {
+        if (SpecStrategyToUse == TIMID) {
+          klee_error("SPECULATION: timid is not supported with safety!");
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          // save unsat core
+          // open speculation & result may be success or fail
+          StatsTracker::increaseEle(curBB, 0, true);
+          txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+          return addSpeculationNode(current, condition, binst, isInternal,
+                                    false);
+        } else if (SpecStrategyToUse == CUSTOM) {
+          // save unsat core
+          // open speculation & result may be success or fail
+          if (specSnap[binst] != visitedBlocks.size()) {
+            dynamicYes++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+            return addSpeculationNode(current, condition, binst, isInternal,
+                                      false);
+          } else {
+            dynamicNo++;
+            // then close speculation & do marking as deletion
+            txTree->markPathCondition(current, unsatCore);
+            return StatePair(0, &current);
+          }
+        }
+      } else {
+        if (SpecStrategyToUse == TIMID) {
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            // open speculation & assume success
+            independenceYes++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            StatsTracker::increaseEle(curBB, 2, false);
+            return StatePair(0, &current);
+          } else {
+            // marking
+            independenceNo++;
+            StatsTracker::increaseEle(curBB, 1, true);
+            txTree->markPathCondition(current, unsatCore);
+            return StatePair(0, &current);
+          }
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            // open speculation & assume success
+            independenceYes++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            StatsTracker::increaseEle(curBB, 2, false);
+            return StatePair(0, &current);
+          } else {
+            // save unsat core
+            // open speculation & result may be success or fail
+            independenceNo++;
+            StatsTracker::increaseEle(curBB, 0, true);
+            txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+            return addSpeculationNode(current, condition, binst, isInternal,
+                                      false);
+          }
+        } else if (SpecStrategyToUse == CUSTOM) {
+
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            // open speculation & assume success
+            independenceYes++;
+            //          StatsTracker::increaseEle(curBB, 0, true);
+            //          StatsTracker::increaseEle(curBB, 2, false);
+            return StatePair(0, &current);
+          } else {
+            independenceNo++;
+            // save unsat core
+            // open speculation & result may be success or fail
+            if (specSnap[binst] != visitedBlocks.size()) {
+              dynamicYes++;
+              StatsTracker::increaseEle(curBB, 0, true);
+              txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+              return addSpeculationNode(current, condition, binst, isInternal,
+                                        false);
+            } else {
+              dynamicNo++;
+              // then close speculation & do marking as deletion
+              txTree->markPathCondition(current, unsatCore);
+              return StatePair(0, &current);
+            }
+          }
+        }
+      }
+    }
+
+    if (INTERPOLATION_ENABLED) {
+      // Falsity proof succeeded of a query: antecedent -> consequent,
+      // which means that antecedent -> not(consequent) is valid. In this
+      // case also we extract the unsat core of the proof
+      txTree->markPathCondition(current, unsatCore);
+      if (WPInterpolant)
+        txTree->markInstruction(current.prevPC, false);
+    }
+
+    return StatePair(0, &current);
+  } else {
+
+    TimerStatIncrementer timer(stats::forkTime);
+    ExecutionState *falseState, *trueState = &current;
+
+    ++stats::forks;
+
+    falseState = trueState->branch();
+    addedStates.push_back(falseState);
+
+    if (RandomizeFork && theRNG.getBool())
+      std::swap(trueState, falseState);
+
+    if (it != seedMap.end()) {
+      std::vector<SeedInfo> seeds = it->second;
+      it->second.clear();
+      std::vector<SeedInfo> &trueSeeds = seedMap[trueState];
+      std::vector<SeedInfo> &falseSeeds = seedMap[falseState];
+      for (std::vector<SeedInfo>::iterator siit = seeds.begin(),
+                                           siie = seeds.end();
+           siit != siie; ++siit) {
+        ref<ConstantExpr> res;
+        bool success = solver->getValue(
+            current, siit->assignment.evaluate(condition), res);
+        assert(success && "FIXME: Unhandled solver failure");
+        (void)success;
+        if (res->isTrue()) {
+          trueSeeds.push_back(*siit);
+        } else {
+          falseSeeds.push_back(*siit);
+        }
+      }
+
+      bool swapInfo = false;
+      if (trueSeeds.empty()) {
+        if (&current == trueState)
+          swapInfo = true;
+        seedMap.erase(trueState);
+      }
+      if (falseSeeds.empty()) {
+        if (&current == falseState)
+          swapInfo = true;
+        seedMap.erase(falseState);
+      }
+      if (swapInfo) {
+        std::swap(trueState->coveredNew, falseState->coveredNew);
+        std::swap(trueState->coveredLines, falseState->coveredLines);
+      }
+    }
+
+    current.ptreeNode->data = 0;
+    std::pair<PTree::Node *, PTree::Node *> res =
+        processTree->split(current.ptreeNode, falseState, trueState);
+    falseState->ptreeNode = res.first;
+    trueState->ptreeNode = res.second;
+
+    if (!isInternal) {
+      if (pathWriter) {
+        falseState->pathOS = pathWriter->open(current.pathOS);
+        trueState->pathOS << "1";
+        falseState->pathOS << "0";
+      }
+      if (symPathWriter) {
+        falseState->symPathOS = symPathWriter->open(current.symPathOS);
+        trueState->symPathOS << "1";
+        falseState->symPathOS << "0";
+      }
+    }
+
+    if (INTERPOLATION_ENABLED) {
+      std::pair<TxTreeNode *, TxTreeNode *> ires =
+          txTree->split(current.txTreeNode, falseState, trueState);
+      falseState->txTreeNode = ires.first;
+      trueState->txTreeNode = ires.second;
+    }
+
+    addConstraint(*trueState, condition);
+    addConstraint(*falseState, Expr::createIsZero(condition));
+
+    // Kinda gross, do we even really still want this option?
+    if (MaxDepth && MaxDepth <= trueState->depth) {
+      terminateStateEarly(*trueState, "max-depth exceeded.");
+      terminateStateEarly(*falseState, "max-depth exceeded.");
+      return StatePair(0, 0);
+    }
+
+    return StatePair(trueState, falseState);
+  }
+}
+
+Executor::StatePair Executor::addSpeculationNode(ExecutionState &current,
+                                                 ref<Expr> condition,
+                                                 llvm::Instruction *binst,
+                                                 bool isInternal,
+                                                 bool falseBranchIsInfeasible) {
+  current.txTreeNode->secondCheckInst = binst;
+  if (falseBranchIsInfeasible == true) {
+    // At this point the speculation node should be created and
+    // added to the working list in a way that its speculated
+    // after the other node is traversed.
+
+    TimerStatIncrementer timer(stats::forkTime);
+    ExecutionState *trueState, *speculationFalseState = &current;
+
+    ++stats::forks;
+
+    trueState = speculationFalseState->branch();
+    addedStates.push_back(trueState);
+
+    current.ptreeNode->data = 0;
+    std::pair<PTree::Node *, PTree::Node *> res =
+        processTree->split(current.ptreeNode, speculationFalseState, trueState);
+    speculationFalseState->ptreeNode = res.first;
+    trueState->ptreeNode = res.second;
+
+    if (!isInternal) {
+      if (pathWriter) {
+        speculationFalseState->pathOS = pathWriter->open(current.pathOS);
+        trueState->pathOS << "1";
+        speculationFalseState->pathOS << "0";
+      }
+      if (symPathWriter) {
+        speculationFalseState->symPathOS =
+            symPathWriter->open(current.symPathOS);
+        trueState->symPathOS << "1";
+        speculationFalseState->symPathOS << "0";
+      }
+    }
+
+    bool isCurrentSpec = current.txTreeNode->isSpeculationNode();
+    std::pair<TxTreeNode *, TxTreeNode *> ires =
+        txTree->split(current.txTreeNode, speculationFalseState, trueState);
+    speculationFalseState->txTreeNode = ires.first;
+    speculationFalseState->txTreeNode->setSpeculationFlag();
+    if (!isCurrentSpec) {
+      speculationFalseState->txTreeNode->visitedProgramPoints =
+          new std::set<uintptr_t>();
+      speculationFalseState->txTreeNode->specTime = new double(0.0);
+    }
+    trueState->txTreeNode = ires.second;
+
+    if (!condition->isTrue() && !condition->isFalse()) {
+      addConstraint(*trueState, condition);
+    }
+
+    return StatePair(trueState, speculationFalseState);
+  } else {
+    // At this point the speculation node should be created and
+    // added to the working list in a way that its speculated
+    // after the other node is traversed.
+
+    TimerStatIncrementer timer(stats::forkTime);
+    ExecutionState *speculationTrueState = &current, *falseState;
+
+    ++stats::forks;
+
+    falseState = speculationTrueState->branch();
+    addedStates.push_back(falseState);
+
+    current.ptreeNode->data = 0;
+    std::pair<PTree::Node *, PTree::Node *> res =
+        processTree->split(current.ptreeNode, speculationTrueState, falseState);
+    speculationTrueState->ptreeNode = res.first;
+    falseState->ptreeNode = res.second;
+
+    if (!isInternal) {
+      if (pathWriter) {
+        speculationTrueState->pathOS = pathWriter->open(current.pathOS);
+        speculationTrueState->pathOS << "1";
+        falseState->pathOS << "0";
+      }
+      if (symPathWriter) {
+        speculationTrueState->symPathOS =
+            symPathWriter->open(current.symPathOS);
+        speculationTrueState->symPathOS << "1";
+        falseState->symPathOS << "0";
+      }
+    }
+    bool isCurrentSpec = current.txTreeNode->isSpeculationNode();
+    std::pair<TxTreeNode *, TxTreeNode *> ires =
+        txTree->split(current.txTreeNode, speculationTrueState, falseState);
+    speculationTrueState->txTreeNode = ires.first;
+    speculationTrueState->txTreeNode->setSpeculationFlag();
+
+    if (!isCurrentSpec) {
+      speculationTrueState->txTreeNode->visitedProgramPoints =
+          new std::set<uintptr_t>();
+      speculationTrueState->txTreeNode->specTime = new double(0.0);
+    }
+
+    falseState->txTreeNode = ires.second;
+
+    if (!condition->isTrue() && !condition->isFalse()) {
+      addConstraint(*falseState, Expr::createIsZero(condition));
+    }
+
+    return StatePair(speculationTrueState, falseState);
+  }
+}
+
+Executor::StatePair Executor::speculationFork(ExecutionState &current,
+                                              ref<Expr> condition,
+                                              bool isInternal) {
+
+  // Anayzing Speculation node
+  // Seeding is removed intentionally
+  Solver::Validity res;
+
+  double timeout = coreSolverTimeout;
+
+  // llvm::errs() << "Calling solver->evaluate on query:\n";
+  // ExprPPrinter::printQuery(llvm::errs(), current.constraints, condition);
+
+  solver->setTimeout(timeout);
+  std::vector<ref<Expr> > unsatCore;
+  bool success = solver->evaluate(current, condition, res, unsatCore);
+  solver->setTimeout(0);
+
+  if (!success) {
+    current.pc = current.prevPC;
+    terminateStateEarly(current, "Query timed out (fork).");
+    return StatePair(0, 0);
+  }
+
+  llvm::BranchInst *binst =
+      llvm::dyn_cast<llvm::BranchInst>(current.prevPC->inst);
+
+  if (condition->isTrue()) {
+    if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
+        TxSpeculationHelper::isStateSpeculable(current)) {
+
+      if (SpecTypeToUse == SAFETY) {
+        if (SpecStrategyToUse == TIMID) {
+          klee_error("SPECULATION: timid is not supported with safety!");
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          // open speculation & result may be success or fail
+          return addSpeculationNode(current, condition, binst, isInternal,
+                                    true);
+        } else if (SpecStrategyToUse == CUSTOM) {
+          // open speculation & result may be success or fail
+          if (specSnap[binst] != visitedBlocks.size()) {
+            //            dynamicYes++;
+            return addSpeculationNode(current, condition, binst, isInternal,
+                                      true);
+          } else {
+            //            dynamicNo++;
+            // then close speculation & do marking as deletion
+            txTree->markPathCondition(current, unsatCore);
+            return StatePair(&current, 0);
+          }
+        }
+      } else {
+        if (SpecStrategyToUse == TIMID) {
+          klee_error(
+              "SPECULATION: timid strategy never runs in speculationFork!");
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          // open speculation & result may be success or fail
+          return addSpeculationNode(current, condition, binst, isInternal,
+                                    true);
+        } else if (SpecStrategyToUse == CUSTOM) {
+
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            // open speculation & assume success
+            //          independenceYes++;
+            return StatePair(&current, 0);
+          } else {
+            //          independenceNo++;
+            // open speculation & result may be success or fail
+            if (specSnap[binst] != visitedBlocks.size()) {
+              //            dynamicYes++;
+              return addSpeculationNode(current, condition, binst, isInternal,
+                                        true);
+            } else {
+              //            dynamicNo++;
+              // then close speculation & do marking as deletion
+              txTree->markPathCondition(current, unsatCore);
+              return StatePair(&current, 0);
+            }
+          }
+        }
+      }
+    }
+    return StatePair(&current, 0);
+  } else if (condition->isFalse()) {
+    if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
+        TxSpeculationHelper::isStateSpeculable(current)) {
+      if (SpecTypeToUse == SAFETY) {
+        if (SpecStrategyToUse == TIMID) {
+          klee_error("SPECULATION: timid is not supported with safety!");
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          // open speculation & result may be success or fail
+          return addSpeculationNode(current, condition, binst, isInternal,
+                                    false);
+        } else if (SpecStrategyToUse == CUSTOM) {
+          // open speculation & result may be success or fail
+          if (specSnap[binst] != visitedBlocks.size()) {
+            //            dynamicYes++;
+            return addSpeculationNode(current, condition, binst, isInternal,
+                                      false);
+          } else {
+            //            dynamicNo++;
+            // then close speculation & do marking as deletion
+            txTree->markPathCondition(current, unsatCore);
+            return StatePair(0, &current);
+          }
+        }
+      } else {
+        if (SpecStrategyToUse == TIMID) {
+          klee_error(
+              "SPECULATION: timid strategy never runs in speculationFork!");
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          // open speculation & result may be success or fail
+          return addSpeculationNode(current, condition, binst, isInternal,
+                                    false);
+        } else if (SpecStrategyToUse == CUSTOM) {
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            // open speculation & assume success
+            //          independenceYes++;
+            return StatePair(0, &current);
+          } else {
+            //          independenceNo++;
+            // open speculation & result may be success or fail
+            if (specSnap[binst] != visitedBlocks.size()) {
+              //            dynamicYes++;
+              return addSpeculationNode(current, condition, binst, isInternal,
+                                        false);
+            } else {
+              //            dynamicNo++;
+              // then close speculation & do marking as deletion
+              txTree->markPathCondition(current, unsatCore);
+              return StatePair(0, &current);
+            }
+          }
+        }
+      }
+    }
+    return StatePair(0, &current);
+  }
+  // XXX - even if the constraint is provable one way or the other we
+  // can probably benefit by adding this constraint and allowing it to
+  // reduce the other constraints. For example, if we do a binary
+  // search on a particular value, and then see a comparison against
+  // the value it has been fixed at, we should take this as a nice
+  // hint to just use the single constraint instead of all the binary
+  // search ones. If that makes sense.
+  if (res == Solver::True) {
+    if (!isInternal) {
+      if (pathWriter) {
+        current.pathOS << "1";
+      }
+    }
+    if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
+        TxSpeculationHelper::isStateSpeculable(current)) {
+      if (SpecStrategyToUse == SAFETY) {
+        if (SpecStrategyToUse == TIMID) {
+          klee_error("SPECULATION: timid is not supported with safety!");
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+          return addSpeculationNode(current, condition, binst, isInternal,
+                                    true);
+        } else if (SpecStrategyToUse == CUSTOM) {
+          // save unsat core
+          // open speculation & result may be success or fail
+          if (specSnap[binst] != visitedBlocks.size()) {
+            //            dynamicYes++;
+            txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+            return addSpeculationNode(current, condition, binst, isInternal,
+                                      true);
+          } else {
+            //            dynamicNo++;
+            // then close speculation & do marking as deletion
+            txTree->markPathCondition(current, unsatCore);
+            return StatePair(&current, 0);
+          }
+        }
+      } else {
+        if (SpecStrategyToUse == TIMID) {
+          klee_error(
+              "SPECULATION: timid strategy never runs in speculationFork!");
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+          return addSpeculationNode(current, condition, binst, isInternal,
+                                    true);
+        } else if (SpecStrategyToUse == CUSTOM) {
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            // open speculation & assume success
+            //          independenceYes++;
+            return StatePair(&current, 0);
+          } else {
+            //          independenceNo++;
+            // save unsat core
+            // open speculation & result may be success or fail
+            if (specSnap[binst] != visitedBlocks.size()) {
+              //            dynamicYes++;
+              txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+              return addSpeculationNode(current, condition, binst, isInternal,
+                                        true);
+            } else {
+              //            dynamicNo++;
+              // then close speculation & do marking as deletion
+              txTree->markPathCondition(current, unsatCore);
+              return StatePair(&current, 0);
+            }
+          }
+        }
+      }
+    }
+
+    if (INTERPOLATION_ENABLED) {
+      // Validity proof succeeded of a query: antecedent -> consequent.
+      // We then extract the unsatisfiability core of antecedent and not
+      // consequent as the Craig interpolant.
+      txTree->markPathCondition(current, unsatCore);
+      if (WPInterpolant)
+        txTree->markInstruction(current.prevPC, true);
+    }
+
+    return StatePair(&current, 0);
+
+    //    txTree->markPathCondition(current, unsatCore);
+    //    return StatePair(&current, 0);
+  } else if (res == Solver::False) {
+    if (!isInternal) {
+      if (pathWriter) {
+        current.pathOS << "0";
+      }
+    }
+
+    if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
+        TxSpeculationHelper::isStateSpeculable(current)) {
+      if (SpecTypeToUse == SAFETY) {
+        if (SpecStrategyToUse == TIMID) {
+          klee_error("SPECULATION: timid is not supported with safety!");
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+          return addSpeculationNode(current, condition, binst, isInternal,
+                                    false);
+        } else if (SpecStrategyToUse == CUSTOM) {
+          // save unsat core
+          // open speculation & result may be success or fail
+          if (specSnap[binst] != visitedBlocks.size()) {
+            //            dynamicYes++;
+            txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+            return addSpeculationNode(current, condition, binst, isInternal,
+                                      false);
+          } else {
+            //            dynamicNo++;
+            // then close speculation & do marking as deletion
+            txTree->markPathCondition(current, unsatCore);
+            return StatePair(0, &current);
+          }
+        }
+      } else {
+        if (SpecStrategyToUse == TIMID) {
+          klee_error(
+              "SPECULATION: timid strategy never runs in speculationFork!");
+        } else if (SpecStrategyToUse == AGGRESSIVE) {
+          txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+          return addSpeculationNode(current, condition, binst, isInternal,
+                                    false);
+        } else if (SpecStrategyToUse == CUSTOM) {
+          std::set<std::string> vars = extractVarNames(current, binst);
+          if (TxSpeculationHelper::isIndependent(vars, bbOrderToSpecAvoid)) {
+            // open speculation & assume success
+            //          independenceYes++;
+            return StatePair(0, &current);
+          } else {
+            //          independenceNo++;
+            // save unsat core
+            // open speculation & result may be success or fail
+            if (specSnap[binst] != visitedBlocks.size()) {
+              //            dynamicYes++;
+              txTree->storeSpeculationUnsatCore(solver, unsatCore, binst);
+              return addSpeculationNode(current, condition, binst, isInternal,
+                                        false);
+            } else {
+              //            dynamicNo++;
+              // then close speculation & do marking as deletion
+              txTree->markPathCondition(current, unsatCore);
+              return StatePair(0, &current);
+            }
+          }
+        }
+      }
+    }
+
+    if (INTERPOLATION_ENABLED) {
+      // Falsity proof succeeded of a query: antecedent -> consequent,
+      // which means that antecedent -> not(consequent) is valid. In this
+      // case also we extract the unsat core of the proof
+      txTree->markPathCondition(current, unsatCore);
+      if (WPInterpolant)
+        txTree->markInstruction(current.prevPC, false);
+    }
+
+    return StatePair(0, &current);
+
+    //    txTree->markPathCondition(current, unsatCore);
+    //    return StatePair(0, &current);
+  } else {
+    TimerStatIncrementer timer(stats::forkTime);
+    ExecutionState *falseState, *trueState = &current;
+
+    ++stats::forks;
+
+    falseState = trueState->branch();
+    addedStates.push_back(falseState);
+
+    if (RandomizeFork && theRNG.getBool())
+      std::swap(trueState, falseState);
+
+    current.ptreeNode->data = 0;
+    std::pair<PTree::Node *, PTree::Node *> resNode =
+        processTree->split(current.ptreeNode, falseState, trueState);
+    falseState->ptreeNode = resNode.first;
+    trueState->ptreeNode = resNode.second;
+
+    if (!isInternal) {
+      if (pathWriter) {
+        falseState->pathOS = pathWriter->open(current.pathOS);
+        trueState->pathOS << "1";
+        falseState->pathOS << "0";
+      }
+      if (symPathWriter) {
+        falseState->symPathOS = symPathWriter->open(current.symPathOS);
+        trueState->symPathOS << "1";
+        falseState->symPathOS << "0";
+      }
+    }
+
+    std::pair<TxTreeNode *, TxTreeNode *> ires =
+        txTree->split(current.txTreeNode, falseState, trueState);
+
+    falseState->txTreeNode = ires.first;
+    trueState->txTreeNode = ires.second;
+
+    if (res != Solver::False)
+      addConstraint(*trueState, condition);
+    if (res != Solver::True)
+      addConstraint(*falseState, Expr::createIsZero(condition));
+
+    // Kinda gross, do we even really still want this option?
+    if (MaxDepth && MaxDepth <= trueState->depth) {
+      terminateStateEarly(*trueState, "max-depth exceeded.");
+      terminateStateEarly(*falseState, "max-depth exceeded.");
+      return StatePair(0, 0);
+    }
+
+    return StatePair(trueState, falseState);
+  }
+}
+
+void Executor::speculativeBackJump(ExecutionState &current) {
+
+  double thisSpecTreeTime = *(current.txTreeNode->specTime);
+  // identify the speculation root
+  TxTreeNode *currentNode = current.txTreeNode;
+  TxTreeNode *parent = currentNode->getParent();
+  while (parent && parent->isSpeculationNode()) {
+    currentNode = parent;
+    parent = parent->getParent();
+  }
+
+  StatsTracker::increaseEle(parent->getBasicBlock(), 1, false);
+
+  // interpolant marking on parent node
+  if (parent && !parent->speculationUnsatCore.empty()) {
+    parent->mark();
+  }
+  specSnap[parent->secondCheckInst] = visitedBlocks.size();
+
+  // collect & mark speculation fail all nodes in the sub tree
+  std::vector<TxTreeNode *> deletedNodes = collectSpeculationNodes(currentNode);
+
+  // collect removed states which pointing to speculation fail node
+  std::vector<ExecutionState *> removedSpeculationStates;
+  for (std::set<ExecutionState *>::const_iterator it = states.begin(),
+                                                  ie = states.end();
+       it != ie; ++it) {
+    ExecutionState *tmp = (*it);
+    if (tmp->txTreeNode->isSpeculationFailedNode()) {
+      removedSpeculationStates.push_back(tmp);
+    }
+  }
+
+  // update states in search
+  searcher->update(0, std::vector<ExecutionState *>(),
+                   removedSpeculationStates);
+  // remove fail nodes in subtree
+  for (std::vector<TxTreeNode *>::iterator it = deletedNodes.begin(),
+                                           ie = deletedNodes.end();
+       it != ie; ++it) {
+    txTree->removeSpeculationFailedNodes(*it);
+  }
+  // remove state in states
+  for (std::vector<ExecutionState *>::iterator
+           it = removedSpeculationStates.begin(),
+           ie = removedSpeculationStates.end();
+       it != ie; ++it) {
+    states.erase(*it);
+    if (&current != *it)
+      delete *it;
+  }
+  // this count is for the fail node in spec tree
+  end = clock();
+  thisSpecTreeTime += (double(end - start));
+
+  // add fail time for spec subtree
+  totalSpecFailTime += thisSpecTreeTime;
+}
+
+std::vector<TxTreeNode *> Executor::collectSpeculationNodes(TxTreeNode *root) {
+  if (!root)
+    return std::vector<TxTreeNode *>();
+  std::vector<TxTreeNode *> leftNodes =
+      collectSpeculationNodes(root->getLeft());
+  std::vector<TxTreeNode *> rightNodes =
+      collectSpeculationNodes(root->getRight());
+  std::vector<TxTreeNode *> result;
+  result.insert(result.end(), leftNodes.begin(), leftNodes.end());
+  result.insert(result.end(), rightNodes.begin(), rightNodes.end());
+  // mark root fail & add to result
+  root->setSpeculationFailed();
+  result.insert(result.end(), root);
+  return result;
 }
 
 void Executor::addConstraint(ExecutionState &state, ref<Expr> condition) {
@@ -1395,6 +2788,10 @@ void Executor::executeGetValue(ExecutionState &state,
     assert(success && "FIXME: Unhandled solver failure");
     (void) success;
     bindLocal(target, state, value);
+
+    if (INTERPOLATION_ENABLED) {
+      txTree->execute(target->inst, e, value);
+    }
   } else {
     std::set< ref<Expr> > values;
     for (std::vector<SeedInfo>::iterator siit = it->second.begin(), 
@@ -1423,6 +2820,10 @@ void Executor::executeGetValue(ExecutionState &state,
       ExecutionState *es = *bit;
       if (es)
         bindLocal(target, *es, *vit);
+
+      if (INTERPOLATION_ENABLED)
+        TxTree::executeOnNode(es->txTreeNode, target->inst, e, *vit);
+
       ++bit;
     }
   }
@@ -1637,7 +3038,9 @@ void Executor::unwindToNextLandingpad(ExecutionState &state) {
     Instruction *inst = sf.caller ? sf.caller->inst : nullptr;
 
     if (popFrames) {
-      state.popFrame();
+      // TODO DOUBT?
+//      state.popFrame();
+      state.popFrame(*(sf.caller), ConstantExpr::alloc(0, Expr::Bool));
       if (statsTracker != nullptr) {
         statsTracker->framePopped(state);
       }
@@ -1738,6 +3141,14 @@ ref<klee::ConstantExpr> Executor::getEhTypeidFor(ref<Expr> type_info) {
 
 void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
                            std::vector<ref<Expr>> &arguments) {
+  // BB Coverage
+  bool isInterested = (fBBOrder.find(f) != fBBOrder.end());
+  if (isInterested) {
+    bool isInSpecMode = (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
+                         state.txTreeNode->isSpeculationNode());
+    processBBCoverage(BBCoverage, &(f->front()), isInSpecMode);
+  }
+
   Instruction *i = ki->inst;
   if (isa_and_nonnull<DbgInfoIntrinsic>(i))
     return;
@@ -1779,11 +3190,22 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
                         arg->getAPValue());
       Res = llvm::abs(Res);
 
-      bindLocal(ki, state, ConstantExpr::alloc(Res.bitcastToAPInt()));
+      ref<Expr> result = ConstantExpr::alloc(Res.bitcastToAPInt());
+      bindLocal(ki, state, result);
+
+      // Update dependency
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i, result, arguments[0]);
+
 #else
         ref<Expr> op = eval(ki, 1, state).value;
         ref<Expr> result = FAbsExpr::create(op);
         bindLocal(ki, state, result);
+
+        // Update dependency
+        if (INTERPOLATION_ENABLED)
+          txTree->execute(i, result, op);
+
 #endif
         break;
     }
@@ -1791,6 +3213,11 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
         ref<Expr> op = eval(ki, 1, state).value;
         ref<Expr> result = FSqrtExpr::create(op, state.roundingMode);
         bindLocal(ki, state, result);
+
+        // Update dependency
+        if (INTERPOLATION_ENABLED)
+          txTree->execute(i, result, op);
+
         break;
     }
 
@@ -1806,6 +3233,11 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
             result = FMinExpr::create(op1, op2, state.roundingMode);
         }
         bindLocal(ki, state, result);
+
+        // Update dependency
+        if (INTERPOLATION_ENABLED)
+          txTree->execute(i, result, op1, op2);
+
         break;
     }
     case Intrinsic::fma: {
@@ -1815,6 +3247,11 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
         assert(op1->getWidth() == op2->getWidth() && op2->getWidth() == op3->getWidth() && "type mismatch");
         ref<Expr> result = FAddExpr::create(FMulExpr::create(op1, op2, state.roundingMode), op3, state.roundingMode);
         bindLocal(ki, state, result);
+
+        // Update dependency
+        if (INTERPOLATION_ENABLED)
+          txTree->execute(i, result, op1, op2, op3);
+
         break;
     }
     case Intrinsic::trunc: {
@@ -1827,12 +3264,22 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
             return terminateStateOnExecError(state, "Invalid FPTrunc");
         ref<Expr> result = FPTruncExpr::create(arg, resultType, state.roundingMode);
         bindLocal(ki, state, result);
+
+        // Update dependency
+        if (INTERPOLATION_ENABLED)
+          txTree->execute(i, result, arg);
+
         break;
     }
     case Intrinsic::rint: {
         ref<Expr> arg = eval(ki, 0, state).value;
         ref<Expr> result = FRintExpr::create(arg, state.roundingMode);
         bindLocal(ki, state, result);
+
+        // Update dependency
+        if (INTERPOLATION_ENABLED)
+          txTree->execute(i, result, arg);
+
       break;
     }
 
@@ -1849,16 +3296,24 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
       // op3 = zeroExtend(op3 % w)
       op3 = URemExpr::create(op3, ConstantExpr::create(w, w));
       op3 = ZExtExpr::create(op3, w+w);
+      ref<Expr> result;
       if (f->getIntrinsicID() == Intrinsic::fshl) {
         // shift left and take top half
         ref<Expr> s = ShlExpr::create(c, op3);
-        bindLocal(ki, state, ExtractExpr::create(s, w, w));
+        result = ExtractExpr::create(s, w, w);
+        bindLocal(ki, state, result);
       } else {
         // shift right and take bottom half
         // note that LShr and AShr will have same behaviour
         ref<Expr> s = LShrExpr::create(c, op3);
-        bindLocal(ki, state, ExtractExpr::create(s, 0, w));
+        result = ExtractExpr::create(s, 0, w);
+        bindLocal(ki, state, result);
       }
+
+      // Update dependency
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i, result, op1, op2, op3);
+
       break;
     }
 #endif
@@ -1906,7 +3361,14 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
 
 #ifdef SUPPORT_KLEE_EH_CXX
     case Intrinsic::eh_typeid_for: {
-      bindLocal(ki, state, getEhTypeidFor(arguments.at(0)));
+      ref<Expr> result = getEhTypeidFor(arguments.at(0));
+      bindLocal(ki, state, result);
+
+      // TODO DOUBT?
+      // Update dependency
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i, result, arguments.at(0));
+
       break;
     }
 #endif
@@ -2095,6 +3557,10 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
     unsigned numFormals = f->arg_size();
     for (unsigned k = 0; k < numFormals; k++)
       bindArgument(kf, k, state, arguments[k]);
+
+    if (INTERPOLATION_ENABLED)
+      // We bind the abstract dependency call arguments
+      state.txTreeNode->bindCallArguments(state.prevPC->inst, arguments);
   }
 }
 
@@ -2119,6 +3585,159 @@ void Executor::transferToBasicBlock(BasicBlock *dst, BasicBlock *src,
   if (state.pc->inst->getOpcode() == Instruction::PHI) {
     PHINode *first = static_cast<PHINode*>(state.pc->inst);
     state.incomingBBIndex = first->getBasicBlockIndex(src);
+  }
+
+  if (INTERPOLATION_ENABLED) {
+    // blockCount increased to count all visited Basic Blocks
+    TxTree::blockCount++;
+  }
+
+  // process BB Coverage
+  bool isInterested = (fBBOrder.find(dst->getParent()) != fBBOrder.end());
+  if (isInterested) {
+
+    bool isInSpecMode = (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
+                         state.txTreeNode->isSpeculationNode());
+    processBBCoverage(BBCoverage, dst, isInSpecMode);
+  }
+}
+
+std::map<int, std::set<std::string> >
+Executor::readBBOrderToSpecAvoid(std::string folderName) {
+  std::map<int, std::set<std::string> > res;
+  DIR *dirp = opendir(folderName.c_str());
+  dirent *dp;
+  while ((dp = readdir(dirp)) != NULL) {
+    std::string name(dp->d_name);
+    if (strcmp(name.substr(0, 10).c_str(), "SpecAvoid_") == 0) {
+      std::string absPath = folderName + "/" + name;
+      std::pair<int, std::set<std::string> > tmp = readBBSpecAvoid(absPath);
+      res[tmp.first] = tmp.second;
+    }
+  }
+  (void)closedir(dirp);
+  return res;
+}
+
+std::pair<int, std::set<std::string> >
+Executor::readBBSpecAvoid(std::string fileName) {
+  bool isFirst = true;
+  int bb;
+  std::set<std::string> avoid;
+  std::ifstream in(fileName.c_str());
+  std::string str;
+  while (std::getline(in, str)) {
+    if (isFirst) {
+      bb = atoi(str.c_str());
+      isFirst = false;
+    } else {
+      if (!TxSpeculationHelper::trim(str).empty())
+        avoid.insert(TxSpeculationHelper::trim(str));
+    }
+  }
+  in.close();
+  return std::make_pair(bb, avoid);
+}
+std::set<llvm::BasicBlock *> Executor::readVisitedBB(std::string fileName) {
+  std::set<int> bbs;
+  std::ifstream in(fileName.c_str());
+  std::string str;
+  while (std::getline(in, str)) {
+    if (!TxSpeculationHelper::trim(str).empty()) {
+      int bb = atoi(str.c_str());
+      bbs.insert(bb);
+    }
+  }
+  in.close();
+  std::set<llvm::BasicBlock *> res;
+  for (std::map<llvm::Function *, std::map<llvm::BasicBlock *, int> >::iterator
+           it = fBBOrder.begin(),
+           ie = fBBOrder.end();
+       it != ie; ++it) {
+    for (std::map<llvm::BasicBlock *, int>::iterator it1 = it->second.begin(),
+                                                     ie1 = it->second.end();
+         it1 != ie1; ++it1) {
+      if (bbs.find(it1->second) != bbs.end()) {
+        res.insert(it1->first);
+      }
+    }
+  }
+  return res;
+}
+
+void Executor::processBBCoverage(int BBCoverage, llvm::BasicBlock *bb,
+                                 bool isInSpecMode) {
+  if (BBCoverage >= 1) {
+    bool isNew = (visitedBlocks.find(bb) == visitedBlocks.end());
+    int order = fBBOrder[bb->getParent()][bb];
+    if (!isInSpecMode && isNew) {
+      // add to visited BBs if not in speculation mode
+      visitedBlocks.insert(bb);
+    }
+    float percent = ((float)visitedBlocks.size() / (float)allBlockCount) * 100;
+    // print percentage if this is a new BB
+    if (BBCoverage >= 2 && isNew) {
+      // print live %
+
+      std::string livePercentCovFile =
+          interpreterHandler->getOutputFilename("LivePercentCov.txt");
+      std::ofstream livePercentCovFileOut(livePercentCovFile.c_str(),
+                                          std::ofstream::app);
+      // [BB order - No. Visited - Total - %]
+      livePercentCovFileOut << "[" << visitedBlocks.size() << ","
+                            << allBlockCount << "," << percent << "]\n";
+      livePercentCovFileOut.close();
+    }
+
+    // print live BB
+    if (BBCoverage >= 3 && isNew && !isInSpecMode) {
+      std::string liveBBFile =
+          interpreterHandler->getOutputFilename("LiveBB.txt");
+      std::ofstream liveBBFileOut(liveBBFile.c_str(), std::ofstream::app);
+      liveBBFileOut << "-- BlockScopeStarts --\n";
+      liveBBFileOut << "Function: " << bb->getParent()->getName().str() << "\n";
+      liveBBFileOut << "Block Order: " << order;
+      // block content
+      std::string tmp;
+      raw_string_ostream tmpOS(tmp);
+      bb->print(tmpOS);
+      liveBBFileOut << tmp;
+      liveBBFileOut << "-- BlockScopeEnds --\n\n";
+      liveBBFileOut.close();
+    }
+    if (BBCoverage >= 4 && isNew && !isInSpecMode) {
+      // Print covered atomic condition covered
+      std::string liveBBFileICMP =
+          interpreterHandler->getOutputFilename("coveredICMP.txt");
+      std::ofstream liveBBFileICMPOut(liveBBFileICMP.c_str(),
+                                      std::ofstream::app);
+
+      // block content
+      std::string tmpICMP;
+      raw_string_ostream tmpICMPOS(tmpICMP);
+      for (llvm::BasicBlock::iterator icmp = bb->begin(); icmp != bb->end();
+           icmp++) {
+        if (llvm::isa<llvm::ICmpInst>(icmp)) {
+          coveredICMPCount++;
+          liveBBFileICMPOut << "Function: " << bb->getParent()->getName().str()
+                            << " ";
+          liveBBFileICMPOut << "Block Order: " << order;
+          icmp->print(tmpICMPOS);
+          liveBBFileICMPOut << tmpICMP << "\n";
+        }
+      }
+      liveBBFileICMPOut.close();
+    }
+    if (BBCoverage >= 5) {
+      double diff = time(0) - startingBBPlottingTime;
+      std::string bbPlottingFile =
+          interpreterHandler->getOutputFilename("BBPlotting.txt");
+      std::ofstream bbPlotingFileOut(bbPlottingFile.c_str(),
+                                     std::ofstream::app);
+      bbPlotingFileOut << diff << "     " << std::fixed << std::setprecision(2)
+                       << percent << "\n";
+      bbPlotingFileOut.close();
+    }
   }
 }
 
@@ -2154,6 +3773,71 @@ Function* Executor::getTargetFunction(Value *calledVal, ExecutionState &state) {
 
 void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   Instruction *i = ki->inst;
+
+  // if this is starting a new BB then
+  // check for non-linear & new BB in speculation mode
+  if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
+      txTree->isSpeculationNode() &&
+      (i == &state.txTreeNode->getBasicBlock()->front())) {
+    // check non-linear
+    uintptr_t pp = state.txTreeNode->getProgramPoint();
+    bool isPPVisited = (state.txTreeNode->visitedProgramPoints->find(pp) !=
+                        state.txTreeNode->visitedProgramPoints->end());
+    if (isPPVisited) {
+      // add to spec revisited statistic
+      if (specRevisited.find(pp) != specRevisited.end()) {
+        specRevisited[pp] = specRevisited[pp] + 1;
+      } else {
+        specRevisited[pp] = 1;
+      }
+      // check interpolation at is program point
+      bool hasInterpolation = TxSubsumptionTable::hasInterpolation(state);
+      if (!hasInterpolation) {
+        if (specRevisitedNoInter.find(pp) != specRevisitedNoInter.end()) {
+          specRevisitedNoInter[pp] = specRevisitedNoInter[pp] + 1;
+        } else {
+          specRevisitedNoInter[pp] = 1;
+        }
+      }
+      specFail++;
+      speculativeBackJump(state);
+      return;
+    } else {
+      // Storing the visited program points.
+      state.txTreeNode->visitedProgramPoints->insert(pp);
+    }
+
+    // check new BB
+    if (SpecTypeToUse == COVERAGE) {
+      llvm::BasicBlock *currentBB = state.txTreeNode->getBasicBlock();
+      if (visitedBlocks.find(currentBB) == visitedBlocks.end()) {
+        if (specFailNew.find(pp) != specFailNew.end()) {
+          specFailNew[pp] = specFailNew[pp] + 1;
+        } else {
+          specFailNew[pp] = 1;
+        }
+        // check interpolation at is program point
+        bool hasInterpolation = TxSubsumptionTable::hasInterpolation(state);
+        if (!hasInterpolation) {
+          if (specFailNoInter.find(pp) != specFailNoInter.end()) {
+            specFailNoInter[pp] = specFailNoInter[pp] + 1;
+          } else {
+            specFailNoInter[pp] = 1;
+          }
+        }
+        // add to visited BB
+        // This is disabled to not to count blocks in speculation subtree
+        // visitedBlocks.insert(currentBB);
+        specFail++;
+        speculativeBackJump(state);
+        return;
+      }
+    }
+  }
+
+  if (INTERPOLATION_ENABLED && WPInterpolant)
+    txTree->storeInstruction(ki, state.incomingBBIndex);
+
   switch (i->getOpcode()) {
     // Control flow
   case Instruction::Ret: {
@@ -2171,7 +3855,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       assert(!caller && "caller set on initial stack frame");
       terminateStateOnExit(state);
     } else {
-      state.popFrame();
+      state.popFrame(ki, ConstantExpr::alloc(0, Expr::Bool));
 
       if (statsTracker)
         statsTracker->framePopped(state);
@@ -2249,6 +3933,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
           }
 
           bindLocal(kcaller, state, result);
+          //  TODO DOUBT?
         }
       } else {
         // We check that the return value has no users instead of
@@ -2263,8 +3948,17 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   }
   case Instruction::Br: {
     BranchInst *bi = cast<BranchInst>(i);
+
+    // stop collecting phi values for the current node
+    if (INTERPOLATION_ENABLED)
+      txTree->setPhiValuesFlag(0);
+
     if (bi->isUnconditional()) {
       transferToBasicBlock(bi->getSuccessor(0), bi->getParent(), state);
+
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i);
+
     } else {
       // FIXME: Find a way that we don't have this hidden dependency.
       assert(bi->getCondition() == bi->getOperand(0) &&
@@ -2285,6 +3979,19 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         transferToBasicBlock(bi->getSuccessor(0), bi->getParent(), *branches.first);
       if (branches.second)
         transferToBasicBlock(bi->getSuccessor(1), bi->getParent(), *branches.second);
+
+      // Below we test if some of the branches are not available for
+      // exploration, which means that there is a dependency of the program
+      // state on the control variables in the conditional. Such variables
+      // (allocations) need to be marked as belonging to the core.
+      // This is mainly to take care of the case when the conditional
+      // variables are not marked using unsatisfiability core as the
+      // conditional is concrete and therefore there has been no invocation
+      // of the solver to decide its satisfiability, and no generation
+      // of the unsatisfiability core.
+      if (INTERPOLATION_ENABLED && ((!branches.first && branches.second) ||
+                                    (branches.first && !branches.second)))
+        txTree->execute(i);
     }
     break;
   }
@@ -2294,10 +4001,19 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     auto address = eval(ki, 0, state).value;
     address = toUnique(state, address);
 
+    // TODO DOUBT?
+    // stop collecting phi values for the current node
+    if (INTERPOLATION_ENABLED)
+      txTree->setPhiValuesFlag(0);
+
     // concrete address
     if (const auto CE = dyn_cast<ConstantExpr>(address.get())) {
       const auto bb_address = (BasicBlock *) CE->getZExtValue(Context::get().getPointerWidth());
       transferToBasicBlock(bb_address, bi->getParent(), state);
+
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i);
+
       break;
     }
 
@@ -2361,12 +4077,19 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       }
     }
 
+    // TODO DOUBT?
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i);
+
     break;
   }
   case Instruction::Switch: {
     SwitchInst *si = cast<SwitchInst>(i);
     ref<Expr> cond = eval(ki, 0, state).value;
     BasicBlock *bb = si->getParent();
+
+    // For interpolation
+    ref<Expr> oldCond = cond;
 
     cond = toUnique(state, cond);
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(cond)) {
@@ -2380,6 +4103,10 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       unsigned index = si->findCaseValue(ci).getSuccessorIndex();
 #endif
       transferToBasicBlock(si->getSuccessor(index), si->getParent(), state);
+
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i, oldCond);
+
     } else {
       // Handle possible different branch targets
 
@@ -2444,6 +4171,12 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
             bbOrder.push_back(caseSuccessor);
           }
         }
+        else if (INTERPOLATION_ENABLED) {
+          // The solver returned no solution, which means there is an infeasible
+          // branch: Mark the unsatisfiability core
+          state.txTreeNode->unsatCoreInterpolation(unsatCore);
+        }
+
       }
 
       // Check if control could take the default case
@@ -2460,6 +4193,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         if (ret.second) {
           bbOrder.push_back(si->getDefaultDest());
         }
+      }
+      else if (INTERPOLATION_ENABLED) {
+        // The solver returned no solution, which means the default branch
+        // cannot be taken: Mark the unsatisfiability core
+        state.txTreeNode->unsatCoreInterpolation(unsatCore);
       }
 
       // Fork the current state with each state having one of the possible
@@ -2610,6 +4348,14 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   case Instruction::PHI: {
     ref<Expr> result = eval(ki, state.incomingBBIndex, state).value;
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED) {
+      txTree->executePHI(i, state.incomingBBIndex, result);
+      if (txTree->getPhiValuesFlag())
+        txTree->setPhiValue(i, result);
+    }
+
     break;
   }
 
@@ -2621,6 +4367,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> fExpr = eval(ki, 2, state).value;
     ref<Expr> result = SelectExpr::create(cond, tExpr, fExpr);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, tExpr, fExpr);
+
     break;
   }
 
@@ -2634,20 +4385,37 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> left = eval(ki, 0, state).value;
     ref<Expr> right = eval(ki, 1, state).value;
     bindLocal(ki, state, AddExpr::create(left, right));
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
   case Instruction::Sub: {
     ref<Expr> left = eval(ki, 0, state).value;
     ref<Expr> right = eval(ki, 1, state).value;
-    bindLocal(ki, state, SubExpr::create(left, right));
+    ref<Expr> result = SubExpr::create(left, right);
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
  
   case Instruction::Mul: {
     ref<Expr> left = eval(ki, 0, state).value;
     ref<Expr> right = eval(ki, 1, state).value;
-    bindLocal(ki, state, MulExpr::create(left, right));
+    ref<Expr> result = MulExpr::create(left, right);
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -2656,6 +4424,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> right = eval(ki, 1, state).value;
     ref<Expr> result = UDivExpr::create(left, right);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -2664,6 +4437,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> right = eval(ki, 1, state).value;
     ref<Expr> result = SDivExpr::create(left, right);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -2672,6 +4450,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> right = eval(ki, 1, state).value;
     ref<Expr> result = URemExpr::create(left, right);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -2680,6 +4463,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> right = eval(ki, 1, state).value;
     ref<Expr> result = SRemExpr::create(left, right);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -2688,6 +4476,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> right = eval(ki, 1, state).value;
     ref<Expr> result = AndExpr::create(left, right);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -2696,6 +4489,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> right = eval(ki, 1, state).value;
     ref<Expr> result = OrExpr::create(left, right);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -2704,6 +4502,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> right = eval(ki, 1, state).value;
     ref<Expr> result = XorExpr::create(left, right);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -2712,6 +4515,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> right = eval(ki, 1, state).value;
     ref<Expr> result = ShlExpr::create(left, right);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -2720,6 +4528,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> right = eval(ki, 1, state).value;
     ref<Expr> result = LShrExpr::create(left, right);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -2728,6 +4541,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> right = eval(ki, 1, state).value;
     ref<Expr> result = AShrExpr::create(left, right);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -2736,84 +4554,85 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   case Instruction::ICmp: {
     CmpInst *ci = cast<CmpInst>(i);
     ICmpInst *ii = cast<ICmpInst>(ci);
+    ref<Expr> result, left, right;
 
     switch(ii->getPredicate()) {
     case ICmpInst::ICMP_EQ: {
-      ref<Expr> left = eval(ki, 0, state).value;
-      ref<Expr> right = eval(ki, 1, state).value;
-      ref<Expr> result = EqExpr::create(left, right);
+      left = eval(ki, 0, state).value;
+      right = eval(ki, 1, state).value;
+      result = EqExpr::create(left, right);
       bindLocal(ki, state, result);
       break;
     }
 
     case ICmpInst::ICMP_NE: {
-      ref<Expr> left = eval(ki, 0, state).value;
-      ref<Expr> right = eval(ki, 1, state).value;
-      ref<Expr> result = NeExpr::create(left, right);
+      left = eval(ki, 0, state).value;
+      right = eval(ki, 1, state).value;
+      result = NeExpr::create(left, right);
       bindLocal(ki, state, result);
       break;
     }
 
     case ICmpInst::ICMP_UGT: {
-      ref<Expr> left = eval(ki, 0, state).value;
-      ref<Expr> right = eval(ki, 1, state).value;
-      ref<Expr> result = UgtExpr::create(left, right);
+      left = eval(ki, 0, state).value;
+      right = eval(ki, 1, state).value;
+      result = UgtExpr::create(left, right);
       bindLocal(ki, state,result);
       break;
     }
 
     case ICmpInst::ICMP_UGE: {
-      ref<Expr> left = eval(ki, 0, state).value;
-      ref<Expr> right = eval(ki, 1, state).value;
-      ref<Expr> result = UgeExpr::create(left, right);
+      left = eval(ki, 0, state).value;
+      right = eval(ki, 1, state).value;
+      result = UgeExpr::create(left, right);
       bindLocal(ki, state, result);
       break;
     }
 
     case ICmpInst::ICMP_ULT: {
-      ref<Expr> left = eval(ki, 0, state).value;
-      ref<Expr> right = eval(ki, 1, state).value;
-      ref<Expr> result = UltExpr::create(left, right);
+      left = eval(ki, 0, state).value;
+      right = eval(ki, 1, state).value;
+      result = UltExpr::create(left, right);
       bindLocal(ki, state, result);
       break;
     }
 
     case ICmpInst::ICMP_ULE: {
-      ref<Expr> left = eval(ki, 0, state).value;
-      ref<Expr> right = eval(ki, 1, state).value;
-      ref<Expr> result = UleExpr::create(left, right);
+      left = eval(ki, 0, state).value;
+      right = eval(ki, 1, state).value;
+      result = UleExpr::create(left, right);
       bindLocal(ki, state, result);
       break;
     }
 
     case ICmpInst::ICMP_SGT: {
-      ref<Expr> left = eval(ki, 0, state).value;
-      ref<Expr> right = eval(ki, 1, state).value;
-      ref<Expr> result = SgtExpr::create(left, right);
+      left = eval(ki, 0, state).value;
+      right = eval(ki, 1, state).value;
+      result = SgtExpr::create(left, right);
       bindLocal(ki, state, result);
       break;
     }
 
     case ICmpInst::ICMP_SGE: {
-      ref<Expr> left = eval(ki, 0, state).value;
-      ref<Expr> right = eval(ki, 1, state).value;
-      ref<Expr> result = SgeExpr::create(left, right);
+      left = eval(ki, 0, state).value;
+      right = eval(ki, 1, state).value;
+      result = SgeExpr::create(left, right);
       bindLocal(ki, state, result);
       break;
     }
 
     case ICmpInst::ICMP_SLT: {
-      ref<Expr> left = eval(ki, 0, state).value;
-      ref<Expr> right = eval(ki, 1, state).value;
-      ref<Expr> result = SltExpr::create(left, right);
+      left = eval(ki, 0, state).value;
+      right = eval(ki, 1, state).value;
+      result = SltExpr::create(left, right);
       bindLocal(ki, state, result);
       break;
     }
 
     case ICmpInst::ICMP_SLE: {
-      ref<Expr> left = eval(ki, 0, state).value;
-      ref<Expr> right = eval(ki, 1, state).value;
-      ref<Expr> result = SleExpr::create(left, right);
+      left = eval(ki, 0, state).value;
+      right = eval(ki, 1, state).value;
+      result = SleExpr::create(left, right);
       bindLocal(ki, state, result);
       break;
     }
@@ -2821,6 +4640,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     default:
       terminateStateOnExecError(state, "invalid ICmp predicate");
     }
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
  
@@ -2860,44 +4684,78 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   case Instruction::GetElementPtr: {
     KGEPInstruction *kgepi = static_cast<KGEPInstruction*>(ki);
     ref<Expr> base = eval(ki, 0, state).value;
+    ref<Expr> address(base);
+    ref<Expr> offset(Expr::createPointer(0));
 
     for (std::vector< std::pair<unsigned, uint64_t> >::iterator 
            it = kgepi->indices.begin(), ie = kgepi->indices.end(); 
          it != ie; ++it) {
       uint64_t elementSize = it->second;
       ref<Expr> index = eval(ki, it->first, state).value;
-      base = AddExpr::create(base,
+      address = AddExpr::create(address,
                              MulExpr::create(Expr::createSExtToPointerWidth(index),
                                              Expr::createPointer(elementSize)));
+
+      if (INTERPOLATION_ENABLED) {
+        offset = AddExpr::create(
+            offset, MulExpr::create(Expr::createSExtToPointerWidth(index),
+                                    Expr::createPointer(elementSize)));
+      }
+
     }
-    if (kgepi->offset)
-      base = AddExpr::create(base,
+    if (kgepi->offset) {
+      address = AddExpr::create(address,
                              Expr::createPointer(kgepi->offset));
-    bindLocal(ki, state, base);
+
+      if (INTERPOLATION_ENABLED) {
+        offset = AddExpr::create(offset, Expr::createPointer(kgepi->offset));
+      }
+
+    }
+    bindLocal(ki, state, address);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, address, base, offset);
+
     break;
   }
 
     // Conversion
   case Instruction::Trunc: {
     CastInst *ci = cast<CastInst>(i);
-    ref<Expr> result = ExtractExpr::create(eval(ki, 0, state).value,
-                                           0,
-                                           getWidthForLLVMType(ci->getType()));
+    ref<Expr> arg = eval(ki, 0, state).value;
+    ref<Expr> result = ExtractExpr::create(arg, 0, getWidthForLLVMType(ci->getType()));
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, arg);
+
     break;
   }
   case Instruction::ZExt: {
     CastInst *ci = cast<CastInst>(i);
-    ref<Expr> result = ZExtExpr::create(eval(ki, 0, state).value,
-                                        getWidthForLLVMType(ci->getType()));
+    ref<Expr> arg = eval(ki, 0, state).value;
+    ref<Expr> result = ZExtExpr::create(arg, getWidthForLLVMType(ci->getType()));
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, arg);
+
     break;
   }
   case Instruction::SExt: {
     CastInst *ci = cast<CastInst>(i);
-    ref<Expr> result = SExtExpr::create(eval(ki, 0, state).value,
-                                        getWidthForLLVMType(ci->getType()));
+    ref<Expr> arg = eval(ki, 0, state).value;
+    ref<Expr> result = SExtExpr::create(arg, getWidthForLLVMType(ci->getType()));
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, arg);
+
     break;
   }
 
@@ -2905,20 +4763,37 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     CastInst *ci = cast<CastInst>(i);
     Expr::Width pType = getWidthForLLVMType(ci->getType());
     ref<Expr> arg = eval(ki, 0, state).value;
-    bindLocal(ki, state, ZExtExpr::create(arg, pType));
+    ref<Expr> result = ZExtExpr::create(arg, pType);
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, arg);
+
     break;
   }
   case Instruction::PtrToInt: {
     CastInst *ci = cast<CastInst>(i);
     Expr::Width iType = getWidthForLLVMType(ci->getType());
     ref<Expr> arg = eval(ki, 0, state).value;
-    bindLocal(ki, state, ZExtExpr::create(arg, iType));
+    ref<Expr> result = ZExtExpr::create(arg, iType);
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, arg);
+
     break;
   }
 
   case Instruction::BitCast: {
     ref<Expr> result = eval(ki, 0, state).value;
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result);
+
     break;
   }
 
@@ -2926,14 +4801,20 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 #ifndef ENABLE_FP
 #if LLVM_VERSION_CODE >= LLVM_VERSION(8, 0)
   case Instruction::FNeg: {
-    ref<ConstantExpr> arg =
-        toConstant(state, eval(ki, 0, state).value, "floating point");
+    ref<Expr> origArg = eval(ki, 0, state).value;
+    ref<ConstantExpr> arg = toConstant(state, origArg, "floating point");
     if (!fpWidthToSemantics(arg->getWidth()))
       return terminateStateOnExecError(state, "Unsupported FNeg operation");
 
     llvm::APFloat Res(*fpWidthToSemantics(arg->getWidth()), arg->getAPValue());
     Res = llvm::neg(Res);
-    bindLocal(ki, state, ConstantExpr::alloc(Res.bitcastToAPInt()));
+    ref<Expr> result = ConstantExpr::alloc(Res.bitcastToAPInt());
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, origArg);
+
     break;
   }
 #endif
@@ -2949,7 +4830,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     llvm::APFloat Res(*fpWidthToSemantics(left->getWidth()), left->getAPValue());
     Res.add(APFloat(*fpWidthToSemantics(right->getWidth()),right->getAPValue()), APFloat::rmNearestTiesToEven);
-    bindLocal(ki, state, ConstantExpr::alloc(Res.bitcastToAPInt()));
+    ref<Expr> result = ConstantExpr::alloc(Res.bitcastToAPInt());
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -2963,7 +4850,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       return terminateStateOnExecError(state, "Unsupported FSub operation");
     llvm::APFloat Res(*fpWidthToSemantics(left->getWidth()), left->getAPValue());
     Res.subtract(APFloat(*fpWidthToSemantics(right->getWidth()), right->getAPValue()), APFloat::rmNearestTiesToEven);
-    bindLocal(ki, state, ConstantExpr::alloc(Res.bitcastToAPInt()));
+    ref<Expr> result = ConstantExpr::alloc(Res.bitcastToAPInt()));
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -2978,7 +4871,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     llvm::APFloat Res(*fpWidthToSemantics(left->getWidth()), left->getAPValue());
     Res.multiply(APFloat(*fpWidthToSemantics(right->getWidth()), right->getAPValue()), APFloat::rmNearestTiesToEven);
-    bindLocal(ki, state, ConstantExpr::alloc(Res.bitcastToAPInt()));
+    ref<Expr> result = ConstantExpr::alloc(Res.bitcastToAPInt()));
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -2993,7 +4892,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     llvm::APFloat Res(*fpWidthToSemantics(left->getWidth()), left->getAPValue());
     Res.divide(APFloat(*fpWidthToSemantics(right->getWidth()), right->getAPValue()), APFloat::rmNearestTiesToEven);
-    bindLocal(ki, state, ConstantExpr::alloc(Res.bitcastToAPInt()));
+    ref<Expr> result = ConstantExpr::alloc(Res.bitcastToAPInt()));
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
@@ -3008,15 +4913,21 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     llvm::APFloat Res(*fpWidthToSemantics(left->getWidth()), left->getAPValue());
     Res.mod(
         APFloat(*fpWidthToSemantics(right->getWidth()), right->getAPValue()));
-    bindLocal(ki, state, ConstantExpr::alloc(Res.bitcastToAPInt()));
+    ref<Expr> result = ConstantExpr::alloc(Res.bitcastToAPInt()));
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 
   case Instruction::FPTrunc: {
     FPTruncInst *fi = cast<FPTruncInst>(i);
     Expr::Width resultType = getWidthForLLVMType(fi->getType());
-    ref<ConstantExpr> arg = toConstant(state, eval(ki, 0, state).value,
-                                       "floating point");
+    ref<Expr> origArg = eval(ki, 0, state).value;
+    ref<ConstantExpr> arg = toConstant(state, origArg, "floating point");
     if (!fpWidthToSemantics(arg->getWidth()) || resultType > arg->getWidth())
       return terminateStateOnExecError(state, "Unsupported FPTrunc operation");
 
@@ -3025,15 +4936,21 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     Res.convert(*fpWidthToSemantics(resultType),
                 llvm::APFloat::rmNearestTiesToEven,
                 &losesInfo);
-    bindLocal(ki, state, ConstantExpr::alloc(Res));
+    ref<Expr> result = ConstantExpr::alloc(Res);
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, origArg);
+
     break;
   }
 
   case Instruction::FPExt: {
     FPExtInst *fi = cast<FPExtInst>(i);
     Expr::Width resultType = getWidthForLLVMType(fi->getType());
-    ref<ConstantExpr> arg = toConstant(state, eval(ki, 0, state).value,
-                                        "floating point");
+    ref<Expr> origArg = eval(ki, 0, state).value;
+    ref<ConstantExpr> arg = toConstant(state, origArg, "floating point");
     if (!fpWidthToSemantics(arg->getWidth()) || arg->getWidth() > resultType)
       return terminateStateOnExecError(state, "Unsupported FPExt operation");
     llvm::APFloat Res(*fpWidthToSemantics(arg->getWidth()), arg->getAPValue());
@@ -3041,15 +4958,21 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     Res.convert(*fpWidthToSemantics(resultType),
                 llvm::APFloat::rmNearestTiesToEven,
                 &losesInfo);
-    bindLocal(ki, state, ConstantExpr::alloc(Res));
+    ref<Expr> result = ConstantExpr::alloc(Res);
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, origArg);
+
     break;
   }
 
   case Instruction::FPToUI: {
     FPToUIInst *fi = cast<FPToUIInst>(i);
     Expr::Width resultType = getWidthForLLVMType(fi->getType());
-    ref<ConstantExpr> arg = toConstant(state, eval(ki, 0, state).value,
-                                       "floating point");
+    ref<Expr> origArg = eval(ki, 0, state).value;
+    ref<ConstantExpr> arg = toConstant(state, origArg, "floating point");
     if (!fpWidthToSemantics(arg->getWidth()) || resultType > 64)
       return terminateStateOnExecError(state, "Unsupported FPToUI operation");
 
@@ -3063,15 +4986,21 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 #endif
     Arg.convertToInteger(valueRef, resultType, false,
                          llvm::APFloat::rmTowardZero, &isExact);
-    bindLocal(ki, state, ConstantExpr::alloc(value, resultType));
+    ref<Expr> result = ConstantExpr::alloc(value, resultType);
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, origArg);
+
     break;
   }
 
   case Instruction::FPToSI: {
     FPToSIInst *fi = cast<FPToSIInst>(i);
     Expr::Width resultType = getWidthForLLVMType(fi->getType());
-    ref<ConstantExpr> arg = toConstant(state, eval(ki, 0, state).value,
-                                       "floating point");
+    ref<Expr> origArg = eval(ki, 0, state).value;
+    ref<ConstantExpr> arg = toConstant(state, origArg, "floating point");
     if (!fpWidthToSemantics(arg->getWidth()) || resultType > 64)
       return terminateStateOnExecError(state, "Unsupported FPToSI operation");
     llvm::APFloat Arg(*fpWidthToSemantics(arg->getWidth()), arg->getAPValue());
@@ -3085,15 +5014,21 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 #endif
     Arg.convertToInteger(valueRef, resultType, true,
                          llvm::APFloat::rmTowardZero, &isExact);
-    bindLocal(ki, state, ConstantExpr::alloc(value, resultType));
+    ref<Expr> result = ConstantExpr::alloc(value, resultType);
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, origArg);
+
     break;
   }
 
   case Instruction::UIToFP: {
     UIToFPInst *fi = cast<UIToFPInst>(i);
     Expr::Width resultType = getWidthForLLVMType(fi->getType());
-    ref<ConstantExpr> arg = toConstant(state, eval(ki, 0, state).value,
-                                       "floating point");
+    ref<Expr> origArg = eval(ki, 0, state).value;
+    ref<ConstantExpr> arg = toConstant(state, origArg, "floating point");
     const llvm::fltSemantics *semantics = fpWidthToSemantics(resultType);
     if (!semantics)
       return terminateStateOnExecError(state, "Unsupported UIToFP operation");
@@ -3101,15 +5036,21 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     f.convertFromAPInt(arg->getAPValue(), false,
                        llvm::APFloat::rmNearestTiesToEven);
 
-    bindLocal(ki, state, ConstantExpr::alloc(f));
+    ref<Expr> result = ConstantExpr::alloc(f);
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, origArg);
+
     break;
   }
 
   case Instruction::SIToFP: {
     SIToFPInst *fi = cast<SIToFPInst>(i);
     Expr::Width resultType = getWidthForLLVMType(fi->getType());
-    ref<ConstantExpr> arg = toConstant(state, eval(ki, 0, state).value,
-                                       "floating point");
+    ref<Expr> origArg = eval(ki, 0, state).value;
+    ref<ConstantExpr> arg = toConstant(state, origArg, "floating point");
     const llvm::fltSemantics *semantics = fpWidthToSemantics(resultType);
     if (!semantics)
       return terminateStateOnExecError(state, "Unsupported SIToFP operation");
@@ -3117,7 +5058,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     f.convertFromAPInt(arg->getAPValue(), true,
                        llvm::APFloat::rmNearestTiesToEven);
 
-    bindLocal(ki, state, ConstantExpr::alloc(f));
+    ref<Expr> result = ConstantExpr::alloc(f);
+    bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, origArg);
+
     break;
   }
 
@@ -3201,7 +5148,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       break;
     }
 
-    bindLocal(ki, state, ConstantExpr::alloc(Result, Expr::Bool));
+    ref<Expr> result = ConstantExpr::alloc(Result, Expr::Bool);
+    bindLocal(ki, state, ConstantExpr::alloc(result, Expr::Bool));
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 #else
@@ -3213,6 +5166,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
           return terminateStateOnExecError(state, "Unsupported FAdd operation");
       ref<Expr> result = FAddExpr::create(left, right, state.roundingMode);
       bindLocal(ki, state, result);
+
+      // Update dependency
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i, result, left, right);
+
       break;
   }
 
@@ -3224,6 +5182,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
           return terminateStateOnExecError(state, "Unsupported FSub operation");
       ref<Expr> result = FSubExpr::create(left, right, state.roundingMode);
       bindLocal(ki, state, result);
+
+      // Update dependency
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i, result, left, right);
+
       break;
   }
 
@@ -3235,6 +5198,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
           return terminateStateOnExecError(state, "Unsupported FMul operation");
       ref<Expr> result = FMulExpr::create(left, right, state.roundingMode);
       bindLocal(ki, state, result);
+
+      // Update dependency
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i, result, left, right);
+
       break;
   }
 
@@ -3246,13 +5214,24 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
           return terminateStateOnExecError(state, "Unsupported FDiv operation");
       ref<Expr> result = FDivExpr::create(left, right, state.roundingMode);
       bindLocal(ki, state, result);
+
+      // Update dependency
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i, result, left, right);
+
       break;
   }
 
 #if LLVM_VERSION_CODE >= LLVM_VERSION(8, 0)
   case Instruction::FNeg: {
-      ref<Expr> expr = eval(ki, 0, state).value;
-      bindLocal(ki, state, FNegExpr::create(expr));
+      ref<Expr> arg = eval(ki, 0, state).value;
+      ref<Expr> result = FNegExpr::create(arg);
+      bindLocal(ki, state, result);
+
+      // Update dependency
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i, result, arg);
+
       break;
   }
 #endif
@@ -3265,6 +5244,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
           return terminateStateOnExecError(state, "Unsupported FRem operation");
       ref<Expr> result = FRemExpr::create(left, right, state.roundingMode);
       bindLocal(ki, state, result);
+
+      // Update dependency
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i, result, left, right);
+
       break;
   }
 
@@ -3278,6 +5262,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
           return terminateStateOnExecError(state, "Invalid FPTrunc");
       ref<Expr> result = FPTruncExpr::create(arg, resultType, state.roundingMode);
       bindLocal(ki, state, result);
+
+      // Update dependency
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i, result, arg);
+
       break;
   }
 
@@ -3291,19 +5280,29 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
           return terminateStateOnExecError(state, "Invalid FPExt");
       ref<Expr> result = FPExtExpr::create(arg, resultType);
       bindLocal(ki, state, result);
+
+      // Update dependency
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i, result, arg);
+
       break;
   }
 
   case Instruction::FPToUI: {
     FPToUIInst *fi = cast<FPToUIInst>(i);
     Expr::Width resultType = getWidthForLLVMType(fi->getType());
-  ref<Expr> arg = eval(ki, 0, state).value;
+    ref<Expr> arg = eval(ki, 0, state).value;
       if (!fpWidthToSemantics(arg->getWidth()))
           return terminateStateOnExecError(state, "Unsupported FPToUI operation");
       // LLVM IR Ref manual says that it rounds toward zero
       ref<Expr> result =
               FPToUIExpr::create(arg, resultType, llvm::APFloat::rmTowardZero);
       bindLocal(ki, state, result);
+
+      // Update dependency
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(i, result, arg);
+
       break;
   }
 
@@ -3317,6 +5316,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> result =
       FPToSIExpr::create(arg, resultType, llvm::APFloat::rmTowardZero);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, arg);
+
     break;
   }
 
@@ -3329,6 +5333,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         return terminateStateOnExecError(state, "Unsupported UIToFP operation");
     ref<Expr> result = UIToFPExpr::create(arg, resultType, state.roundingMode);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, arg);
+
     break;
   }
 
@@ -3341,6 +5350,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         return terminateStateOnExecError(state, "Unsupported SIToFP operation");
     ref<Expr> result = SIToFPExpr::create(arg, resultType, state.roundingMode);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, arg);
+
     break;
   }
 
@@ -3353,6 +5367,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         return terminateStateOnExecError(state, "Unsupported FCmp operation");
     ref<Expr> result = evaluateFCmp(fi->getPredicate(), left, right);
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, left, right);
+
     break;
   }
 #endif //ENABLE_FP
@@ -3382,6 +5401,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       result = val;
 
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, agg, val);
+
     break;
   }
   case Instruction::ExtractValue: {
@@ -3392,6 +5416,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> result = ExtractExpr::create(agg, kgepi->offset*8, getWidthForLLVMType(i->getType()));
 
     bindLocal(ki, state, result);
+
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result, agg);
+
     break;
   }
   case Instruction::Fence: {
@@ -3435,6 +5464,12 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     assert(Context::get().isLittleEndian() && "FIXME:Broken for big endian");
     ref<Expr> Result = ConcatExpr::createN(elementCount, elems.data());
     bindLocal(ki, state, Result);
+
+    // TODO DOUBT?
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, Result, vec, newElt, idx);
+
     break;
   }
   case Instruction::ExtractElement: {
@@ -3463,6 +5498,12 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     unsigned bitOffset = EltBits * iIdx;
     ref<Expr> Result = ExtractExpr::create(vec, bitOffset, EltBits);
     bindLocal(ki, state, Result);
+
+    // TODO DOUBT?
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, Result, vec, idx);
+
     break;
   }
   case Instruction::ShuffleVector:
@@ -3548,6 +5589,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     bindLocal(ki, state, result);
 
+    // TODO DOUBT?
+    // Update dependency
+    if (INTERPOLATION_ENABLED)
+      txTree->execute(i, result);
+
     break;
   }
 #endif // SUPPORT_KLEE_EH_CXX
@@ -3589,6 +5635,10 @@ void Executor::updateStates(ExecutionState *current) {
     if (it3 != seedMap.end())
       seedMap.erase(it3);
     processTree->remove(es->ptreeNode);
+
+    if (INTERPOLATION_ENABLED)
+      txTree->remove(es, solver, (current == 0));
+
     delete es;
   }
   removedStates.clear();
@@ -3728,6 +5778,90 @@ void Executor::doDumpStates() {
 }
 
 void Executor::run(ExecutionState &initialState) {
+  if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC) {
+    independenceYes = 0;
+    independenceNo = 0;
+    dynamicYes = 0;
+    dynamicNo = 0;
+    specFail = 0;
+    totalSpecFailTime = 0.0;
+    for (std::map<llvm::Instruction *, unsigned int>::iterator
+             it = specSnap.begin(),
+             ie = specSnap.end();
+         it != ie; ++it) {
+      it->second = 0;
+    }
+    // load avoid BB
+    bbOrderToSpecAvoid = readBBOrderToSpecAvoid(DependencyFolder);
+    visitedBlocks = readVisitedBB(DependencyFolder + "/InitialVisitedBB.txt");
+  }
+
+  startingBBPlottingTime = time(0);
+  // get interested source code
+  size_t lastindex = InputFile.find_last_of(".");
+  std::string InputFile1 = InputFile.substr(0, lastindex);
+  lastindex = InputFile1.find_last_of("/");
+  std::string InputFile2 = InputFile1.substr(lastindex + 1);
+  covInterestedSourceFileName = InputFile2 + ".c";
+
+  // BB to order
+  allBlockCount = 0;
+  for (std::map<llvm::Function *, KFunction *>::iterator
+           it = kmodule->functionMap.begin(),
+           ie = kmodule->functionMap.end();
+       it != ie; ++it) {
+    Function *f = it->first;
+    // get source file of the funtion
+    KFunction *kf = it->second;
+    KInstruction *ki = kf->instructions[0];
+    const std::string path = ki->info->file;
+    std::size_t botDirPos = path.find_last_of("/");
+    std::string sourceFileName = path.substr(botDirPos + 1, path.length());
+    // if the source file is interested then loop over its BBs
+    if ((sourceFileName == covInterestedSourceFileName) &&
+        isCoverableFunction(f)) {
+      // loop over BBs of function
+      std::vector<llvm::BasicBlock *> bbs;
+      for (llvm::Function::iterator b = f->begin(); b != f->end(); ++b) {
+        fBBOrder[f][b] = ++allBlockCount;
+        if (BBCoverage >= 4) {
+          // Print All atomic condition covered
+          std::string liveBBFileAICMP =
+              interpreterHandler->getOutputFilename("coveredAICMP.txt");
+          std::ofstream liveBBFileAICMPOut(liveBBFileAICMP.c_str(),
+                                           std::ofstream::app);
+
+          // block content
+          std::string tmpICMP;
+          raw_string_ostream tmpICMPOS(tmpICMP);
+          for (llvm::BasicBlock::iterator aicmp = b->begin(); aicmp != b->end();
+               aicmp++) {
+            if (llvm::isa<llvm::ICmpInst>(aicmp)) {
+              allICMPCount++;
+              liveBBFileAICMPOut << "Function: "
+                                 << b->getParent()->getName().str() << " ";
+              liveBBFileAICMPOut << "Block Order: " << allBlockCount;
+              aicmp->print(tmpICMPOS);
+              liveBBFileAICMPOut << tmpICMP << "\n";
+            }
+          }
+          liveBBFileAICMPOut.close();
+        }
+      }
+    }
+  }
+
+  // first BB of main()
+  KInstruction *ki = initialState.pc;
+  BasicBlock *firstBB = ki->inst->getParent();
+  if (fBBOrder.find(firstBB->getParent()) != fBBOrder.end() &&
+      fBBOrder[firstBB->getParent()].find(firstBB) !=
+          fBBOrder[firstBB->getParent()].end()) {
+    processBBCoverage(BBCoverage, ki->inst->getParent(), false);
+  }
+
+  // TracerX End
+
   bindModuleConstants(initialState);
 
   // Delay init till now so that ticks don't accrue during optimization and such.
@@ -3758,6 +5892,13 @@ void Executor::run(ExecutionState &initialState) {
       lastState = it->first;
       ExecutionState &state = *lastState;
       KInstruction *ki = state.pc;
+
+      if (INTERPOLATION_ENABLED) {
+        // We synchronize the node id to that of the state. The node id is set
+        // only when it was the address of the first instruction in the node.
+        txTree->setCurrentINode(state);
+      }
+
       stepInstruction(state);
 
       executeInstruction(state, ki);
@@ -3806,10 +5947,68 @@ void Executor::run(ExecutionState &initialState) {
   // main interpreter loop
   while (!states.empty() && !haltExecution) {
     ExecutionState &state = searcher->selectState();
+
+    if (INTERPOLATION_ENABLED) {
+      // We synchronize the node id to that of the state. The node id
+      // is set only when it was the address of the first instruction
+      // in the node.
+      txTree->setCurrentINode(state);
+
+      uint64_t debugLevel = txTree->getDebugState();
+
+      if (debugLevel > 0) {
+        std::string debugMessage;
+        llvm::raw_string_ostream stream(debugMessage);
+        if (debugLevel > 1) {
+          stream << "\nCurrent state:\n";
+          processTree->print(stream);
+          stream << "\n";
+          txTree->print(stream);
+          stream << "\n";
+          stream << "--------------------------- Current Node "
+                    "----------------------------\n";
+          state.txTreeNode->print(stream);
+          stream << "\n";
+        }
+        stream << "------------------- Executing New Instruction "
+                  "-----------------------\n";
+        if (outputFunctionName(state.pc->inst, stream))
+          stream << ":";
+        state.pc->inst->print(stream);
+        stream << "\n";
+        stream.flush();
+
+        klee_message("%s", debugMessage.c_str());
+      }
+    }
+
+    if (INTERPOLATION_ENABLED && txTree->subsumptionCheck(solver, state, coreSolverTimeout)) {
+      terminateStateOnSubsumption(state);
+    }
+//    else {
+//      KInstruction *ki = state.pc;
+//      stepInstruction(state);
+//
+//      executeInstruction(state, ki);
+//
+//      if (INTERPOLATION_ENABLED) {
+//        state.txTreeNode->incInstructionsDepth();
+//      }
+//
+//      timers.invoke();
+//      if (::dumpStates) dumpStates();
+//      if (::dumpPTree) dumpPTree();
+//    }
+
     KInstruction *ki = state.pc;
     stepInstruction(state);
 
     executeInstruction(state, ki);
+
+    if (INTERPOLATION_ENABLED) {
+      state.txTreeNode->incInstructionsDepth();
+    }
+
     timers.invoke();
     if (::dumpStates) dumpStates();
     if (::dumpPTree) dumpPTree();
@@ -3903,23 +6102,66 @@ void Executor::terminateState(ExecutionState &state) {
       seedMap.erase(it3);
     addedStates.erase(it);
     processTree->remove(state.ptreeNode);
+
+    if (INTERPOLATION_ENABLED)
+      txTree->remove(&state, solver, false);
+
     delete &state;
   }
 }
 
+void Executor::terminateStateOnSubsumption(ExecutionState &state) {
+  assert(INTERPOLATION_ENABLED);
+
+  // Implementationwise, basically the same as terminateStateEarly method,
+  // but with different statistics functions called, and empty error
+  // message as this is not an error.
+  interpreterHandler->incSubsumptionTermination();
+  interpreterHandler->incInstructionsDepthOnSubsumption(state.depth);
+  interpreterHandler->incTotalInstructionsOnSubsumption(
+      state.txTreeNode->getInstructionsDepth());
+
+  if (SubsumedTest && (!OnlyOutputStatesCoveringNew || state.coveredNew ||
+                       (AlwaysOutputSeeds && seedMap.count(&state)))) {
+    interpreterHandler->incSubsumptionTerminationTest();
+    interpreterHandler->processTestCase(state, 0, "early");
+  }
+
+  terminateState(state);
+}
+
 void Executor::terminateStateEarly(ExecutionState &state, 
                                    const Twine &message) {
+  interpreterHandler->incEarlyTermination();
+  if (INTERPOLATION_ENABLED) {
+    interpreterHandler->incBranchingDepthOnEarlyTermination(state.depth);
+    interpreterHandler->incInstructionsDepthOnEarlyTermination(
+        state.txTreeNode->getInstructionsDepth());
+    state.txTreeNode->setGenericEarlyTermination();
+  }
+
   if (!OnlyOutputStatesCoveringNew || state.coveredNew ||
-      (AlwaysOutputSeeds && seedMap.count(&state)))
+      (AlwaysOutputSeeds && seedMap.count(&state))) {
+    interpreterHandler->incEarlyTerminationTest();
     interpreterHandler->processTestCase(state, (message + "\n").str().c_str(),
                                         "early");
+  }
   terminateState(state);
 }
 
 void Executor::terminateStateOnExit(ExecutionState &state) {
+  interpreterHandler->incExitTermination();
+  if (INTERPOLATION_ENABLED) {
+    interpreterHandler->incBranchingDepthOnExitTermination(state.depth);
+    interpreterHandler->incTotalInstructionsOnExit(
+        state.txTreeNode->getInstructionsDepth());
+  }
+
   if (!OnlyOutputStatesCoveringNew || state.coveredNew || 
-      (AlwaysOutputSeeds && seedMap.count(&state)))
+      (AlwaysOutputSeeds && seedMap.count(&state))) {
+    interpreterHandler->incExitTerminationTest();
     interpreterHandler->processTestCase(state, 0, 0);
+  }
   interpreterHandler->incPathsCompleted();
   terminateState(state);
 }
@@ -3987,7 +6229,36 @@ void Executor::terminateStateOnError(ExecutionState &state,
   static std::set< std::pair<Instruction*, std::string> > emittedErrors;
   Instruction * lastInst;
   const InstructionInfo &ii = getLastNonKleeInternalInstruction(state, &lastInst);
-  
+
+  if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
+      SpecStrategyToUse != TIMID && state.txTreeNode->isSpeculationNode()) {
+    //    llvm::outs() << "=== start jumpback because of error \n";
+    specFail++;
+    speculativeBackJump(state);
+    klee_message("Speculation Failed: %s:%d: %s", ii.file.c_str(), ii.line,
+                 message.c_str());
+    return;
+  }
+
+  interpreterHandler->incErrorTermination();
+  if (INTERPOLATION_ENABLED) {
+    interpreterHandler->incBranchingDepthOnErrorTermination(state.depth);
+    interpreterHandler->incInstructionsDepthOnErrorTermination(
+        state.txTreeNode->getInstructionsDepth());
+
+    if (termReason == Executor::Assert) {
+      TxTreeGraph::setError(state, TxTreeGraph::ASSERTION);
+    } else if (termReason == Executor::Ptr &&
+               messaget.str() == "memory error: out of bound pointer") {
+      TxTreeGraph::setError(state, TxTreeGraph::MEMORY);
+    } else {
+      state.txTreeNode->setGenericEarlyTermination();
+      TxTreeGraph::setError(state, TxTreeGraph::GENERIC);
+    }
+    if (WPInterpolant)
+      state.txTreeNode->setAssertionFail(EmitAllErrors);
+  }
+
   if (EmitAllErrors ||
       emittedErrors.insert(std::make_pair(lastInst, message)).second) {
     if (ii.file != "") {
@@ -4021,6 +6292,7 @@ void Executor::terminateStateOnError(ExecutionState &state,
       suffix = suffix_buf.c_str();
     }
 
+    interpreterHandler->incErrorTerminationTest();
     interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
   }
     
@@ -4178,6 +6450,16 @@ void Executor::callExternalFunction(ExecutionState &state,
     ref<Expr> e = ConstantExpr::fromMemory((void*) args, 
                                            getWidthForLLVMType(resultType));
     bindLocal(target, state, e);
+
+    if (INTERPOLATION_ENABLED) {
+      std::vector<ref<Expr> > tmpArgs;
+      tmpArgs.push_back(e);
+      for (unsigned i = 0; i < arguments.size(); ++i) {
+        tmpArgs.push_back(arguments.at(i));
+      }
+      txTree->execute(target->inst, tmpArgs);
+    }
+
   }
 }
 
@@ -4200,13 +6482,22 @@ ref<Expr> Executor::replaceReadWithSymbolic(ExecutionState &state,
   // and return it.
   
   static unsigned id;
-  const Array *array =
-      arrayCache.CreateArray("rrws_arr" + llvm::utostr(++id),
-                             Expr::getMinBytesForWidth(e->getWidth()));
+  const std::string arrayName("rrws_arr" + llvm::utostr(++id));
+  const unsigned arrayWidth(Expr::getMinBytesForWidth(e->getWidth()));
+  const Array *array = arrayCache.CreateArray(arrayName, arrayWidth);
   ref<Expr> res = Expr::createTempRead(array, e->getWidth());
   ref<Expr> eq = NotOptimizedExpr::create(EqExpr::create(e, res));
   llvm::errs() << "Making symbolic: " << eq << "\n";
   state.addConstraint(eq);
+
+  if (INTERPOLATION_ENABLED) {
+    // We create shadow array as existentially-quantified
+    // variables for subsumption checking
+    const Array *shadow = arrayCache.CreateArray(
+        TxShadowArray::getShadowName(arrayName), arrayWidth);
+    TxShadowArray::addShadowArrayMap(array, shadow);
+  }
+
   return res;
 }
 
@@ -4246,6 +6537,7 @@ void Executor::executeAlloc(ExecutionState &state,
     if (!mo) {
       bindLocal(target, state, 
                 ConstantExpr::alloc(0, Context::get().getPointerWidth()));
+      // TODO DOUBT?
     } else {
       ObjectState *os = bindObjectInState(state, mo, isLocal);
       if (zeroMemory) {
@@ -4254,6 +6546,10 @@ void Executor::executeAlloc(ExecutionState &state,
         os->initializeToRandom();
       }
       bindLocal(target, state, mo->getBaseExpr());
+
+      // Update dependency
+      if (INTERPOLATION_ENABLED)
+        txTree->execute(target->inst, mo->getBaseExpr(), size);
       
       if (reallocFrom) {
         unsigned count = std::min(reallocFrom->size, os->size);
@@ -4324,8 +6620,13 @@ void Executor::executeAlloc(ExecutionState &state,
                true);
         if (hugeSize.first) {
           klee_message("NOTE: found huge malloc, returning 0");
-          bindLocal(target, *hugeSize.first, 
-                    ConstantExpr::alloc(0, Context::get().getPointerWidth()));
+          ref<Expr> result = ConstantExpr::alloc(0, Context::get().getPointerWidth());
+          bindLocal(target, *hugeSize.first, result);
+
+          // Update dependency
+          if (INTERPOLATION_ENABLED)
+            txTree->execute(target->inst, result);
+
         }
         
         if (hugeSize.second) {
@@ -4355,6 +6656,7 @@ void Executor::executeFree(ExecutionState &state,
   if (zeroPointer.first) {
     if (target)
       bindLocal(target, *zeroPointer.first, Expr::createPointer(0));
+      //TODO DOUBT?
   }
   if (zeroPointer.second) { // address != 0
     ExactResolutionList rl;
@@ -4373,6 +6675,7 @@ void Executor::executeFree(ExecutionState &state,
         it->second->addressSpace.unbindObject(mo);
         if (target)
           bindLocal(target, *it->second, Expr::createPointer(0));
+          //TODO DOUBT?
       }
     }
   }
@@ -4467,6 +6770,16 @@ void Executor::executeMemoryOperation(ExecutionState &state,
         } else {
           ObjectState *wos = state.addressSpace.getWriteable(mo, os);
           wos->write(offset, value);
+
+          // Update dependency
+          if (INTERPOLATION_ENABLED && target &&
+              txTree->executeMemoryOperation(target->inst, value, address,
+                                             inBounds)) {
+            // Memory error according to Tracer-X
+            terminateStateOnError(state, "memory error: out of bound pointer",
+                                  Ptr, NULL, getAddressInfo(state, address));
+          }
+
         }          
       } else {
         ref<Expr> result = os->read(offset, type);
@@ -4475,6 +6788,16 @@ void Executor::executeMemoryOperation(ExecutionState &state,
           result = replaceReadWithSymbolic(state, result);
         
         bindLocal(target, state, result);
+
+        // Update dependency
+        if (INTERPOLATION_ENABLED && target &&
+            txTree->executeMemoryOperation(target->inst, result, address,
+                                           inBounds)) {
+          // Memory error according to Tracer-X
+          terminateStateOnError(state, "memory error: out of bound pointer",
+                                Ptr, NULL, getAddressInfo(state, address));
+        }
+
       }
 
       return;
@@ -4484,6 +6807,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
   // we are on an error path (no resolution, multiple resolution, one
   // resolution with out of bounds)
 
+  // TODO DOUBT?
   address = optimizer.optimizeExpr(address, true);
   ResolutionList rl;  
   solver->setTimeout(coreSolverTimeout);
@@ -4511,10 +6835,22 @@ void Executor::executeMemoryOperation(ExecutionState &state,
         } else {
           ObjectState *wos = bound->addressSpace.getWriteable(mo, os);
           wos->write(mo->getOffsetExpr(address), value);
+
+          // Update dependency
+          if (INTERPOLATION_ENABLED && target)
+            TxTree::executeOnNode(bound->txTreeNode, target->inst, value,
+                                  address);
+
         }
       } else {
         ref<Expr> result = os->read(mo->getOffsetExpr(address), type);
         bindLocal(target, *bound, result);
+
+        // Update dependency
+        if (INTERPOLATION_ENABLED && target)
+          TxTree::executeOnNode(bound->txTreeNode, target->inst, result,
+                                address);
+
       }
     }
 
@@ -4525,9 +6861,21 @@ void Executor::executeMemoryOperation(ExecutionState &state,
   
   // XXX should we distinguish out of bounds and overlapped cases?
   if (unbound) {
+
+    if (INTERPOLATION_ENABLED)
+      TxTree::symbolicExecutionError =
+          true; // We let interpolation subsystem knows we are recovering from
+                // error, hence the previous expression may not be recorded
+
     if (incomplete) {
       terminateStateEarly(*unbound, "Query timed out (resolve).");
     } else {
+
+      if (INTERPOLATION_ENABLED && target) {
+        state.txTreeNode->memoryBoundViolationInterpolation(target->inst,
+                                                            address);
+      }
+
       terminateStateOnError(*unbound, "memory error: out of bound pointer", Ptr,
                             NULL, getAddressInfo(*unbound, address));
     }
@@ -4547,6 +6895,16 @@ void Executor::executeMakeSymbolic(ExecutionState &state,
       uniqueName = name + "_" + llvm::utostr(++id);
     }
     const Array *array = arrayCache.CreateArray(uniqueName, mo->size);
+
+    if (INTERPOLATION_ENABLED) {
+      // We create shadow array as existentially-quantified
+      // variables for subsumption checking
+      const Array *shadow = arrayCache.CreateArray(
+          TxShadowArray::getShadowName(uniqueName), mo->size);
+      TxShadowArray::addShadowArrayMap(array, shadow);
+      txTree->executeMakeSymbolic(state.prevPC->inst, mo->getBaseExpr(), array);
+    }
+
     bindObjectInState(state, mo, false, array);
     state.addSymbolic(mo, array);
     
@@ -4703,8 +7061,187 @@ void Executor::runFunctionAsMain(Function *f,
   initializeGlobals(*state);
 
   processTree = std::make_unique<PTree>(state);
+
+  if (INTERPOLATION_ENABLED) {
+    txTree = new TxTree(state, kmodule->targetData, &globalAddresses);
+    state->txTreeNode = txTree->root;
+    TxTreeGraph::initialize(txTree->root);
+  }
+
   run(*state);
   processTree = nullptr;
+
+  if (INTERPOLATION_ENABLED) {
+    TxTreeGraph::save(interpreterHandler->getOutputFilename("tree.dot"));
+    TxTreeGraph::deallocate();
+
+    delete txTree;
+    txTree = 0;
+
+    // Print interpolation time statistics
+    interpreterHandler->assignSubsumptionStats(TxTree::getInterpolationStat());
+  }
+
+  if (SpecTypeToUse != NO_SPEC) {
+    std::string outSpecFile = interpreterHandler->getOutputFilename("spec.txt");
+    std::ofstream outSpec(outSpecFile.c_str(), std::ofstream::app);
+
+    outSpec << "Total Independence Yes: " << independenceYes << "\n";
+    outSpec << "Total Independence No: " << independenceNo << "\n";
+
+    if (SpecStrategyToUse == AGGRESSIVE) {
+      outSpec << "Total Independence No & Success: "
+              << (independenceNo - specFail) << "\n";
+      outSpec << "Total Independence No & Fail: " << specFail << "\n";
+    } else if (SpecStrategyToUse == CUSTOM) {
+      outSpec << "Total Dynamic Yes: " << dynamicYes << "\n";
+      outSpec << "Total Dynamic No: " << dynamicNo << "\n";
+      outSpec << "Total Independence No, Dynamic Yes & Success: "
+              << (dynamicYes - specFail) << "\n";
+      outSpec << "Total Independence No, Dynamic Yes & Fail: " << specFail
+              << "\n";
+    }
+
+    unsigned int statsTrackerTotal = 0;
+    unsigned int statsTrackerFail = 0;
+    unsigned int statsTrackerSucc = 0;
+    for (std::map<llvm::BasicBlock *, std::vector<unsigned int> >::iterator
+             it = StatsTracker::bbSpecCount.begin(),
+             ie = StatsTracker::bbSpecCount.end();
+         it != ie; ++it) {
+      statsTrackerTotal += it->second[0];
+      statsTrackerFail += it->second[1];
+      statsTrackerSucc += it->second[2];
+    }
+    outSpec << "StatsTracker Total: " << statsTrackerTotal << "\n";
+    outSpec << "StatsTracker Fail: " << statsTrackerFail << "\n";
+    outSpec << "StatsTracker Success: " << statsTrackerSucc << "\n";
+
+    // total fail
+    // fail because of new BBs
+    unsigned int failNew = 0;
+    for (std::map<uintptr_t, unsigned int>::iterator it = specFailNew.begin(),
+                                                     ie = specFailNew.end();
+         it != ie; ++it) {
+      failNew += it->second;
+    }
+    // fail because of revisted BBs
+    unsigned int failRevisited = 0;
+    for (std::map<uintptr_t, unsigned int>::iterator it = specRevisited.begin(),
+                                                     ie = specRevisited.end();
+         it != ie; ++it) {
+      failRevisited += it->second;
+    }
+
+    // fail & no interpolant
+    // fail because of new BBs
+    unsigned int failNewNoInter = 0;
+    for (std::map<uintptr_t, unsigned int>::iterator
+             it = specFailNoInter.begin(),
+             ie = specFailNoInter.end();
+         it != ie; ++it) {
+      failNewNoInter += it->second;
+    }
+    // fail because of revisted BBs
+    unsigned int failRevisitedNoInter = 0;
+    for (std::map<uintptr_t, unsigned int>::iterator
+             it = specRevisitedNoInter.begin(),
+             ie = specRevisitedNoInter.end();
+         it != ie; ++it) {
+      failRevisitedNoInter += it->second;
+    }
+
+    outSpec << "Total speculation failures because of New BB: " << failNew
+            << "\n";
+    outSpec << "Total speculation failures because of New BB with no "
+               "interpolation: " << failNewNoInter << "\n";
+
+    outSpec << "Total speculation failures because of Revisted: "
+            << failRevisited << "\n";
+    outSpec << "Total speculation failures because of Revisted with no "
+               "interpolation: " << failRevisitedNoInter << "\n";
+
+    outSpec << "Total speculation failures because of Bug Hit: "
+            << (specFail - failNew - failRevisited) << "\n";
+
+    outSpec << "Total speculation fail time: "
+            << totalSpecFailTime / double(CLOCKS_PER_SEC) << "\n";
+
+    // print frequency of failure at each program point
+    outSpec << "Frequency of failures because New BB with no interpolation:\n";
+    for (std::map<uintptr_t, unsigned int>::iterator
+             it = specFailNoInter.begin(),
+             ie = specFailNoInter.end();
+         it != ie; ++it) {
+      outSpec << it->first << ": " << it->second << "\n";
+    }
+    outSpec
+        << "Frequency of failures because Revisted with no interpolation:\n";
+    for (std::map<uintptr_t, unsigned int>::iterator
+             it = specRevisitedNoInter.begin(),
+             ie = specRevisitedNoInter.end();
+         it != ie; ++it) {
+      outSpec << it->first << ": " << it->second << "\n";
+    }
+  }
+
+  if (BBCoverage >= 1) {
+    llvm::errs()
+        << "************Basic Block Coverage Report Starts****************"
+        << "\n";
+    interpreterHandler->getInfoStream()
+        << "KLEE: done: Total number of single time Visited Basic Blocks: "
+        << visitedBlocks.size() << "\n";
+    interpreterHandler->getInfoStream()
+        << "KLEE: done: Total number of Basic Blocks: " << allBlockCount
+        << "\n";
+    llvm::errs()
+        << "KLEE: done: Total number of single time Visited Basic Blocks: "
+        << visitedBlocks.size() << "\n";
+    llvm::errs() << "KLEE: done: Total number of Basic Blocks: "
+                 << allBlockCount << "\n";
+    llvm::errs()
+        << "************Basic Block Coverage Report Ends****************"
+        << "\n";
+  }
+  if (BBCoverage >= 2) {
+    // VisitedBB.txt
+    std::string visitedBBFile =
+        interpreterHandler->getOutputFilename("VisitedBB.txt");
+    std::ofstream visitedBBFileOut(visitedBBFile.c_str(), std::ofstream::app);
+
+    for (std::set<llvm::BasicBlock *>::iterator it = visitedBlocks.begin(),
+                                                ie = visitedBlocks.end();
+         it != ie; ++it) {
+
+      int order = fBBOrder[(*it)->getParent()][*it];
+      std::string functionName = ((*it)->getParent())->getName();
+      visitedBBFileOut << order << "\n";
+    }
+
+    visitedBBFileOut.close();
+  }
+
+  if (BBCoverage >= 4) {
+    llvm::errs() << "************ICMP/Atomic Condition Coverage Report "
+                    "Starts****************"
+                 << "\n";
+    interpreterHandler->getInfoStream()
+        << "KLEE: done: Total number of Covered ICMP/Atomic Condition: "
+        << coveredICMPCount << "\n";
+    interpreterHandler->getInfoStream()
+        << "KLEE: done: Total number of All ICMP/Atomic Conditions "
+        << allICMPCount << "\n";
+    llvm::errs()
+        << "KLEE: done: Total number of Covered ICMP/Atomic Condition: "
+        << coveredICMPCount << "\n";
+    llvm::errs() << "KLEE: done: Total number of All ICMP/Atomic Condition: "
+                 << allICMPCount << "\n";
+    llvm::errs() << "************ICMP/Atomic Condition Coverage Report "
+                    "Ends****************"
+                 << "\n";
+  }
+  // TracerX End
 
   // hack to clear memory objects
   delete memory;

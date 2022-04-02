@@ -71,6 +71,8 @@ namespace klee {
   class MemoryObject;
   class ObjectState;
   class PTree;
+  class TxTree;
+  class TxTreeNode;
   class Searcher;
   class SeedInfo;
   class SpecialFunctionHandler;
@@ -141,6 +143,7 @@ private:
   SpecialFunctionHandler *specialFunctionHandler;
   TimerGroup timers;
   std::unique_ptr<PTree> processTree;
+  TxTree *txTree;
 
   /// Used to track states that have been added during the current
   /// instructions step. 
@@ -241,6 +244,20 @@ private:
   void executeInstruction(ExecutionState &state, KInstruction *ki);
 
   void run(ExecutionState &initialState);
+
+  // functions used in speculation mode.
+  bool isCoverableFunction(llvm::Function *f) {
+    return !f->isIntrinsic() && (f->getName().str().substr(0, 5) != "klee_") &&
+           (f->getName().str().substr(0, 3) != "tx_") &&
+           (f->getName() != "memcpy") && (f->getName() != "memmove") &&
+           (f->getName() != "mempcpy") && (f->getName() != "memset");
+  }
+  std::map<int, std::set<std::string> > readBBOrderToSpecAvoid(std::string folderName);
+  std::pair<int, std::set<std::string> > readBBSpecAvoid(std::string fileName);
+  std::set<llvm::BasicBlock *> readVisitedBB(std::string fileName);
+  void processBBCoverage(int BBCoverage, llvm::BasicBlock *bb,
+                         bool isInSpecMode);
+  // end functions used in speculation mode.
 
   // Given a concrete object in our [klee's] address space, add it to 
   // objects checked code can reference.
@@ -360,6 +377,28 @@ private:
   // current state, and one of the states may be null.
   StatePair fork(ExecutionState &current, ref<Expr> condition, bool isInternal);
 
+  // used in speculation mode
+  StatePair branchFork(ExecutionState &current, ref<Expr> condition, bool isInternal);
+
+  std::set<std::string> extractVarNames(ExecutionState &current,
+                                        llvm::Value *v);
+
+  // Generally the nodes are in normal mode. In case an infeasible path
+  // is found, an speculation node is generated for the infeasible path
+  // excluding the last constraint and the execution of the speculation
+  // node will be continued in speculationFork.
+  StatePair addSpeculationNode(ExecutionState &current, ref<Expr> condition,
+                               llvm::Instruction *binst, bool isInternal,
+                               bool falseBranchIsInfeasible);
+
+  void speculativeBackJump(ExecutionState &current);
+
+  std::vector<TxTreeNode *> collectSpeculationNodes(TxTreeNode *);
+
+  // Speculation fork performs fork in the speculation mode.
+  StatePair speculationFork(ExecutionState &current, ref<Expr> condition, bool isInternal);
+  // used in speculation mode end
+
   // If the MaxStatic*Pct limits have been reached, concretize the condition and
   // return it. Otherwise, return the unmodified condition.
   ref<Expr> maxStaticPctChecks(ExecutionState &current, ref<Expr> condition);
@@ -444,6 +483,8 @@ private:
 
   // remove state from queue and delete
   void terminateState(ExecutionState &state);
+  // call subsumption handler and terminate state
+  void terminateStateOnSubsumption(ExecutionState &state);
   // call exit handler and terminate state
   void terminateStateEarly(ExecutionState &state, const llvm::Twine &message);
   // call exit handler and terminate state

@@ -33,6 +33,7 @@ struct KFunction;
 struct KInstruction;
 class MemoryObject;
 class PTreeNode;
+class TxTreeNode;
 struct InstructionInfo;
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const MemoryMap &mm);
@@ -152,6 +153,8 @@ private:
   // copy ctor
   ExecutionState(const ExecutionState &state);
 
+  void addTxTreeConstraint(ref<Expr> e, llvm::Instruction *instr);
+
 public:
   using stack_ty = std::vector<StackFrame>;
 
@@ -237,6 +240,9 @@ public:
 
   /// @brief Disables forking for this state. Set by user code
   bool forkDisabled;
+
+  /// @brief Pointer to the interpolation tree of the current state
+  TxTreeNode *txTreeNode;
 
 public:
   #ifdef KLEE_UNITTEST

@@ -23,6 +23,7 @@
 #include "klee/Support/ModuleUtil.h"
 #include "klee/Support/PrintVersion.h"
 #include "klee/System/Time.h"
+#include "klee/util/TxTreeGraph.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
@@ -312,10 +313,44 @@ private:
 
     SmallString<128> m_outputDirectory;
 
+    unsigned m_testIndex;  // number of tests written so far
+    unsigned m_pathsExplored; // number of paths explored so far
+
+    unsigned m_totalBranchingDepthOnExitTermination; // total depth paths explored so far
+                                                         // on exit
+    unsigned m_totalInstructionsDepthOnExitTermination; // total instructions explored so far on
+                                                         // exit
+    unsigned m_totalBranchingDepthOnEarlyTermination; // total depth paths explored so
+                                                         // far on early
+    unsigned m_totalInstructionsDepthOnEarlyTermination; // total instructions explored so far on
+                                                         // early
+    unsigned m_totalBranchingDepthOnErrorTermination; // total depth paths explored so
+                                                         // far on error
+    unsigned m_totalInstructionsDepthOnErrorTermination; // total instructions explored so far on
+                                                         // error
+    unsigned m_totalBranchingDepthOnSubsumption; // total depth explored so
+                                                         // far on subsumption
+    unsigned m_totalInstructionsDepthOnSubsumption; // total instruction explored so
+                                                         // far on subsumption
+
+    unsigned m_subsumptionTermination;     // number of termination by subsumption
+    unsigned m_subsumptionTerminationTest; // number of tests generated from
+                                           // termination by subsumption
+    unsigned m_earlyTermination;     // number of early termination
+    unsigned m_earlyTerminationTest; // number of tests generated from early termination
+    unsigned m_errorTermination;     // number of error termination
+    unsigned m_errorTerminationTest; // number of tests generated from error termination
+    unsigned m_exitTermination;      // number of exit termination
+    unsigned m_exitTerminationTest;  // number of tests generated from exit termination
+    unsigned m_otherTermination;     // number of other termination (strategy, state merging,
+                                           // not in seed, etc.
+
+    std::string m_subsumptionStats; // subsumption statistics result
+
     unsigned m_numTotalTests;     // Number of tests received from the interpreter
     unsigned m_numGeneratedTests; // Number of tests successfully generated
     unsigned m_pathsCompleted; // number of completed paths
-  unsigned m_pathsExplored; // number of partially explored and completed paths
+    unsigned m_pathsExplored; // number of partially explored and completed paths
 
     // used for writing .ktest files
     int m_argc;
@@ -329,10 +364,102 @@ public:
     /// Returns the number of test cases successfully generated so far
     unsigned getNumTestCases() { return m_numGeneratedTests; }
     unsigned getNumPathsCompleted() { return m_pathsCompleted; }
-  unsigned getNumPathsExplored() { return m_pathsExplored; }
+    unsigned getNumPathsExplored() { return m_pathsExplored; }
     void incPathsCompleted() { ++m_pathsCompleted; }
-  void incPathsExplored(std::uint32_t num = 1) {
-    m_pathsExplored += num; }
+    void incPathsExplored(std::uint32_t num = 1) { m_pathsExplored += num; }
+
+    void incBranchingDepthOnExitTermination(unsigned branchingDepth) {
+      m_totalBranchingDepthOnExitTermination += branchingDepth;
+    }
+
+    void incTotalInstructionsOnExit(unsigned instructionsDepth) {
+      m_totalInstructionsDepthOnExitTermination += instructionsDepth;
+    }
+    unsigned getTotalBranchingDepthOnExitTermination() {
+      return m_totalBranchingDepthOnExitTermination;
+    }
+    unsigned getTotalInstructionsDepthOnExitTermination() {
+      return m_totalInstructionsDepthOnExitTermination;
+    }
+    void incBranchingDepthOnEarlyTermination(unsigned branchingDepth) {
+      m_totalBranchingDepthOnEarlyTermination += branchingDepth;
+    }
+
+    void incInstructionsDepthOnEarlyTermination(unsigned instructionsDepth) {
+      m_totalInstructionsDepthOnEarlyTermination += instructionsDepth;
+    }
+    unsigned getTotalBranchingDepthOnEarlyTermination() {
+      return m_totalBranchingDepthOnEarlyTermination;
+    }
+    unsigned getTotalInstructionsDepthOnEarlyTermination() {
+      return m_totalInstructionsDepthOnEarlyTermination;
+    }
+    void incBranchingDepthOnErrorTermination(unsigned branchingDepth) {
+      m_totalBranchingDepthOnErrorTermination += branchingDepth;
+    }
+
+    void incInstructionsDepthOnErrorTermination(unsigned instructionsDepth) {
+      m_totalInstructionsDepthOnErrorTermination += instructionsDepth;
+    }
+    unsigned getTotalBranchingDepthOnErrorTermination() {
+      return m_totalBranchingDepthOnErrorTermination;
+    }
+    unsigned getTotalInstructionsDepthOnErrorTermination() {
+      return m_totalInstructionsDepthOnErrorTermination;
+    }
+    unsigned getTotalInstructionPathsExploredOnSubsumption() {
+      return m_totalInstructionsDepthOnSubsumption;
+    }
+    void incInstructionsDepthOnSubsumption(unsigned branchingDepth) {
+      m_totalBranchingDepthOnSubsumption += branchingDepth;
+    }
+
+    void incTotalInstructionsOnSubsumption(unsigned instructionsDepth) {
+      m_totalInstructionsDepthOnSubsumption += instructionsDepth;
+    }
+    unsigned getTotalBranchingDepthOnSubsumption() {
+      return m_totalBranchingDepthOnSubsumption;
+    }
+    unsigned getSubsumptionTermination() { return m_subsumptionTermination; }
+    void incSubsumptionTermination() { m_subsumptionTermination++; }
+    unsigned getSubsumptionTerminationTest() {
+      return m_subsumptionTerminationTest;
+    }
+    void incSubsumptionTerminationTest() {
+      if (!NoOutput) {
+        m_subsumptionTerminationTest++;
+      }
+    }
+    unsigned getEarlyTermination() { return m_earlyTermination; }
+    void incEarlyTermination() { m_earlyTermination++; }
+    unsigned getEarlyTerminationTest() { return m_earlyTerminationTest; }
+    void incEarlyTerminationTest() {
+      if (!NoOutput) {
+        m_earlyTerminationTest++;
+      }
+    }
+    unsigned getErrorTermination() { return m_errorTermination; }
+    void incErrorTermination() { m_errorTermination++; }
+    unsigned getErrorTerminationTest() { return m_errorTerminationTest; }
+    void incErrorTerminationTest() {
+      if (!NoOutput) {
+        m_errorTerminationTest++;
+      }
+    }
+    unsigned getExitTermination() { return m_exitTermination; }
+    void incExitTermination() { m_exitTermination++; }
+    unsigned getExitTerminationTest() { return m_exitTerminationTest; }
+    void incExitTerminationTest() {
+      if (!NoOutput) {
+        m_exitTerminationTest++;
+      }
+    }
+
+    void assignSubsumptionStats(std::string currentStats) {
+      m_subsumptionStats = currentStats;
+    }
+
+    std::string getSubsumptionStats() { return m_subsumptionStats; }
 
     void setInterpreter(Interpreter *i);
 
@@ -358,7 +485,19 @@ public:
 KleeHandler::KleeHandler(int argc, char **argv)
         : m_interpreter(0), m_pathWriter(0), m_symPathWriter(0),
           m_outputDirectory(), m_numTotalTests(0), m_numGeneratedTests(0),
-          m_pathsCompleted(0), m_pathsExplored(0), m_argc(argc), m_argv(argv) {
+          m_pathsCompleted(0), m_pathsExplored(0),
+          m_totalBranchingDepthOnExitTermination(0),
+          m_totalInstructionsDepthOnExitTermination(0),
+          m_totalBranchingDepthOnEarlyTermination(0),
+          m_totalInstructionsDepthOnEarlyTermination(0),
+          m_totalBranchingDepthOnErrorTermination(0),
+          m_totalInstructionsDepthOnErrorTermination(0),
+          m_totalBranchingDepthOnSubsumption(0),
+          m_totalInstructionsDepthOnSubsumption(0), m_subsumptionTermination(0),
+          m_subsumptionTerminationTest(0), m_earlyTermination(0),
+          m_earlyTerminationTest(0), m_errorTermination(0),
+          m_errorTerminationTest(0), m_exitTermination(0), m_exitTerminationTest(0),
+          m_otherTermination(0), m_argc(argc), m_argv(argv) {
 
     // create output directory (OutputDir or "klee-out-<i>")
     bool dir_given = OutputDir != "";
@@ -608,6 +747,12 @@ void KleeHandler::processTestCase(const ExecutionState &state,
     if (errorMessage && OptExitOnError) {
         m_interpreter->prepareForEarlyExit();
         klee_error("EXITING ON ERROR:\n%s\n", errorMessage);
+
+        if (INTERPOLATION_ENABLED) {
+          TxTreeGraph::setError(state, TxTreeGraph::GENERIC);
+          TxTreeGraph::save(getOutputFilename("tree.dot"));
+          TxTreeGraph::deallocate();
+        }
     }
 }
 
@@ -1631,6 +1776,11 @@ int main(int argc, char **argv, char **envp) {
             << "KLEE: done: query cex = " << queryCounterexamples << "\n";
 
     std::stringstream stats;
+
+    if (INTERPOLATION_ENABLED) {
+      stats << handler->getSubsumptionStats();
+    }
+
     stats << '\n'
      << "KLEE: done: total instructions = " << instructions << '\n'
           << "KLEE: done: completed paths = " << handler->getNumPathsCompleted()
@@ -1640,6 +1790,76 @@ int main(int argc, char **argv, char **envp) {
         << '\n'
      << "KLEE: done: generated tests = "
           << handler->getNumTestCases() << '\n';
+
+    if (INTERPOLATION_ENABLED) {
+      stats << "KLEE: done:     average branching depth of completed paths = "
+            << (double)(handler->getTotalBranchingDepthOnExitTermination() +
+                        handler->getTotalBranchingDepthOnEarlyTermination() +
+                        handler->getTotalBranchingDepthOnErrorTermination()) /
+                   (double)(handler->getExitTermination() +
+                            handler->getEarlyTermination() +
+                            handler->getErrorTermination()) << "\n";
+      if (handler->getSubsumptionTermination() == 0.0) {
+        stats << "KLEE: done:     average branching depth of subsumed paths = "
+              << 0 << "\n";
+      } else {
+        stats << "KLEE: done:     average branching depth of subsumed paths = "
+              << (double)handler->getTotalBranchingDepthOnSubsumption() /
+                     (double)handler->getSubsumptionTermination() << "\n";
+      }
+    }
+
+    if (INTERPOLATION_ENABLED) {
+      stats << "KLEE: done:     average instructions of completed paths = "
+            << (double)(handler->getTotalInstructionsDepthOnExitTermination() +
+                        handler->getTotalInstructionsDepthOnEarlyTermination() +
+                        handler->getTotalInstructionsDepthOnErrorTermination()) /
+                   (double)(handler->getExitTermination() +
+                            handler->getEarlyTermination() +
+                            handler->getErrorTermination()) << "\n";
+      if (handler->getSubsumptionTermination() == 0.0) {
+        stats << "KLEE: done:     average instructions of subsumed paths = " << 0
+              << "\n";
+      } else {
+        stats << "KLEE: done:     average instructions of subsumed paths = "
+              << (double)
+                         handler->getTotalInstructionPathsExploredOnSubsumption() /
+                     (double)handler->getSubsumptionTermination() << "\n";
+      }
+    }
+
+    if (INTERPOLATION_ENABLED)
+      stats << "KLEE: done:     subsumed paths = "
+            << handler->getSubsumptionTermination() << "\n";
+    stats << "KLEE: done:     error paths = "
+          << handler->getErrorTermination() << "\n";
+    stats << "KLEE: done:     program exit paths = "
+          << handler->getExitTermination() << "\n";
+    stats << "KLEE: done: generated tests = "
+          << handler->getNumTestCases() << ", among which\n";
+    stats << "KLEE: done:     early-terminating tests (instruction time limit, solver timeout, max-depth reached) = "
+          << handler->getEarlyTerminationTest() << "\n";
+    if (SubsumedTest)
+      stats << "KLEE: done:     subsumed tests = "
+            << handler->getSubsumptionTerminationTest() << "\n";
+    stats << "KLEE: done:     error tests = "
+          << handler->getErrorTerminationTest() << "\n";
+    stats << "KLEE: done:     program exit tests = "
+          << handler->getExitTerminationTest() << "\n";
+
+    if (INTERPOLATION_ENABLED) {
+      stats << "\n";
+      stats << "KLEE: done: NOTE:\n";
+      stats << "KLEE: done:     Subsumed paths / tests counts are "
+               "nondeterministic for\n";
+      stats << "KLEE: done:     programs with dynamically-allocated memory such "
+               "as those\n";
+      stats << "KLEE: done:     using malloc, since KLEE may reuse the address "
+               "of the\n";
+      stats << "KLEE: done:     same malloc calls in different paths. This "
+               "nondeterminism\n";
+      stats << "KLEE: done:     does not cause loss of error reports.\n";
+    }
 
     bool useColors = llvm::errs().is_displayed();
     if (useColors)
