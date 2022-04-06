@@ -19,8 +19,8 @@
 #include "TxStore.h"
 #include "TxTree.h"
 
-#include "klee/Internal/Module/TxValues.h"
-#include "klee/Internal/Support/ErrorHandling.h"
+#include "klee/Module/TxValues.h"
+#include "klee/Support/ErrorHandling.h"
 #include "klee/util/TxExprUtil.h"
 #include "klee/util/TxPrintUtil.h"
 #include "TxShadowArray.h"

@@ -17,7 +17,7 @@
 #include "TxStore.h"
 
 #include "klee/CommandLine.h"
-#include "klee/Internal/Module/TxValues.h"
+#include "klee/Module/TxValues.h"
 #include "klee/util/TxPrintUtil.h"
 
 using namespace klee;

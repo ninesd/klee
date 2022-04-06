@@ -17,19 +17,19 @@
 #include "Context.h"
 #include "TxTree.h"
 
-#include <klee/Expr.h>
-#include <klee/Internal/Support/ErrorHandling.h>
+#include "klee/Expr/Expr.h"
+#include "klee/Support/ErrorHandling.h"
 
 #include "TimingSolver.h"
 #include "TxDependency.h"
 #include "TxShadowArray.h"
 
 #include <fstream>
-#include <klee/CommandLine.h>
-#include <klee/Solver.h>
-#include <klee/SolverStats.h>
-#include <klee/util/ExprPPrinter.h>
-#include <klee/util/TxPrintUtil.h>
+#include "klee/CommandLine.h"
+#include "klee/Solver/Solver.h"
+#include "klee/Solver/SolverStats.h"
+#include "klee/util/ExprPPrinter.h"
+#include "klee/util/TxPrintUtil.h"
 #include <vector>
 
 using namespace klee;
