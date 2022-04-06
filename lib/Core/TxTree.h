@@ -21,7 +21,7 @@
 #include "klee/Config/Version.h"
 #include "ExecutionState.h"
 #include "klee/Solver/Solver.h"
-#include "Z3Solver.h"
+#include "Solver/Z3Solver.h"
 #include "klee/Statistics/Statistic.h"
 #include "klee/Statistics/TimerStatIncrementer.h"
 #include "klee/Expr/ExprVisitor.h"
