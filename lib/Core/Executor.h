@@ -295,12 +295,7 @@ private:
   void run(ExecutionState &initialState);
 
   // functions used in speculation mode.
-  bool isCoverableFunction(llvm::Function *f) {
-    return !f->isIntrinsic() && (f->getName().str().substr(0, 5) != "klee_") &&
-           (f->getName().str().substr(0, 3) != "tx_") &&
-           (f->getName() != "memcpy") && (f->getName() != "memmove") &&
-           (f->getName() != "mempcpy") && (f->getName() != "memset");
-  }
+  bool isCoverableFunction(llvm::Function *f);
   std::map<int, std::set<std::string> > readBBOrderToSpecAvoid(std::string folderName);
   std::pair<int, std::set<std::string> > readBBSpecAvoid(std::string fileName);
   std::set<llvm::BasicBlock *> readVisitedBB(std::string fileName);

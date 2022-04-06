@@ -3588,6 +3588,13 @@ void Executor::transferToBasicBlock(BasicBlock *dst, BasicBlock *src,
   }
 }
 
+bool isCoverableFunction(llvm::Function *f) {
+  return !f->isIntrinsic() && (f->getName().str().substr(0, 5) != "klee_") &&
+         (f->getName().str().substr(0, 3) != "tx_") &&
+         (f->getName() != "memcpy") && (f->getName() != "memmove") &&
+         (f->getName() != "mempcpy") && (f->getName() != "memset");
+}
+
 std::map<int, std::set<std::string> >
 Executor::readBBOrderToSpecAvoid(std::string folderName) {
   std::map<int, std::set<std::string> > res;
