@@ -30,6 +30,7 @@
 #include <klee/util/TxExprUtil.h>
 #include <klee/util/TxPrintUtil.h>
 #include <vector>
+#include "Executor.h"
 
 #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 5)
 #include <llvm/IR/DebugInfo.h>
