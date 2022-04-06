@@ -108,12 +108,12 @@ public:
                        std::vector<std::vector<unsigned char> > *values,
                        bool &hasSolution);
   SolverRunStatus getOperationStatusCode();
-
-  bool Z3Solver::directComputeValidity(const Query &query,
-                                       Solver::Validity &result,
-                                       std::vector<ref<Expr> > &unsatCore) {
-    return impl->computeValidity(query, result, unsatCore);
 };
+
+bool Z3Solver::directComputeValidity(const Query &query,
+                                     Solver::Validity &result,
+                                     std::vector<ref<Expr> > &unsatCore) {
+  return impl->computeValidity(query, result, unsatCore);
 
 Z3SolverImpl::Z3SolverImpl(Z3BuilderType type)
     : builderType(type), runStatusCode(SOLVER_RUN_STATUS_FAILURE) {
