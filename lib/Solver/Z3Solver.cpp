@@ -69,7 +69,14 @@ private:
   bool internalRunSolver(const Query &,
                          const std::vector<const Array *> *objects,
                          std::vector<std::vector<unsigned char> > *values,
-                         bool &hasSolution);
+                         bool &hasSolution, std::vector<ref<Expr> > &unsatCore);
+
+  /// getUnsatCoreVector - Declare the routine to extract the unsatisfiability
+  /// core vector. The resulting vector is the fourth argument.
+  static void getUnsatCoreVector(const Query &query, const Z3Builder *builder,
+                                 const Z3_solver solver,
+                                 std::vector<ref<Expr> > &unsatCore);
+
   bool validateZ3Model(::Z3_solver &theSolver, ::Z3_model &theModel);
 
 public:
@@ -87,18 +94,25 @@ public:
                        timeoutInMilliSeconds);
   }
 
-  bool computeTruth(const Query &, bool &isValid);
+  bool computeTruth(const Query &, bool &isValid,
+                    std::vector<ref<Expr> > &unsatCore);
   bool computeValue(const Query &, ref<Expr> &result);
   bool computeInitialValues(const Query &,
                             const std::vector<const Array *> &objects,
                             std::vector<std::vector<unsigned char> > &values,
-                            bool &hasSolution);
+                            bool &hasSolution,
+                            std::vector<ref<Expr> > &unsatCore);
   SolverRunStatus
   handleSolverResponse(::Z3_solver theSolver, ::Z3_lbool satisfiable,
                        const std::vector<const Array *> *objects,
                        std::vector<std::vector<unsigned char> > *values,
                        bool &hasSolution);
   SolverRunStatus getOperationStatusCode();
+
+  bool Z3Solver::directComputeValidity(const Query &query,
+                                       Solver::Validity &result,
+                                       std::vector<ref<Expr> > &unsatCore) {
+    return impl->computeValidity(query, result, unsatCore);
 };
 
 Z3SolverImpl::Z3SolverImpl(Z3BuilderType type)
@@ -248,10 +262,11 @@ char *Z3SolverImpl::getConstraintLog(const Query &query) {
   return strdup(result);
 }
 
-bool Z3SolverImpl::computeTruth(const Query &query, bool &isValid) {
+bool Z3SolverImpl::computeTruth(const Query &query, bool &isValid,
+                                std::vector<ref<Expr> > &unsatCore) {
   bool hasSolution = false; // to remove compiler warning
   bool status =
-      internalRunSolver(query, /*objects=*/NULL, /*values=*/NULL, hasSolution);
+      internalRunSolver(query, /*objects=*/NULL, /*values=*/NULL, hasSolution, unsatCore);
   isValid = !hasSolution;
   return status;
 }
@@ -264,7 +279,8 @@ bool Z3SolverImpl::computeValue(const Query &query, ref<Expr> &result) {
   // Find the object used in the expression, and compute an assignment
   // for them.
   findSymbolicObjects(query.expr, objects);
-  if (!computeInitialValues(query.withFalse(), objects, values, hasSolution))
+  std::vector<ref<Expr> > unsatCore;
+  if (!computeInitialValues(query.withFalse(), objects, values, hasSolution, unsatCore))
     return false;
   assert(hasSolution && "state has invalid constraint set");
 
@@ -277,13 +293,15 @@ bool Z3SolverImpl::computeValue(const Query &query, ref<Expr> &result) {
 
 bool Z3SolverImpl::computeInitialValues(
     const Query &query, const std::vector<const Array *> &objects,
-    std::vector<std::vector<unsigned char> > &values, bool &hasSolution) {
-  return internalRunSolver(query, &objects, &values, hasSolution);
+    std::vector<std::vector<unsigned char> > &values, bool &hasSolution,
+    std::vector<ref<Expr> > &unsatCore) {
+  return internalRunSolver(query, &objects, &values, hasSolution, unsatCore);
 }
 
 bool Z3SolverImpl::internalRunSolver(
     const Query &query, const std::vector<const Array *> *objects,
-    std::vector<std::vector<unsigned char> > *values, bool &hasSolution) {
+    std::vector<std::vector<unsigned char> > *values, bool &hasSolution,
+    std::vector<ref<Expr> > &unsatCore) {
 
   if (Z3Solver::subsumptionCheck) {
     TimerStatIncrementer t(stats::subsumptionQueryTime);
@@ -363,6 +381,10 @@ bool Z3SolverImpl::internalRunSolver(
   ::Z3_lbool satisfiable = Z3_solver_check(builder->ctx, theSolver);
   runStatusCode = handleSolverResponse(theSolver, satisfiable, objects, values,
                                        hasSolution);
+
+  if (runStatusCode == SolverImpl::SOLVER_RUN_STATUS_SUCCESS_UNSOLVABLE) {
+    getUnsatCoreVector(query, builder, theSolver, unsatCore);
+  }
 
   Z3_solver_dec_ref(builder->ctx, theSolver);
   // Clear the builder's cache to prevent memory usage exploding.
@@ -525,5 +547,29 @@ bool Z3SolverImpl::validateZ3Model(::Z3_solver &theSolver, ::Z3_model &theModel)
 SolverImpl::SolverRunStatus Z3SolverImpl::getOperationStatusCode() {
   return runStatusCode;
 }
+
+void Z3SolverImpl::getUnsatCoreVector(const Query &query,
+                                      const Z3Builder *builder,
+                                      const Z3_solver solver,
+                                      std::vector<ref<Expr> > &unsatCore) {
+  Z3_ast_vector r = Z3_solver_get_unsat_core(builder->ctx, solver);
+  for (unsigned int i = 0; i < Z3_ast_vector_size(builder->ctx, r); i++) {
+    Z3_ast temp = Z3_ast_vector_get(builder->ctx, r, i);
+    size_t constraintIdCtr = 1;
+    for (ConstraintManager::const_iterator it = query.constraints.begin(),
+                                           ie = query.constraints.end();
+         it != ie; ++it) {
+      std::ostringstream stringStream;
+      stringStream << constraintIdCtr;
+      std::string comparisonString = "|" + stringStream.str() + "|";
+      if (Z3_ast_to_string(builder->ctx, temp) == comparisonString) {
+        unsatCore.push_back(*it);
+        break;
+      }
+      constraintIdCtr++;
+    }
+  }
+}
+
 }
 #endif // ENABLE_Z3
