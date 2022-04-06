@@ -90,7 +90,6 @@ ref<Expr> TxSubsumptionTableEntry::makeConstraint(
     int debugSubsumptionLevel) const {
   ref<Expr> constraint;
     setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
-#ifdef ENABLE_Z3
   if (tabledValue->getExpression()->getWidth() !=
       stateValue->getExpression()->getWidth()) {
     // We conservatively require that the addresses should not be
@@ -157,7 +156,6 @@ ref<Expr> TxSubsumptionTableEntry::makeConstraint(
 
   // We record the value of the pointer for interpolation marking
   coreValues.insert(stateValue->getOriginalValue());
-#endif
   return constraint;
 }
 
@@ -788,7 +786,6 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
     state.txTreeNode->valuesInterpolation(*it, reason);
   }
 
-#ifdef ENABLE_Z3
   if (TxDependency::boundInterpolation() && !ExactAddressInterpolant) {
     reason = "interpolating memory bound for " + reason;
 
@@ -801,7 +798,6 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
       assert(!memoryError && "interpolation should not result in memory error");
     }
   }
-#endif
 }
 
 bool TxSubsumptionTableEntry::subsumed(
@@ -811,7 +807,6 @@ bool TxSubsumptionTableEntry::subsumed(
     TxStore::LowerStateStore &__symbolicallyAddressedHistoricalStore,
     int debugSubsumptionLevel) {
 setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
-#ifdef ENABLE_Z3
 
   if (MarkGlobal) {
     // Global check
@@ -1714,7 +1709,6 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
     }
     return true;
   }
-#endif /* ENABLE_Z3 */
   return false;
 }
 
@@ -2307,7 +2301,6 @@ TxTree::TxTree(
 
 bool TxTree::subsumptionCheck(TimingSolver *solver, ExecutionState &state,
                               double timeout) {
-#ifdef ENABLE_Z3
   assert(state.txTreeNode == currentTxTreeNode);
 
   // Immediately return if the state's instruction is not the
@@ -2337,7 +2330,6 @@ bool TxTree::subsumptionCheck(TimingSolver *solver, ExecutionState &state,
 
   return TxSubsumptionTable::check(solver, state, timeout,
                                    debugSubsumptionLevel);
-#endif
   return false;
 }
 
@@ -2366,7 +2358,6 @@ void TxTree::removeSpeculationFailedNodes(TxTreeNode *node) {
 }
 
 void TxTree::remove(ExecutionState *state, TimingSolver *solver, bool dumping) {
-#ifdef ENABLE_Z3
   TxTreeNode *node = state->txTreeNode;
   TimerStatIncrementer t(removeTime);
   assert(!node->left && !node->right);
@@ -2445,7 +2436,6 @@ void TxTree::remove(ExecutionState *state, TimingSolver *solver, bool dumping) {
     delete node;
     node = p;
   } while (node && !node->left && !node->right);
-#endif
 }
 
 std::pair<TxTreeNode *, TxTreeNode *>

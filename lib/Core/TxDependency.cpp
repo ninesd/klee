@@ -316,15 +316,9 @@ TxDependency::TxDependency(
   } else {
     pathCondition = TxPathCondition::create(0);
     store = TxStore::create(0);
-#ifdef ENABLE_Z3
     debugSubsumptionLevel = DebugSubsumption;
     debugStateLevel = DebugState;
     setDebugSubsumptionLevelTxValue(debugSubsumptionLevel);
-#else
-    debugSubsumptionLevel = 0;
-    debugStateLevel = 0;
-    setDebugSubsumptionLevelTxValue(debugSubsumptionLevel);
-#endif
   }
 }
 
@@ -980,7 +974,6 @@ bool TxDependency::executeMemoryOperation(
   bool ret = false;
   if (inBounds)
     execute(instr, callHistory, args, symbolicExecutionError);
-#ifdef ENABLE_Z3
   if (boundInterpolation(instr) && inBounds) {
     // The bounds check has been proven valid, we keep the dependency on the
     // address.
@@ -1026,7 +1019,6 @@ bool TxDependency::executeMemoryOperation(
       }
     }
   }
-#endif
   return ret;
 }
 
@@ -1152,7 +1144,6 @@ bool TxDependency::markAllPointerValues(ref<TxStateValue> value,
 
 /// \brief Tests if bound interpolation shold be enabled
 bool TxDependency::boundInterpolation(llvm::Value *val) {
-#ifdef ENABLE_Z3
   if (SpecialFunctionBoundInterpolation) {
     if (!val)
       return true;
@@ -1165,9 +1156,6 @@ bool TxDependency::boundInterpolation(llvm::Value *val) {
     return false;
   }
   return true;
-#else
-  return false;
-#endif // ENABLE_Z3
 }
 
 void TxDependency::memoryBoundViolationInterpolation(llvm::Instruction *inst,

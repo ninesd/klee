@@ -319,7 +319,6 @@ ref<Expr> TxInterpolantValue::getBoundsCheck(
     std::map<ref<TxAllocationInfo>, ref<TxAllocationInfo> > &unifiedBases,
     int debugSubsumptionLevel) const {
   ref<Expr> res;
-#ifdef ENABLE_Z3
 
   assert(useBound() && "bounds check must be enabled for this pointer");
 
@@ -484,7 +483,6 @@ ref<Expr> TxInterpolantValue::getBoundsCheck(
       return ConstantExpr::create(0, Expr::Bool);
     }
   }
-#endif // ENABLE_Z3
   return res;
 }
 
@@ -493,7 +491,6 @@ ref<Expr> TxInterpolantValue::getOffsetsCheck(
     std::map<ref<TxAllocationInfo>, ref<TxAllocationInfo> > &unifiedBases,
     int debugSubsumptionLevel) const {
   ref<Expr> res;
-#ifdef ENABLE_Z3
 
   // In principle, for a state to be subsumed, the subsuming state must be
   // weaker, which in this case means that it should specify less allocations,
@@ -630,7 +627,6 @@ ref<Expr> TxInterpolantValue::getOffsetsCheck(
       return ConstantExpr::create(0, Expr::Bool);
     }
   }
-#endif // ENABLE_Z3
   return res;
 }
 

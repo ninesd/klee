@@ -162,13 +162,11 @@ public:
 class TxSubsumptionTableEntry {
   friend class TxTree;
 
-#ifdef ENABLE_Z3
   /// \brief Mark begin and end of subsumption check for use within a scope
   struct SubsumptionCheckMarker {
     SubsumptionCheckMarker() { Z3Solver::subsumptionCheck = true; }
     ~SubsumptionCheckMarker() { Z3Solver::subsumptionCheck = false; }
   };
-#endif
 
   static Statistic concretelyAddressedStoreExpressionBuildTime;
   static Statistic symbolicallyAddressedStoreExpressionBuildTime;
