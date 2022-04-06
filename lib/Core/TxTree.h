@@ -32,6 +32,7 @@
 #include "TxWP.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/Support/raw_ostream.h"
+#include <deque>
 
 namespace klee {
 
