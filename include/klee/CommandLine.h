@@ -5,6 +5,9 @@
 #ifndef KLEE_COMMANDLINE_H
 #define KLEE_COMMANDLINE_H
 
+#include "llvm/Support/CommandLine.h"
+#include "klee/Config/config.h"
+
 #define INTERPOLATION_ENABLED (!NoInterpolation)
 #define OUTPUT_INTERPOLATION_TREE (INTERPOLATION_ENABLED &&OutputTree)
 
