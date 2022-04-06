@@ -13,6 +13,7 @@
 #include "ExecutionState.h"
 #include "MemoryManager.h"
 #include "TxShadowArray.h"
+#include "Executor.h"
 
 #include "klee/ADT/BitArray.h"
 #include "klee/Expr/ArrayCache.h"
@@ -86,8 +87,9 @@ ObjectState::ObjectState(const MemoryObject *mo)
     readOnly(false) {
   if (!UseConstantArrays) {
     static unsigned id = 0;
-    const Array *array =
-        getArrayCache()->CreateArray("tmp_arr" + llvm::utostr(++id), size);
+    const std::string arrayName = "tmp_arr" + llvm::utostr(++id);
+    const unsigned arrayWidth = size;
+    const Array *array = getArrayCache()->CreateArray(arrayName, arrayWidth);
     updates = UpdateList(array, 0);
 
     if (INTERPOLATION_ENABLED) {
@@ -187,9 +189,10 @@ const UpdateList &ObjectState::getUpdates() const {
     }
 
     static unsigned id = 0;
+    const std::string arrayName = "const_arr" + llvm::utostr(++id);
+    const unsigned arrayWidth = size;
     const Array *array = getArrayCache()->CreateArray(
-        "const_arr" + llvm::utostr(++id), size, &Contents[0],
-        &Contents[0] + Contents.size());
+        arrayName, arrayWidth, &Contents[0], &Contents[0] + Contents.size());
     updates = UpdateList(array, 0);
 
     // Apply the remaining (non-constant) writes.

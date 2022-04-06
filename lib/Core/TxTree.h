@@ -16,7 +16,7 @@
 #ifndef TXTREE_H_
 #define TXTREE_H_
 
-#include <klee/Expr.h>
+#include <klee/Expr/Expr.h>
 #include "klee/CommandLine.h"
 #include "klee/Config/Version.h"
 #include "klee/ExecutionState.h"
