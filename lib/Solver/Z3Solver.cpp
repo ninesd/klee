@@ -160,6 +160,8 @@ Z3SolverImpl::~Z3SolverImpl() {
   delete builder;
 }
 
+bool Z3Solver::subsumptionCheck = false;
+
 Z3Solver::Z3Solver(Z3BuilderType type) : Solver(new Z3SolverImpl(type)) {}
 
 char *Z3Solver::getConstraintLog(const Query &query) {
@@ -282,6 +284,19 @@ bool Z3SolverImpl::computeInitialValues(
 bool Z3SolverImpl::internalRunSolver(
     const Query &query, const std::vector<const Array *> *objects,
     std::vector<std::vector<unsigned char> > *values, bool &hasSolution) {
+
+  if (Z3Solver::subsumptionCheck) {
+    TimerStatIncrementer t(stats::subsumptionQueryTime);
+    ++stats::subsumptionQueryCount;
+    Z3Solver::subsumptionCheck = false;
+    bool result =
+        internalRunSolver(query, objects, values, hasSolution, unsatCore);
+    if (!result || hasSolution) {
+      ++stats::subsumptionQueryFailureCount;
+    }
+    Z3Solver::subsumptionCheck = true;
+    return result;
+  }
 
   TimerStatIncrementer t(stats::queryTime);
   // NOTE: Z3 will switch to using a slower solver internally if push/pop are

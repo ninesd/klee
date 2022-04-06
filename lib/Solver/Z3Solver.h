@@ -22,6 +22,9 @@ enum Z3BuilderType {
 /// Z3Solver - A complete solver based on Z3
 class Z3Solver : public Solver {
 public:
+  /// Subsumption check indicator
+  static bool subsumptionCheck;
+
   /// Z3Solver - Construct a new Z3Solver.
   Z3Solver(Z3BuilderType type);
 
