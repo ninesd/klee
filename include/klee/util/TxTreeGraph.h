@@ -17,7 +17,7 @@
 #define TXTREEGRAPH_H_
 
 #include "klee/CommandLine.h"
-#include "klee/Expr.h"
+#include "klee/Expr/Expr.h"
 
 #include "llvm/Support/raw_ostream.h"
 

@@ -22,12 +22,12 @@
 #include "TxTree.h"
 #include "TxWPHelper.h"
 #include "Z3Simplification.h"
-#include "klee/ExecutionState.h"
+#include "ExecutionState.h"
 #include "llvm/IR/DataLayout.h"
-#include <klee/Expr.h>
-#include <klee/ExprBuilder.h>
-#include <klee/Internal/Support/ErrorHandling.h>
-#include <klee/util/ArrayCache.h>
+#include "klee/Expr/Expr.h"
+#include "klee/Expr/ExprBuilder.h"
+#include "klee/Support/ErrorHandling.h"
+#include "klee/Expr/ArrayCache.h"
 #include <vector>
 
 namespace klee {

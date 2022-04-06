@@ -22,7 +22,7 @@
 #include "TxStore.h"
 
 #include "klee/Config/Version.h"
-#include "klee/Internal/Module/TxValues.h"
+#include "klee/Module/TxValues.h"
 
 #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
 #include <llvm/IR/Constants.h>

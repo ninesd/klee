@@ -17,8 +17,8 @@
 #ifndef KLEE_TXSTORE_H
 #define KLEE_TXSTORE_H
 
-#include "klee/Internal/Module/TxValues.h"
-#include "klee/util/Ref.h"
+#include "klee/Module/TxValues.h"
+#include "klee/ADT/Ref.h"
 
 #include <map>
 

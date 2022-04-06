@@ -17,8 +17,8 @@
 #define LIB_CORE_TXPARTITIONHELPER_H_
 
 #include "TxStore.h"
-#include "klee/ExecutionState.h"
-#include "klee/Internal/Support/ErrorHandling.h"
+#include "ExecutionState.h"
+#include "klee/Support/ErrorHandling.h"
 #include "llvm/IR/Value.h"
 #include <iostream>
 #include <map>

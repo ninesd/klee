@@ -16,8 +16,8 @@
 #ifndef TXSPECULATION_H_
 #define TXSPECULATION_H_
 
-#include "klee/ExecutionState.h"
-#include "klee/Internal/Module/KModule.h"
+#include "ExecutionState.h"
+#include "klee/Module/KModule.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"

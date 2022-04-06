@@ -18,11 +18,11 @@
 #define LIB_CORE_TXWPHELPER_H_
 
 #include "TxWP.h"
-#include "klee/ExecutionState.h"
-#include <klee/Expr.h>
-#include <klee/ExprBuilder.h>
-#include <klee/Internal/Support/ErrorHandling.h>
-#include <klee/util/ArrayCache.h>
+#include "ExecutionState.h"
+#include "klee/Expr/Expr.h"
+#include "klee/Expr/ExprBuilder.h"
+#include "klee/Support/ErrorHandling.h"
+#include "klee/Expr/ArrayCache.h"
 #include <vector>
 
 namespace klee {

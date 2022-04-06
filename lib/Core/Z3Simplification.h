@@ -8,10 +8,10 @@
 #ifndef LIB_CORE_Z3SIMPLIFICATION_H_
 #define LIB_CORE_Z3SIMPLIFICATION_H_
 
-#include "klee/Internal/Support/ErrorHandling.h"
+#include "klee/Support/ErrorHandling.h"
 #include <cstdlib>
 #include <iostream>
-#include <klee/Expr.h>
+#include <klee/Expr/Expr.h>
 #include <string>
 
 #include <z3++.h>

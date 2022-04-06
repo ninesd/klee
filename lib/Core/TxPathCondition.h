@@ -16,9 +16,9 @@
 #ifndef KLEE_TXPATHCONDITION_H
 #define KLEE_TXPATHCONDITION_H
 
-#include "klee/Constraints.h"
+#include "klee/Expr/Constraints.h"
 #include "klee/util/TxPrintUtil.h"
-#include "klee/Internal/Module/TxValues.h"
+#include "klee/Module/TxValues.h"
 
 namespace klee {
 

@@ -15,7 +15,7 @@
 #ifndef KLEE_TXEXPRUTIL_H
 #define KLEE_TXEXPRUTIL_H
 
-#include "klee/util/ExprVisitor.h"
+#include "klee/Expr/ExprVisitor.h"
 
 namespace klee {
 

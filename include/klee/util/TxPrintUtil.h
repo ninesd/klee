@@ -16,8 +16,8 @@
 #define KLEE_TXPRINTUTIL_H
 
 #include "klee/Config/Version.h"
-#include "klee/Constraints.h"
-#include "klee/Expr.h"
+#include "klee/Expr/Constraints.h"
+#include "klee/Expr/Expr.h"
 
 #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
 #include <llvm/IR/Value.h>

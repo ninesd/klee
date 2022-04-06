@@ -16,13 +16,14 @@
 #ifndef TXTREE_H_
 #define TXTREE_H_
 
-#include <klee/Expr/Expr.h>
+#include "klee/CommandLine.h"
+#include "klee/Expr/Expr.h"
 #include "klee/Config/Version.h"
-#include "klee/ExecutionState.h"
-#include "klee/Solver.h"
-#include "klee/Statistic.h"
-#include "klee/TimerStatIncrementer.h"
-#include "klee/util/ExprVisitor.h"
+#include "ExecutionState.h"
+#include "klee/Solver/Solver.h"
+#include "klee/Statistics/Statistic.h"
+#include "klee/Statistics/TimerStatIncrementer.h"
+#include "klee/Expr/ExprVisitor.h"
 #include "klee/util/TxTreeGraph.h"
 
 #include "StatsTracker.h"
