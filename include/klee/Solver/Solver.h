@@ -93,8 +93,7 @@ namespace klee {
     /// Solver::Unknown
     ///
     /// \return True on success.
-    bool evaluate(const Query&, Validity &result,
-                  std::vector<ref<Expr> > &unsatCore);
+    bool evaluate(const Query&, Validity &result);
   
     /// mustBeTrue - Determine if the expression is provably true.
     /// 
@@ -112,13 +111,7 @@ namespace klee {
     /// \param [out] result - On success, true iff the logical formula is true
     ///
     /// \return True on success.
-    bool mustBeTrue(const Query&, bool &result,
-                    std::vector<ref<Expr> > &unsatCore);
-
-    bool mustBeTrue(const Query &query, bool &result) {
-      std::vector<ref<Expr> > dummyUnsatCore;
-      return mustBeTrue(query, result, dummyUnsatCore);
-    }
+    bool mustBeTrue(const Query&, bool &result);
 
     /// mustBeFalse - Determine if the expression is provably false.
     ///
@@ -201,8 +194,7 @@ namespace klee {
     // they want. This also allows us to optimize the representation.
     bool getInitialValues(const Query&, 
                           const std::vector<const Array*> &objects,
-                          std::vector< std::vector<unsigned char> > &result,
-                          std::vector<ref<Expr> > &unsatCore);
+                          std::vector< std::vector<unsigned char> > &result);
 
     /// getRange - Compute a tight range of possible values for a given
     /// expression.
@@ -218,11 +210,6 @@ namespace klee {
     
     virtual char *getConstraintLog(const Query& query);
     virtual void setCoreSolverTimeout(time::Span timeout);
-
-    /// directComputeValidity - Compute validity directly without other
-    /// layers of solving
-    bool directComputeValidity(const Query &query, Solver::Validity &result,
-                               std::vector<ref<Expr> > &unsatCore);
   };
 
   /* *** */

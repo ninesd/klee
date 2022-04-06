@@ -28,6 +28,22 @@ public:
   /// Z3Solver - Construct a new Z3Solver.
   Z3Solver(Z3BuilderType type);
 
+  bool evaluate(const Query &, Validity &result,
+                std::vector<ref<Expr> > &unsatCore);
+
+  bool mustBeTrue(const Query&, bool &result,
+                  std::vector<ref<Expr> > &unsatCore);
+
+  bool mustBeTrue(const Query &query, bool &result) {
+    std::vector<ref<Expr> > dummyUnsatCore;
+    return mustBeTrue(query, result, dummyUnsatCore);
+  }
+
+  bool getInitialValues(const Query &,
+                        const std::vector<const Array *> &objects,
+                        std::vector<std::vector<unsigned char> > &result,
+                        std::vector<ref<Expr> > &unsatCore);
+
   /// Get the query in SMT-LIBv2 format.
   /// \return A C-style string. The caller is responsible for freeing this.
   virtual char *getConstraintLog(const Query &);
@@ -36,6 +52,11 @@ public:
   /// value; 0
   /// is off.
   virtual void setCoreSolverTimeout(time::Span timeout);
+
+  /// directComputeValidity - Compute validity directly without other
+  /// layers of solving
+  bool directComputeValidity(const Query &query, Solver::Validity &result,
+                             std::vector<ref<Expr> > &unsatCore);
 };
 }
 
