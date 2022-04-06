@@ -17,7 +17,6 @@
 #define TXTREE_H_
 
 #include <klee/Expr/Expr.h>
-#include "klee/CommandLine.h"
 #include "klee/Config/Version.h"
 #include "klee/ExecutionState.h"
 #include "klee/Solver.h"
