@@ -350,7 +350,6 @@ private:
     unsigned m_numTotalTests;     // Number of tests received from the interpreter
     unsigned m_numGeneratedTests; // Number of tests successfully generated
     unsigned m_pathsCompleted; // number of completed paths
-    unsigned m_pathsExplored; // number of partially explored and completed paths
 
     // used for writing .ktest files
     int m_argc;
