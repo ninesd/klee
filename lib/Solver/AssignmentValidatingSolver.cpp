@@ -25,13 +25,16 @@ public:
   AssignmentValidatingSolver(Solver *_solver) : solver(_solver) {}
   ~AssignmentValidatingSolver() { delete solver; }
 
-  bool computeValidity(const Query &, Solver::Validity &result);
-  bool computeTruth(const Query &, bool &isValid);
+  bool computeValidity(const Query &, Solver::Validity &result,
+                       std::vector<ref<Expr> > &unsatCore);
+  bool computeTruth(const Query &, bool &isValid,
+                    std::vector<ref<Expr> > &unsatCore);
   bool computeValue(const Query &, ref<Expr> &result);
   bool computeInitialValues(const Query &,
                             const std::vector<const Array *> &objects,
                             std::vector<std::vector<unsigned char> > &values,
-                            bool &hasSolution);
+                            bool &hasSolution,
+                            std::vector<ref<Expr> > &unsatCore);
   SolverRunStatus getOperationStatusCode();
   char *getConstraintLog(const Query &);
   void setCoreSolverTimeout(time::Span timeout);
@@ -39,12 +42,14 @@ public:
 
 // TODO: use computeInitialValues for all queries for more stress testing
 bool AssignmentValidatingSolver::computeValidity(const Query &query,
-                                                 Solver::Validity &result) {
-  return solver->impl->computeValidity(query, result);
+                                                 Solver::Validity &result,
+                                                 std::vector<ref<Expr> > &unsatCore) {
+  return solver->impl->computeValidity(query, result, unsatCore);
 }
 bool AssignmentValidatingSolver::computeTruth(const Query &query,
-                                              bool &isValid) {
-  return solver->impl->computeTruth(query, isValid);
+                                              bool &isValid,
+                                              std::vector<ref<Expr> > &unsatCore) {
+  return solver->impl->computeTruth(query, isValid, unsatCore);
 }
 bool AssignmentValidatingSolver::computeValue(const Query &query,
                                               ref<Expr> &result) {
@@ -53,9 +58,10 @@ bool AssignmentValidatingSolver::computeValue(const Query &query,
 
 bool AssignmentValidatingSolver::computeInitialValues(
     const Query &query, const std::vector<const Array *> &objects,
-    std::vector<std::vector<unsigned char> > &values, bool &hasSolution) {
+    std::vector<std::vector<unsigned char> > &values, bool &hasSolution,
+    std::vector<ref<Expr> > &unsatCore) {
   bool success =
-      solver->impl->computeInitialValues(query, objects, values, hasSolution);
+      solver->impl->computeInitialValues(query, objects, values, hasSolution, unsatCore);
   if (!hasSolution)
     return success;
 
