@@ -255,9 +255,10 @@ static bool EvaluateInputAST(const char *Filename,
       } else {
         std::vector< std::vector<unsigned char> > result;
 
+        std::vector<ref<Expr> > unsatCore;
         if (S->getInitialValues(
                 Query(ConstraintSet(QC->Constraints), QC->Query), QC->Objects,
-                result)) {
+                result, unsatCore)) {
           llvm::outs() << "INVALID\n";
 
           for (unsigned i = 0, e = result.size(); i != e; ++i) {
