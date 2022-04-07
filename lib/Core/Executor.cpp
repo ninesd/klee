@@ -7294,10 +7294,11 @@ bool Executor::getSymbolicSolution(const ExecutionState &state,
 
   std::vector< std::vector<unsigned char> > values;
   std::vector<const Array*> objects;
+  std::vector<ref<Expr> > unsatCore;
   for (unsigned i = 0; i != state.symbolics.size(); ++i)
     objects.push_back(state.symbolics[i].second);
   bool success = solver->getInitialValues(extendedConstraints, objects, values,
-                                          state.queryMetaData);
+                                          state.queryMetaData, unsatCore);
   solver->setTimeout(time::Span());
   if (!success) {
     klee_warning("unable to compute initial values (invalid constraints?)!");
