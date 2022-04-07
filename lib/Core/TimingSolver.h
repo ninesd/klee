@@ -65,25 +65,25 @@ public:
                   std::vector<ref<Expr> > &unsatCore);
 
   bool mustBeTrue(const ConstraintSet &constraintSet, ref<Expr> expr,
-                  Solver::Validity &result, SolverQueryMetaData &metaData) {
+                  bool &result, SolverQueryMetaData &metaData) {
     std::vector<ref<Expr> > dummyUnsatCore;
     return mustBeTrue(constraintSet, expr, result, metaData, dummyUnsatCore);
   }
 
   bool mustBeFalse(const ConstraintSet &constraintSet, ref<Expr> expr,
-                   Solver::Validity &result, SolverQueryMetaData &metaData) {
+                   bool &result, SolverQueryMetaData &metaData) {
     std::vector<ref<Expr> > dummyUnsatCore;
     return mustBeFalse(constraintSet, expr, result, metaData, dummyUnsatCore);
   }
 
   bool mayBeTrue(const ConstraintSet &constraintSet, ref<Expr> expr,
-                 Solver::Validity &result, SolverQueryMetaData &metaData) {
+                 bool &result, SolverQueryMetaData &metaData) {
     std::vector<ref<Expr> > dummyUnsatCore;
     return mayBeTrue(constraintSet, expr, result, metaData, dummyUnsatCore);
   }
 
   bool mayBeFalse(const ConstraintSet &constraintSet, ref<Expr> expr,
-                  Solver::Validity &result, SolverQueryMetaData &metaData) {
+                  bool &result, SolverQueryMetaData &metaData) {
     std::vector<ref<Expr> > dummyUnsatCore;
     return mayBeFalse(constraintSet, expr, result, metaData, dummyUnsatCore);
   }
