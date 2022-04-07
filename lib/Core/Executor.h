@@ -100,6 +100,46 @@ class Executor : public Interpreter {
   friend klee::Searcher *klee::constructUserSearcher(Executor &executor);
 
 public:
+  time_t startingBBPlottingTime;
+  int allBlockCount;
+  int allICMPCount;
+  int coveredICMPCount;
+  bool allBlockCollected;
+  std::set<llvm::BasicBlock *> visitedBlocks;
+  float blockCoverage;
+  std::string covInterestedSourceFileName;
+  std::map<llvm::Function *, std::map<llvm::BasicBlock *, int> > fBBOrder;
+
+  std::map<int, std::set<std::string> > bbOrderToSpecAvoid; // used in the
+                                                           // speculation mode.
+  int independenceYes;
+  int independenceNo;
+  int dynamicYes;
+  int dynamicNo;
+
+  // int specSnap;
+  std::map<llvm::Instruction *, unsigned int> specSnap;
+  int specFail;
+  std::map<uintptr_t, unsigned int> specFailNew;     // fail because of new BB
+  std::map<uintptr_t, unsigned int> specFailNoInter; // fail because of new BB &
+                                                          // no interpolant
+  std::map<uintptr_t, unsigned int> specRevisited; // fail because of revisited
+  std::map<uintptr_t, unsigned int> specRevisitedNoInter; // // fail because of
+                                                          // revisited & no
+                                                          // interpolant
+  double totalSpecFailTime;
+  clock_t start, end;
+  bool isFail;
+
+  class Timer {
+  public:
+    Timer();
+    virtual ~Timer();
+
+    /// The event callback.
+    virtual void run() = 0;
+  };
+
   typedef std::pair<ExecutionState*,ExecutionState*> StatePair;
 
   enum TerminateReason {
@@ -144,7 +184,6 @@ private:
   SpecialFunctionHandler *specialFunctionHandler;
   TimerGroup timers;
   std::unique_ptr<PTree> processTree;
-  TxTree *txTree;
 
   /// Used to track states that have been added during the current
   /// instructions step. 
@@ -206,6 +245,8 @@ private:
   /// Whether implied-value concretization is enabled. Currently
   /// false, it is buggy (it needs to validate its writes).
   bool ivcEnabled;
+
+  TxTree *txTree;
 
   /// The maximum time to allow for a single core solver query.
   /// (e.g. for a single STP query)
