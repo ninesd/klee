@@ -52,7 +52,7 @@ void setDebugSubsumptionLevelTxValue(int debugSubsumptionLevel);
 class TxAllocationContext {
 
 public:
-  unsigned refCount;
+  unsigned _refCount;
 
 private:
   /// \brief The location's LLVM value
@@ -63,7 +63,7 @@ private:
 
   TxAllocationContext(llvm::Value *_value,
                       const std::vector<llvm::Instruction *> &_callHistory)
-      : refCount(0), value(_value), callHistory(_callHistory) {}
+      : _refCount(0), value(_value), callHistory(_callHistory) {}
 
 public:
   ~TxAllocationContext() { callHistory.clear(); }
@@ -134,7 +134,7 @@ public:
 
 class TxAllocationInfo {
 public:
-  unsigned refCount;
+  unsigned _refCount;
 
 private:
   ref<TxAllocationContext> context;
@@ -145,7 +145,7 @@ private:
 
   TxAllocationInfo(ref<TxAllocationContext> &_context, ref<Expr> _base,
                    uint64_t _size)
-      : refCount(0), context(_context), base(_base), size(_size) {}
+      : _refCount(0), context(_context), base(_base), size(_size) {}
 
 public:
   ~TxAllocationInfo() {}
@@ -207,7 +207,7 @@ public:
 /// checking.
 class TxVariable {
 public:
-  unsigned refCount;
+  unsigned _refCount;
 
 private:
   /// \brief The allocation information of this variable
@@ -224,12 +224,12 @@ private:
 
   /// \brief The copy constructor.
   TxVariable(const TxVariable &src)
-      : refCount(0), allocInfo(src.allocInfo), offset(src.offset),
+      : _refCount(0), allocInfo(src.allocInfo), offset(src.offset),
         isConcrete(src.isConcrete), concreteOffset(src.concreteOffset) {}
 
   /// \brief The normal constructor.
   TxVariable(ref<TxAllocationInfo> _allocInfo, ref<Expr> _offset)
-      : refCount(0), allocInfo(_allocInfo), offset(_offset) {
+      : _refCount(0), allocInfo(_allocInfo), offset(_offset) {
     isConcrete = false;
     concreteOffset = 0;
 
@@ -304,7 +304,7 @@ public:
 /// \brief A processed form of a value to be stored in the subsumption table
 class TxInterpolantValue {
 public:
-  unsigned refCount;
+  unsigned _refCount;
 
 private:
   ref<Expr> expr;
@@ -442,7 +442,7 @@ public:
 class TxStateAddress {
 
 public:
-  unsigned refCount;
+  unsigned _refCount;
 
 private:
   /// \brief This address as a variable, with less information
@@ -460,16 +460,16 @@ private:
 
   TxStateAddress(ref<TxVariable> _variable, ref<Expr> _address,
                  uint64_t _concreteOffsetBound, uint64_t _size)
-      : refCount(0), variable(_variable), address(_address),
+      : _refCount(0), variable(_variable), address(_address),
         concreteOffsetBound(_concreteOffsetBound), size(_size) {}
 
   TxStateAddress(ref<TxVariable> _variable, ref<Expr> _address, uint64_t _size)
-      : refCount(0), variable(_variable), address(_address),
+      : _refCount(0), variable(_variable), address(_address),
         concreteOffsetBound(_size), size(_size) {}
 
   TxStateAddress(ref<TxAllocationContext> _context, ref<Expr> &_address,
                  ref<Expr> &_base, ref<Expr> &_offset, uint64_t _size)
-      : refCount(0), concreteOffsetBound(_size), size(_size) {
+      : _refCount(0), concreteOffsetBound(_size), size(_size) {
     bool unknownBase = false;
 
     if (ConstantExpr *co = llvm::dyn_cast<ConstantExpr>(_offset)) {
@@ -635,7 +635,7 @@ public:
 /// updated (versioned).
 class TxStateValue {
 public:
-  unsigned refCount;
+  unsigned _refCount;
 
 private:
   llvm::Value *value;
@@ -665,7 +665,7 @@ private:
   TxStateValue(llvm::Value *value,
                const std::vector<llvm::Instruction *> &_callHistory,
                ref<Expr> _valueExpr, uint64_t _depth)
-      : refCount(0), value(value), valueExpr(_valueExpr),
+      : _refCount(0), value(value), valueExpr(_valueExpr),
         id(reinterpret_cast<uint64_t>(this)), callHistory(_callHistory),
         depth(_depth) {}
 
@@ -788,7 +788,7 @@ public:
 /// TxStoreEntry#leftCoreReasons, TxStoreEntry#rightCoreReasons).
 class TxStoreEntry {
 public:
-  unsigned refCount;
+  unsigned _refCount;
 
 private:
   ref<TxStateAddress> address;
