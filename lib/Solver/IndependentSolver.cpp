@@ -395,35 +395,40 @@ public:
     : solver(_solver) {}
   ~IndependentSolver() { delete solver; }
 
-  bool computeTruth(const Query&, bool &isValid);
-  bool computeValidity(const Query&, Solver::Validity &result);
+  bool computeTruth(const Query&, bool &isValid,
+                    std::vector<ref<Expr> > &unsatCore);
+  bool computeValidity(const Query&, Solver::Validity &result,
+                       std::vector<ref<Expr> > &unsatCore);
   bool computeValue(const Query&, ref<Expr> &result);
   bool computeInitialValues(const Query& query,
                             const std::vector<const Array*> &objects,
                             std::vector< std::vector<unsigned char> > &values,
-                            bool &hasSolution);
+                            bool &hasSolution,
+                            std::vector<ref<Expr> > &unsatCore);
   SolverRunStatus getOperationStatusCode();
   char *getConstraintLog(const Query&);
   void setCoreSolverTimeout(time::Span timeout);
 };
   
 bool IndependentSolver::computeValidity(const Query& query,
-                                        Solver::Validity &result) {
+                                        Solver::Validity &result,
+                                        std::vector<ref<Expr> > &unsatCore) {
   std::vector< ref<Expr> > required;
   IndependentElementSet eltsClosure =
     getIndependentConstraints(query, required);
   ConstraintSet tmp(required);
   return solver->impl->computeValidity(Query(tmp, query.expr), 
-                                       result);
+                                       result, unsatCore);
 }
 
-bool IndependentSolver::computeTruth(const Query& query, bool &isValid) {
+bool IndependentSolver::computeTruth(const Query& query, bool &isValid,
+                                     std::vector<ref<Expr> > &unsatCore) {
   std::vector< ref<Expr> > required;
   IndependentElementSet eltsClosure = 
     getIndependentConstraints(query, required);
   ConstraintSet tmp(required);
   return solver->impl->computeTruth(Query(tmp, query.expr), 
-                                    isValid);
+                                    isValid, unsatCore);
 }
 
 bool IndependentSolver::computeValue(const Query& query, ref<Expr> &result) {
@@ -473,7 +478,8 @@ bool assertCreatedPointEvaluatesToTrue(
 bool IndependentSolver::computeInitialValues(const Query& query,
                                              const std::vector<const Array*> &objects,
                                              std::vector< std::vector<unsigned char> > &values,
-                                             bool &hasSolution){
+                                             bool &hasSolution,
+                                             std::vector<ref<Expr> > &unsatCore){
   // We assume the query has a solution except proven differently
   // This is important in case we don't have any constraints but
   // we need initial values for requested array objects.
@@ -496,7 +502,7 @@ bool IndependentSolver::computeInitialValues(const Query& query,
     ConstraintSet tmp(it->exprs);
     std::vector<std::vector<unsigned char> > tempValues;
     if (!solver->impl->computeInitialValues(Query(tmp, ConstantExpr::alloc(0, Expr::Bool)),
-                                            arraysInFactor, tempValues, hasSolution)){
+                                            arraysInFactor, tempValues, hasSolution, unsatCore)){
       values.clear();
       delete factors;
       return false;

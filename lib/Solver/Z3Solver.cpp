@@ -66,6 +66,8 @@ private:
   // Parameter symbols
   ::Z3_symbol timeoutParamStrSymbol;
 
+  bool validateZ3Model(::Z3_solver &theSolver, ::Z3_model &theModel);
+
   bool internalRunSolver(const Query &,
                          const std::vector<const Array *> *objects,
                          std::vector<std::vector<unsigned char> > *values,
@@ -76,8 +78,6 @@ private:
   static void getUnsatCoreVector(const Query &query, const Z3Builder *builder,
                                  const Z3_solver solver,
                                  std::vector<ref<Expr> > &unsatCore);
-
-  bool validateZ3Model(::Z3_solver &theSolver, ::Z3_model &theModel);
 
 public:
   Z3SolverImpl(Z3BuilderType type);
@@ -109,11 +109,6 @@ public:
                        bool &hasSolution);
   SolverRunStatus getOperationStatusCode();
 };
-
-bool Z3Solver::directComputeValidity(const Query &query,
-                                     Solver::Validity &result,
-                                     std::vector<ref<Expr> > &unsatCore) {
-  return impl->computeValidity(query, result, unsatCore);
 
 Z3SolverImpl::Z3SolverImpl(Z3BuilderType type)
     : builderType(type), runStatusCode(SOLVER_RUN_STATUS_FAILURE) {
@@ -177,6 +172,12 @@ Z3SolverImpl::~Z3SolverImpl() {
 bool Z3Solver::subsumptionCheck = false;
 
 Z3Solver::Z3Solver(Z3BuilderType type) : Solver(new Z3SolverImpl(type)) {}
+
+bool Z3Solver::directComputeValidity(const Query &query,
+                                     Solver::Validity &result,
+                                     std::vector<ref<Expr> > &unsatCore) {
+  return impl->computeValidity(query, result, unsatCore);
+}
 
 char *Z3Solver::getConstraintLog(const Query &query) {
   return impl->getConstraintLog(query);

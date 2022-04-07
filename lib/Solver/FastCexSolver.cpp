@@ -1005,8 +1005,8 @@ FastCexSolver::~FastCexSolver() { }
 /// constraints were proven valid or invalid.
 ///
 /// \return - True if the propogation was able to prove validity or invalidity.
-static bool propogateValues(const Query& query, CexData &cd, 
-                            bool checkExpr, bool &isValid) {
+static bool propogateValues(const Query& query, CexData &cd, bool checkExpr,
+                            bool &isValid, std::vector<ref<Expr> > &unsatCore) {
   for (const auto &constraint : query.constraints) {
     cd.propogatePossibleValue(constraint, 1);
     cd.propogateExactValue(constraint, 1);
@@ -1052,11 +1052,12 @@ static bool propogateValues(const Query& query, CexData &cd,
 }
 
 IncompleteSolver::PartialValidity 
-FastCexSolver::computeTruth(const Query& query) {
+FastCexSolver::computeTruth(const Query& query,
+                            std::vector<ref<Expr> > &unsatCore) {
   CexData cd;
 
   bool isValid;
-  bool success = propogateValues(query, cd, true, isValid);
+  bool success = propogateValues(query, cd, true, isValid, unsatCore);
 
   if (!success)
     return IncompleteSolver::None;
@@ -1068,7 +1069,8 @@ bool FastCexSolver::computeValue(const Query& query, ref<Expr> &result) {
   CexData cd;
 
   bool isValid;
-  bool success = propogateValues(query, cd, false, isValid);
+  std::vector<ref<Expr> > unsatCore;
+  bool success = propogateValues(query, cd, false, isValid, unsatCore);
 
   // Check if propogation wasn't able to determine anything.
   if (!success)
@@ -1096,11 +1098,12 @@ FastCexSolver::computeInitialValues(const Query& query,
                                       &objects,
                                     std::vector< std::vector<unsigned char> >
                                       &values,
-                                    bool &hasSolution) {
+                                    bool &hasSolution,
+                                    std::vector<ref<Expr> > &unsatCore) {
   CexData cd;
 
   bool isValid;
-  bool success = propogateValues(query, cd, true, isValid);
+  bool success = propogateValues(query, cd, true, isValid, unsatCore);
 
   // Check if propogation wasn't able to determine anything.
   if (!success)
