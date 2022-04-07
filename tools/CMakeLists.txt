@@ -8,7 +8,7 @@
 #===------------------------------------------------------------------------===#
 add_subdirectory(gen-bout)
 add_subdirectory(gen-random-bout)
-add_subdirectory(kleaver)
+#add_subdirectory(kleaver)
 add_subdirectory(klee)
 add_subdirectory(klee-replay)
 add_subdirectory(klee-stats)
