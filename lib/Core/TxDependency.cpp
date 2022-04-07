@@ -24,23 +24,12 @@
 #include "klee/util/TxPrintUtil.h"
 #include "TxShadowArray.h"
 
-#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 5)
 #include <llvm/IR/DebugInfo.h>
-#elif LLVM_VERSION_CODE >= LLVM_VERSION(3, 2)
-#include <llvm/DebugInfo.h>
-#else
-#include <llvm/Analysis/DebugInfo.h>
-#endif
 
-#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/Intrinsics.h>
-#else
-#include <llvm/Constants.h>
-#include <llvm/DataLayout.h>
-#include <llvm/Intrinsics.h>
-#endif
+#include <llvm/IR/Metadata.h>
 
 using namespace klee;
 
