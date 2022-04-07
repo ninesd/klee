@@ -1093,13 +1093,13 @@ void Executor::branch(ExecutionState &state,
       addedStates.push_back(ns);
       result.push_back(ns);
       processTree->attach(es->ptreeNode, ns, es);
-    }
 
-    if (INTERPOLATION_ENABLED) {
-      std::pair<TxTreeNode *, TxTreeNode *> ires =
-          txTree->split(es->txTreeNode, ns, es);
-      ns->txTreeNode = ires.first;
-      es->txTreeNode = ires.second;
+      if (INTERPOLATION_ENABLED) {
+        std::pair<TxTreeNode *, TxTreeNode *> ires =
+            txTree->split(es->txTreeNode, ns, es);
+        ns->txTreeNode = ires.first;
+        es->txTreeNode = ires.second;
+      }
     }
   }
 
