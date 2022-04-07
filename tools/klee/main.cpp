@@ -314,7 +314,6 @@ private:
     SmallString<128> m_outputDirectory;
 
     unsigned m_testIndex;  // number of tests written so far
-    unsigned m_pathsExplored; // number of paths explored so far
 
     unsigned m_totalBranchingDepthOnExitTermination; // total depth paths explored so far
                                                          // on exit
@@ -350,6 +349,7 @@ private:
     unsigned m_numTotalTests;     // Number of tests received from the interpreter
     unsigned m_numGeneratedTests; // Number of tests successfully generated
     unsigned m_pathsCompleted; // number of completed paths
+    unsigned m_pathsExplored; // number of paths explored so far
 
     // used for writing .ktest files
     int m_argc;
