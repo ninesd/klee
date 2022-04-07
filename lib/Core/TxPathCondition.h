@@ -25,7 +25,7 @@ namespace klee {
 /// \brief A conjunct on the path condition
 class TxPCConstraint {
 public:
-  unsigned refCount;
+  class ReferenceCounter _refCount;
 
 private:
   /// \brief KLEE expression

@@ -26,7 +26,7 @@ namespace klee {
 
 TxPCConstraint::TxPCConstraint(ref<Expr> _constraint,
                                ref<TxStateValue> _condition, uint64_t _depth)
-    : refCount(0), constraint(_constraint), shadowConstraint(_constraint),
+    : constraint(_constraint), shadowConstraint(_constraint),
       shadowed(false), condition(_condition), depth(_depth) {}
 
 TxPCConstraint::~TxPCConstraint() {}
