@@ -64,25 +64,28 @@ public:
                   SolverQueryMetaData &metaData,
                   std::vector<ref<Expr> > &unsatCore);
 
-  bool mustBeTrue(const ExecutionState &state, ref<Expr> expr, bool &result) {
+  bool mustBeTrue(const ConstraintSet &constraintSet, ref<Expr> expr,
+                  Solver::Validity &result, SolverQueryMetaData &metaData) {
     std::vector<ref<Expr> > dummyUnsatCore;
-    return mustBeTrue(state, expr, result, dummyUnsatCore);
+    return mustBeTrue(constraintSet, expr, result, metaData, dummyUnsatCore);
   }
 
-  bool mustBeFalse(const ExecutionState &state, ref<Expr> expr,
-                   bool &result) {
+  bool mustBeFalse(const ConstraintSet &constraintSet, ref<Expr> expr,
+                   Solver::Validity &result, SolverQueryMetaData &metaData) {
     std::vector<ref<Expr> > dummyUnsatCore;
-    return mustBeFalse(state, expr, result, dummyUnsatCore);
+    return mustBeFalse(constraintSet, expr, result, metaData, dummyUnsatCore);
   }
 
-  bool mayBeTrue(const ExecutionState &state, ref<Expr> expr, bool &result) {
+  bool mayBeTrue(const ConstraintSet &constraintSet, ref<Expr> expr,
+                 Solver::Validity &result, SolverQueryMetaData &metaData) {
     std::vector<ref<Expr> > dummyUnsatCore;
-    return mayBeTrue(state, expr, result, dummyUnsatCore);
+    return mayBeTrue(constraintSet, expr, result, metaData, dummyUnsatCore);
   }
 
-  bool mayBeFalse(const ExecutionState &state, ref<Expr> expr, bool &result) {
+  bool mayBeFalse(const ConstraintSet &constraintSet, ref<Expr> expr,
+                  Solver::Validity &result, SolverQueryMetaData &metaData) {
     std::vector<ref<Expr> > dummyUnsatCore;
-    return mayBeFalse(state, expr, result, dummyUnsatCore);
+    return mayBeFalse(constraintSet, expr, result, metaData, dummyUnsatCore);
   }
 
   bool getValue(const ConstraintSet &, ref<Expr> expr,
