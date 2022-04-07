@@ -42,6 +42,25 @@ public:
 
   virtual void incPathsCompleted() = 0;
   virtual void incPathsExplored(std::uint32_t num = 1) = 0;
+  virtual void incBranchingDepthOnExitTermination(unsigned currentDepth) = 0;
+  virtual void incTotalInstructionsOnExit(unsigned currentInstruction) = 0;
+  virtual void incBranchingDepthOnEarlyTermination(unsigned currentDepth) = 0;
+  virtual void incInstructionsDepthOnEarlyTermination(unsigned currentInstruction) = 0;
+  virtual void incBranchingDepthOnErrorTermination(unsigned currentDepth) = 0;
+  virtual void incInstructionsDepthOnErrorTermination(unsigned currentInstruction) = 0;
+  virtual void
+  incInstructionsDepthOnSubsumption(unsigned currentDepth) = 0;
+  virtual void
+  incTotalInstructionsOnSubsumption(unsigned currentInstruction) = 0;
+  virtual void incSubsumptionTermination() = 0;
+  virtual void incSubsumptionTerminationTest() = 0;
+  virtual void incEarlyTermination() = 0;
+  virtual void incEarlyTerminationTest() = 0;
+  virtual void incErrorTermination() = 0;
+  virtual void incErrorTerminationTest() = 0;
+  virtual void incExitTermination() = 0;
+  virtual void incExitTerminationTest() = 0;
+  virtual void assignSubsumptionStats(std::string currentStats) = 0;
 
   virtual void processTestCase(const ExecutionState &state,
                                const char *err,
