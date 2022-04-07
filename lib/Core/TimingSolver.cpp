@@ -68,8 +68,9 @@ bool TimingSolver::mustBeTrue(const ConstraintSet &constraints, ref<Expr> expr,
 
   TimerStatIncrementer timer(stats::solverTime);
 
+  std::vector<ref<Expr> > simplificationCore;
   if (simplifyExprs)
-    expr = ConstraintManager::simplifyExpr(constraints, expr);
+    expr = ConstraintManager::simplifyExpr(constraints, expr, simplificationCore);
 
   bool success = solver->mustBeTrue(Query(constraints, expr), result, unsatCore);
 
