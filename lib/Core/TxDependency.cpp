@@ -518,8 +518,8 @@ void TxDependency::execute(llvm::Instruction *instr,
             stream << binst->getParent()->getParent()->getName().str() << ": ";
           }
           if (llvm::MDNode *n = binst->getMetadata("dbg")) {
-            llvm::DILocation loc(n);
-            stream << "Line " << loc.getLineNumber();
+            if (llvm::DILocation loc = dynamic_cast<llvm::DILocation>(n))
+              stream << "Line " << loc.getLineNumber();
           } else {
             binst->print(stream);
           }
