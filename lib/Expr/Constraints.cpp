@@ -55,7 +55,8 @@ public:
 
 class ExprReplaceVisitor2 : public ExprVisitor {
 private:
-  const std::map< ref<Expr>, ref<Expr> > &replacements;
+  // TODO DOUBT??
+  const std::map<ref<Expr>, std::pair<ref<Expr>, ref<Expr> > > &replacements;
 
   std::set<ref<Expr> > usedEqualities;
 
@@ -71,8 +72,9 @@ public:
   Action visitExprPost(const Expr &e) override {
     auto it = replacements.find(ref<Expr>(const_cast<Expr *>(&e)));
     if (it!=replacements.end()) {
+      // TODO DOUBT??
       usedEqualities.insert(it->second.second);
-      return Action::changeTo(it->second);
+      return Action::changeTo(it->second.first);
     }
     return Action::doChildren();
   }
