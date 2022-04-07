@@ -31,6 +31,7 @@ klee_add_component(kleeCore
 # TODO: Work out what the correct LLVM components are for
 # kleeCore.
 set(LLVM_COMPONENTS
+  kleeBasic
   core
   executionengine
   mcjit
