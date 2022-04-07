@@ -1001,6 +1001,13 @@ public:
     executeOnNode(currentTxTreeNode, instr, arg1, arg2, arg3);
   }
 
+  /// \brief Execute an instruction of four arguments for building dependency
+  /// information.
+  void execute(llvm::Instruction *instr, ref<Expr> arg1, ref<Expr> arg2,
+               ref<Expr> arg3, ref<Expr> arg4) {
+    executeOnNode(currentTxTreeNode, instr, arg1, arg2, arg3, arg4);
+  }
+
   /// \brief Execute an instruction of a number of arguments for building
   /// dependency information.
   void execute(llvm::Instruction *instr, std::vector<ref<Expr> > &args) {
@@ -1078,6 +1085,18 @@ public:
     args.push_back(arg1);
     args.push_back(arg2);
     args.push_back(arg3);
+    executeOnNode(node, instr, args);
+  }
+
+  /// \brief Execute an instruction of three arguments for building dependency
+  /// information, given a particular interpolation four node.
+  static void executeOnNode(TxTreeNode *node, llvm::Instruction *instr,
+                            ref<Expr> arg1, ref<Expr> arg2, ref<Expr> arg3, ref<Expr> arg4) {
+    std::vector<ref<Expr> > args;
+    args.push_back(arg1);
+    args.push_back(arg2);
+    args.push_back(arg3);
+    args.push_back(arg4);
     executeOnNode(node, instr, args);
   }
 
