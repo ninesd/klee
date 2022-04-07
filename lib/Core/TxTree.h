@@ -958,7 +958,7 @@ public:
 
   /// \brief Invokes the subsumption check
   bool subsumptionCheck(TimingSolver *solver, ExecutionState &state,
-                        double timeout);
+                        time::Span timeout);
 
   /// \brief Mark the path condition in the Tracer-X tree node associated with
   /// the given KLEE execution state.

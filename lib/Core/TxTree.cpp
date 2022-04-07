@@ -801,7 +801,7 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
 }
 
 bool TxSubsumptionTableEntry::subsumed(
-    TimingSolver *solver, ExecutionState &state, double timeout,
+    TimingSolver *solver, ExecutionState &state, time::Span timeout,
     bool leftRetrieval, TxStore::TopStateStore &__internalStore,
     TxStore::LowerStateStore &__concretelyAddressedHistoricalStore,
     TxStore::LowerStateStore &__symbolicallyAddressedHistoricalStore,
@@ -1615,12 +1615,12 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
             z3solver->setCoreSolverTimeout(timeout);
             success = z3solver->directComputeValidity(
                 Query(state.constraints, expr), result, unsatCore);
-            z3solver->setCoreSolverTimeout(0);
+            z3solver->setCoreSolverTimeout(time::Span("0ms"));
             delete z3solver;
           } else {
             solver->setTimeout(timeout);
             success = solver->evaluate(state, expr, result, unsatCore);
-            solver->setTimeout(0);
+            solver->setTimeout(time::Span("0ms"));
           }
 
           if (!success || result != Solver::True) {
@@ -2099,7 +2099,7 @@ TxSubsumptionTable::insert(uintptr_t id,
 }
 
 bool TxSubsumptionTable::check(TimingSolver *solver, ExecutionState &state,
-                               double timeout, int debugSubsumptionLevel) {
+                               time::Span timeout, int debugSubsumptionLevel) {
   CallHistoryIndexedTable *subTable = 0;
   TxTreeNode *txTreeNode = state.txTreeNode;
 
@@ -2300,7 +2300,7 @@ TxTree::TxTree(
 }
 
 bool TxTree::subsumptionCheck(TimingSolver *solver, ExecutionState &state,
-                              double timeout) {
+                              time::Span timeout) {
   assert(state.txTreeNode == currentTxTreeNode);
 
   // Immediately return if the state's instruction is not the
