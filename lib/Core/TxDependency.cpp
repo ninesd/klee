@@ -518,8 +518,9 @@ void TxDependency::execute(llvm::Instruction *instr,
             stream << binst->getParent()->getParent()->getName().str() << ": ";
           }
           if (llvm::MDNode *n = binst->getMetadata("dbg")) {
-            if (llvm::DILocation * loc = dynamic_cast<llvm::DILocation *>(n))
-              stream << "Line " << loc->getLineNumber();
+            if (llvm::MetaData *metaData = dyn_cast<llvm::MetaData>(n))
+            llvm::DILocation loc(metaData);
+            stream << "Line " << loc.getLineNumber();
           } else {
             binst->print(stream);
           }
@@ -578,8 +579,9 @@ void TxDependency::execute(llvm::Instruction *instr,
         stream << "infeasible switch case [";
         stream << instr->getParent()->getParent()->getName().str() << ": ";
         if (llvm::MDNode *n = instr->getMetadata("dbg")) {
-          if (llvm::DILocation * loc = dynamic_cast<llvm::DILocation *>(n))
-            stream << "Line " << loc->getLineNumber();
+          if (llvm::MetaData *metaData = dyn_cast<llvm::MetaData>(n))
+            llvm::DILocation loc(metaData);
+          stream << "Line " << loc.getLineNumber();
         }
         stream << "]";
         stream.flush();
@@ -1002,8 +1004,9 @@ bool TxDependency::executeMemoryOperation(
         stream << "pointer use [";
         stream << instr->getParent()->getParent()->getName().str() << ": ";
         if (llvm::MDNode *n = instr->getMetadata("dbg")) {
-          if (llvm::DILocation * loc = dynamic_cast<llvm::DILocation *>(n))
-            stream << "Line " << loc->getLineNumber();
+          if (llvm::MetaData *metaData = dyn_cast<llvm::MetaData>(n))
+            llvm::DILocation loc(metaData);
+          stream << "Line " << loc.getLineNumber();
         }
         stream << "]";
         stream.flush();
@@ -1189,8 +1192,9 @@ void TxDependency::memoryBoundViolationInterpolation(llvm::Instruction *inst,
       stream << "memory bound violation [";
       stream << inst->getParent()->getParent()->getName().str() << ": ";
       if (llvm::MDNode *n = inst->getMetadata("dbg")) {
-        if (llvm::DILocation * loc = dynamic_cast<llvm::DILocation *>(n))
-          stream << "Line " << loc->getLineNumber();
+        if (llvm::MetaData *metaData = dyn_cast<llvm::MetaData>(n))
+          llvm::DILocation loc(metaData);
+        stream << "Line " << loc.getLineNumber();
       }
       stream << "]";
       stream.flush();
