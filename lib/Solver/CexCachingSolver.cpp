@@ -68,7 +68,7 @@ class CexCachingSolver : public SolverImpl {
 
   Solver *solver;
   
-  MapOfSets<ref<Expr>, Assignment*> cache;
+  MapOfSets<ref<Expr>, AssignmentCacheWrapper*> cache;
   // memo table
   assignmentsTable_ty assignmentsTable;
 
@@ -110,11 +110,11 @@ public:
 ///
 
 struct NullAssignment {
-  bool operator()(Assignment *a) const { return !a; }
+  bool operator()(AssignmentCacheWrapper *a) const { return !(a->getAssignment()); }
 };
 
 struct NonNullAssignment {
-  bool operator()(Assignment *a) const { return a!=0; }
+  bool operator()(AssignmentCacheWrapper *a) const { return (a->getAssignment())!=0; }
 };
 
 struct NullOrSatisfyingAssignment {
@@ -122,8 +122,8 @@ struct NullOrSatisfyingAssignment {
   
   NullOrSatisfyingAssignment(KeyType &_key) : key(_key) {}
 
-  bool operator()(Assignment *a) const { 
-    return !a || a->satisfies(key.begin(), key.end()); 
+  bool operator()(AssignmentCacheWrapper *a) const {
+    return !(a->getAssignment()) || a->getAssignment()->satisfies(key.begin(), key.end());
   }
 };
 
@@ -136,9 +136,9 @@ struct NullOrSatisfyingAssignment {
 /// \return - True if a cached result was found.
 bool CexCachingSolver::searchForAssignment(KeyType &key, Assignment *&result,
                                            std::vector<ref<Expr> > &unsatCore) {
-  Assignment * const *lookup = cache.lookup(key);
+  AssignmentCacheWrapper * const *lookup = cache.lookup(key);
   if (lookup) {
-    result = *lookup;
+    result = (*lookup)->getAssignment();
     const std::vector<ref<Expr> > &cachedCore = (*lookup)->getCore();
     unsatCore.clear();
     unsatCore.insert(unsatCore.end(), cachedCore.begin(), cachedCore.end());
@@ -148,7 +148,7 @@ bool CexCachingSolver::searchForAssignment(KeyType &key, Assignment *&result,
   if (CexCacheTryAll) {
     // Look for a satisfying assignment for a superset, which is trivially an
     // assignment for any subset.
-    Assignment **lookup = 0;
+    AssignmentCacheWrapper **lookup = 0;
     if (CexCacheSuperSet)
       lookup = cache.findSuperset(key, NonNullAssignment());
 
@@ -158,7 +158,7 @@ bool CexCachingSolver::searchForAssignment(KeyType &key, Assignment *&result,
 
     // If either lookup succeeded, then we have a cached solution.
     if (lookup) {
-      result = *lookup;
+      result = (*lookup)->getAssignment();
       const std::vector<ref<Expr> > &cachedCore = (*lookup)->getCore();
       unsatCore.clear();
       unsatCore.insert(unsatCore.begin(), cachedCore.begin(), cachedCore.end());
@@ -181,7 +181,7 @@ bool CexCachingSolver::searchForAssignment(KeyType &key, Assignment *&result,
 
     // Look for a satisfying assignment for a superset, which is trivially an
     // assignment for any subset.
-    Assignment **lookup = 0;
+    AssignmentCacheWrapper **lookup = 0;
     if (CexCacheSuperSet)
       lookup = cache.findSuperset(key, NonNullAssignment());
 
@@ -195,7 +195,7 @@ bool CexCachingSolver::searchForAssignment(KeyType &key, Assignment *&result,
 
     // If either lookup succeeded, then we have a cached solution.
     if (lookup) {
-      result = *lookup;
+      result = (*lookup)->getAssignment();
       const std::vector<ref<Expr> > &cachedCore = (*lookup)->getCore();
       unsatCore.clear();
       unsatCore.insert(unsatCore.begin(), cachedCore.begin(), cachedCore.end());
@@ -259,7 +259,8 @@ bool CexCachingSolver::getAssignment(const Query& query, Assignment *&result,
   if (!solver->impl->computeInitialValues(query, objects, values, 
                                           hasSolution, unsatCore))
     return false;
-    
+
+  AssignmentCacheWrapper *bindingWrapper;
   Assignment *binding;
   if (hasSolution) {
     binding = new Assignment(objects, values);
@@ -278,6 +279,8 @@ bool CexCachingSolver::getAssignment(const Query& query, Assignment *&result,
         binding->dump();
         klee_error("Generated assignment doesn't match query");
       }
+
+    bindingWrapper = new AssignmentCacheWrapper(binding);
   } else {
     binding = (Assignment*) 0;
     bindingWrapper = new AssignmentCacheWrapper(unsatCore);
