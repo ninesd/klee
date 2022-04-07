@@ -4086,6 +4086,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
                it = expressionOrder.begin(),
                itE = expressionOrder.end();
            it != itE; ++it) {
+        std::vector<ref<Expr> > unsatCore;
         ref<Expr> match = EqExpr::create(cond, it->first);
 
         // skip if case has same successor basic block as default case
@@ -4099,7 +4100,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         bool result;
         match = optimizer.optimizeExpr(match, false);
         bool success = solver->mayBeTrue(state.constraints, match, result,
-                                         state.queryMetaData);
+                                         state.queryMetaData, unsatCore);
         assert(success && "FIXME: Unhandled solver failure");
         (void) success;
         if (result) {
@@ -4133,8 +4134,9 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       // Check if control could take the default case
       defaultValue = optimizer.optimizeExpr(defaultValue, false);
       bool res;
+      std::vector<ref<Expr> > unsatCore;
       bool success = solver->mayBeTrue(state.constraints, defaultValue, res,
-                                       state.queryMetaData);
+                                       state.queryMetaData, unsatCore);
       assert(success && "FIXME: Unhandled solver failure");
       (void) success;
       if (res) {
@@ -4335,7 +4337,8 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   case Instruction::Add: {
     ref<Expr> left = eval(ki, 0, state).value;
     ref<Expr> right = eval(ki, 1, state).value;
-    bindLocal(ki, state, AddExpr::create(left, right));
+    ref<Expr> result = AddExpr::create(left, right);
+    bindLocal(ki, state, result);
 
     // Update dependency
     if (INTERPOLATION_ENABLED)

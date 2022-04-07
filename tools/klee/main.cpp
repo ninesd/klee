@@ -1653,6 +1653,8 @@ int main(int argc, char **argv, char **envp) {
                            sys::StrError(errno).c_str());
             }
         }
+        if (BBCoverage > 0)
+          interpreter->InputFile = InputFile;
 
         unsigned i=0;
         for (std::vector<KTest*>::iterator
