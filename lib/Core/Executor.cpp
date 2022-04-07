@@ -1475,49 +1475,21 @@ Executor::StatePair Executor::branchFork(ExecutionState &current,
   }
 
   Solver::Validity res;
-  std::map<ExecutionState *, std::vector<SeedInfo> >::iterator it =
+  std::map< ExecutionState*, std::vector<SeedInfo> >::iterator it =
       seedMap.find(&current);
   bool isSeeding = it != seedMap.end();
 
-  if (!isSeeding && !isa<ConstantExpr>(condition) &&
-      (MaxStaticForkPct != 1. || MaxStaticSolvePct != 1. ||
-       MaxStaticCPForkPct != 1. || MaxStaticCPSolvePct != 1.) &&
-      statsTracker->elapsed() > 60.) {
-    StatisticManager &sm = *theStatisticManager;
-    CallPathNode *cpn = current.stack.back().callPathNode;
-    if ((MaxStaticForkPct < 1. &&
-         sm.getIndexedValue(stats::forks, sm.getIndex()) >
-             stats::forks * MaxStaticForkPct) ||
-        (MaxStaticCPForkPct < 1. && cpn &&
-         (cpn->statistics.getValue(stats::forks) >
-          stats::forks * MaxStaticCPForkPct)) ||
-        (MaxStaticSolvePct < 1 &&
-         sm.getIndexedValue(stats::solverTime, sm.getIndex()) >
-             stats::solverTime * MaxStaticSolvePct) ||
-        (MaxStaticCPForkPct < 1. && cpn &&
-         (cpn->statistics.getValue(stats::solverTime) >
-          stats::solverTime * MaxStaticCPSolvePct))) {
-      ref<ConstantExpr> value;
-      bool success = solver->getValue(current, condition, value);
-      assert(success && "FIXME: Unhandled solver failure");
-      (void)success;
-      addConstraint(current, EqExpr::create(value, condition));
-      condition = value;
-    }
-  }
+  if (!isSeeding)
+    condition = maxStaticPctChecks(current, condition);
 
-  double timeout = coreSolverTimeout;
+  time::Span timeout = coreSolverTimeout;
   if (isSeeding)
-    timeout *= it->second.size();
-
-  // llvm::errs() << "Calling solver->evaluate on query:\n";
-  // ExprPPrinter::printQuery(llvm::errs(), current.constraints, condition);
-
+    timeout *= static_cast<unsigned>(it->second.size());
   solver->setTimeout(timeout);
   std::vector<ref<Expr> > unsatCore;
-  bool success = solver->evaluate(current, condition, res, unsatCore);
-  solver->setTimeout(0);
-
+  bool success = solver->evaluate(current.constraints, condition, res,
+                                  current.queryMetaData, unsatCore);
+  solver->setTimeout(time::Span());
   if (!success) {
     current.pc = current.prevPC;
     terminateStateEarly(current, "Query timed out (fork).");
@@ -1526,39 +1498,28 @@ Executor::StatePair Executor::branchFork(ExecutionState &current,
 
   if (!isSeeding) {
     if (replayPath && !isInternal) {
-      assert(replayPosition < replayPath->size() &&
+      assert(replayPosition<replayPath->size() &&
              "ran out of branches in replay path mode");
       bool branch = (*replayPath)[replayPosition++];
 
-      if (res == Solver::True) {
+      if (res==Solver::True) {
         assert(branch && "hit invalid branch in replay path mode");
-      } else if (res == Solver::False) {
+      } else if (res==Solver::False) {
         assert(!branch && "hit invalid branch in replay path mode");
       } else {
         // add constraints
-        if (branch) {
+        if(branch) {
           res = Solver::True;
           addConstraint(current, condition);
-        } else {
+        } else  {
           res = Solver::False;
           addConstraint(current, Expr::createIsZero(condition));
         }
       }
-    } else if (res == Solver::Unknown) {
+    } else if (res==Solver::Unknown) {
       assert(!replayKTest && "in replay mode, only one branch can be true.");
 
-      if ((MaxMemoryInhibit && atMemoryLimit) || current.forkDisabled ||
-          inhibitForking || (MaxForks != ~0u && stats::forks >= MaxForks)) {
-
-        if (MaxMemoryInhibit && atMemoryLimit)
-          klee_warning_once(0, "skipping fork (memory cap exceeded)");
-        else if (current.forkDisabled)
-          klee_warning_once(0, "skipping fork (fork disabled on current path)");
-        else if (inhibitForking)
-          klee_warning_once(0, "skipping fork (fork disabled globally)");
-        else
-          klee_warning_once(0, "skipping fork (max-forks reached)");
-
+      if (!branchingPermitted(current)) {
         TimerStatIncrementer timer(stats::forkTime);
         if (theRNG.getBool()) {
           addConstraint(current, condition);
@@ -1573,18 +1534,19 @@ Executor::StatePair Executor::branchFork(ExecutionState &current,
 
   // Fix branch in only-replay-seed mode, if we don't have both true
   // and false seeds.
-  if (isSeeding && (current.forkDisabled || OnlyReplaySeeds) &&
+  if (isSeeding &&
+      (current.forkDisabled || OnlyReplaySeeds) &&
       res == Solver::Unknown) {
-    bool trueSeed = false, falseSeed = false;
+    bool trueSeed=false, falseSeed=false;
     // Is seed extension still ok here?
     for (std::vector<SeedInfo>::iterator siit = it->second.begin(),
-                                         siie = it->second.end();
-         siit != siie; ++siit) {
+                                         siie = it->second.end(); siit != siie; ++siit) {
       ref<ConstantExpr> res;
-      bool success =
-          solver->getValue(current, siit->assignment.evaluate(condition), res);
+      bool success = solver->getValue(current.constraints,
+                                      siit->assignment.evaluate(condition), res,
+                                      current.queryMetaData);
       assert(success && "FIXME: Unhandled solver failure");
-      (void)success;
+      (void) success;
       if (res->isTrue()) {
         trueSeed = true;
       } else {
@@ -1597,8 +1559,7 @@ Executor::StatePair Executor::branchFork(ExecutionState &current,
       assert(trueSeed || falseSeed);
 
       res = trueSeed ? Solver::True : Solver::False;
-      addConstraint(current,
-                    trueSeed ? condition : Expr::createIsZero(condition));
+      addConstraint(current, trueSeed ? condition : Expr::createIsZero(condition));
     }
   }
 
@@ -1785,13 +1746,13 @@ Executor::StatePair Executor::branchFork(ExecutionState &current,
   // the value it has been fixed at, we should take this as a nice
   // hint to just use the single constraint instead of all the binary
   // search ones. If that makes sense.
-  if (res == Solver::True) {
-
+  if (res==Solver::True) {
     if (!isInternal) {
       if (pathWriter) {
         current.pathOS << "1";
       }
     }
+
     // do speculation if SpecTypeToUse is SAFETY or COVERAGE
     // the default is NO_SPEC
     if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
@@ -1899,12 +1860,13 @@ Executor::StatePair Executor::branchFork(ExecutionState &current,
 
     return StatePair(&current, 0);
 
-  } else if (res == Solver::False) {
+  } else if (res==Solver::False) {
     if (!isInternal) {
       if (pathWriter) {
         current.pathOS << "0";
       }
     }
+
     // do speculation if SpecTypeToUse is SAFETY or COVERAGE
     // the default is NO_SPEC
     if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
@@ -2022,22 +1984,19 @@ Executor::StatePair Executor::branchFork(ExecutionState &current,
     falseState = trueState->branch();
     addedStates.push_back(falseState);
 
-    if (RandomizeFork && theRNG.getBool())
-      std::swap(trueState, falseState);
-
     if (it != seedMap.end()) {
       std::vector<SeedInfo> seeds = it->second;
       it->second.clear();
       std::vector<SeedInfo> &trueSeeds = seedMap[trueState];
       std::vector<SeedInfo> &falseSeeds = seedMap[falseState];
       for (std::vector<SeedInfo>::iterator siit = seeds.begin(),
-                                           siie = seeds.end();
-           siit != siie; ++siit) {
+                                           siie = seeds.end(); siit != siie; ++siit) {
         ref<ConstantExpr> res;
-        bool success = solver->getValue(
-            current, siit->assignment.evaluate(condition), res);
+        bool success = solver->getValue(current.constraints,
+                                        siit->assignment.evaluate(condition),
+                                        res, current.queryMetaData);
         assert(success && "FIXME: Unhandled solver failure");
-        (void)success;
+        (void) success;
         if (res->isTrue()) {
           trueSeeds.push_back(*siit);
         } else {
@@ -2047,13 +2006,11 @@ Executor::StatePair Executor::branchFork(ExecutionState &current,
 
       bool swapInfo = false;
       if (trueSeeds.empty()) {
-        if (&current == trueState)
-          swapInfo = true;
+        if (&current == trueState) swapInfo = true;
         seedMap.erase(trueState);
       }
       if (falseSeeds.empty()) {
-        if (&current == falseState)
-          swapInfo = true;
+        if (&current == falseState) swapInfo = true;
         seedMap.erase(falseState);
       }
       if (swapInfo) {
@@ -2062,20 +2019,20 @@ Executor::StatePair Executor::branchFork(ExecutionState &current,
       }
     }
 
-    current.ptreeNode->data = 0;
-    std::pair<PTree::Node *, PTree::Node *> res =
-        processTree->split(current.ptreeNode, falseState, trueState);
-    falseState->ptreeNode = res.first;
-    trueState->ptreeNode = res.second;
+    processTree->attach(current.ptreeNode, falseState, trueState);
 
-    if (!isInternal) {
-      if (pathWriter) {
-        falseState->pathOS = pathWriter->open(current.pathOS);
+    if (pathWriter) {
+      // Need to update the pathOS.id field of falseState, otherwise the same id
+      // is used for both falseState and trueState.
+      falseState->pathOS = pathWriter->open(current.pathOS);
+      if (!isInternal) {
         trueState->pathOS << "1";
         falseState->pathOS << "0";
       }
-      if (symPathWriter) {
-        falseState->symPathOS = symPathWriter->open(current.symPathOS);
+    }
+    if (symPathWriter) {
+      falseState->symPathOS = symPathWriter->open(current.symPathOS);
+      if (!isInternal) {
         trueState->symPathOS << "1";
         falseState->symPathOS << "0";
       }
@@ -2092,7 +2049,7 @@ Executor::StatePair Executor::branchFork(ExecutionState &current,
     addConstraint(*falseState, Expr::createIsZero(condition));
 
     // Kinda gross, do we even really still want this option?
-    if (MaxDepth && MaxDepth <= trueState->depth) {
+    if (MaxDepth && MaxDepth<=trueState->depth) {
       terminateStateEarly(*trueState, "max-depth exceeded.");
       terminateStateEarly(*falseState, "max-depth exceeded.");
       return StatePair(0, 0);
@@ -3961,7 +3918,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       ref<Expr> cond = eval(ki, 0, state).value;
 
       cond = optimizer.optimizeExpr(cond, false);
-      Executor::StatePair branches = fork(state, cond, false);
+      Executor::StatePair branches = branchFork(state, cond, false);
 
       // NOTE: There is a hidden dependency here, markBranchVisited
       // requires that we still be in the context of the branch
