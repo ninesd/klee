@@ -1225,8 +1225,9 @@ Executor::fork(ExecutionState &current, ref<Expr> condition, bool isInternal) {
   if (isSeeding)
     timeout *= static_cast<unsigned>(it->second.size());
   solver->setTimeout(timeout);
+  std::vector<ref<Expr> > unsatCore;
   bool success = solver->evaluate(current.constraints, condition, res,
-                                  current.queryMetaData);
+                                  current.queryMetaData, unsatCore);
   solver->setTimeout(time::Span());
   if (!success) {
     current.pc = current.prevPC;

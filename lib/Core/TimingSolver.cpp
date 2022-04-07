@@ -25,7 +25,8 @@ using namespace llvm;
 
 bool TimingSolver::evaluate(const ConstraintSet &constraints, ref<Expr> expr,
                             Solver::Validity &result,
-                            SolverQueryMetaData &metaData) {
+                            SolverQueryMetaData &metaData,
+                            std::vector<ref<Expr> > &unsatCore) {
   // Fast path, to avoid timer and OS overhead.
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(expr)) {
     result = CE->isTrue() ? Solver::True : Solver::False;
@@ -37,7 +38,17 @@ bool TimingSolver::evaluate(const ConstraintSet &constraints, ref<Expr> expr,
   if (simplifyExprs)
     expr = ConstraintManager::simplifyExpr(constraints, expr);
 
-  bool success = solver->evaluate(Query(constraints, expr), result);
+  unsatCore.clear();
+
+  bool success = solver->evaluate(Query(constraints, expr), result, unsatCore);
+  if (INTERPOLATION_ENABLED) {
+    if (result != Solver::Unknown) {
+      if (simplifyExprs) {
+        unsatCore.insert(unsatCore.begin(), simplificationCore.begin(),
+                         simplificationCore.end());
+      }
+    }
+  }
 
   metaData.queryCost += timer.delta();
 
@@ -45,7 +56,8 @@ bool TimingSolver::evaluate(const ConstraintSet &constraints, ref<Expr> expr,
 }
 
 bool TimingSolver::mustBeTrue(const ConstraintSet &constraints, ref<Expr> expr,
-                              bool &result, SolverQueryMetaData &metaData) {
+                              bool &result, SolverQueryMetaData &metaData,
+                              std::vector<ref<Expr> > &unsatCore) {
   // Fast path, to avoid timer and OS overhead.
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(expr)) {
     result = CE->isTrue() ? true : false;
@@ -57,7 +69,12 @@ bool TimingSolver::mustBeTrue(const ConstraintSet &constraints, ref<Expr> expr,
   if (simplifyExprs)
     expr = ConstraintManager::simplifyExpr(constraints, expr);
 
-  bool success = solver->mustBeTrue(Query(constraints, expr), result);
+  bool success = solver->mustBeTrue(Query(constraints, expr), result, unsatCore);
+
+  if (INTERPOLATION_ENABLED && simplifyExprs) {
+    unsatCore.insert(unsatCore.begin(), simplificationCore.begin(),
+                     simplificationCore.end());
+  }
 
   metaData.queryCost += timer.delta();
 
@@ -65,23 +82,26 @@ bool TimingSolver::mustBeTrue(const ConstraintSet &constraints, ref<Expr> expr,
 }
 
 bool TimingSolver::mustBeFalse(const ConstraintSet &constraints, ref<Expr> expr,
-                               bool &result, SolverQueryMetaData &metaData) {
-  return mustBeTrue(constraints, Expr::createIsZero(expr), result, metaData);
+                               bool &result, SolverQueryMetaData &metaData,
+                               std::vector<ref<Expr> > &unsatCore) {
+  return mustBeTrue(constraints, Expr::createIsZero(expr), result, metaData, unsatCore);
 }
 
 bool TimingSolver::mayBeTrue(const ConstraintSet &constraints, ref<Expr> expr,
-                             bool &result, SolverQueryMetaData &metaData) {
+                             bool &result, SolverQueryMetaData &metaData,
+                             std::vector<ref<Expr> > &unsatCore) {
   bool res;
-  if (!mustBeFalse(constraints, expr, res, metaData))
+  if (!mustBeFalse(constraints, expr, res, metaData, unsatCore))
     return false;
   result = !res;
   return true;
 }
 
 bool TimingSolver::mayBeFalse(const ConstraintSet &constraints, ref<Expr> expr,
-                              bool &result, SolverQueryMetaData &metaData) {
+                              bool &result, SolverQueryMetaData &metaData,
+                              std::vector<ref<Expr> > &unsatCore) {
   bool res;
-  if (!mustBeTrue(constraints, expr, res, metaData))
+  if (!mustBeTrue(constraints, expr, res, metaData, unsatCore))
     return false;
   result = !res;
   return true;
@@ -111,14 +131,15 @@ bool TimingSolver::getValue(const ConstraintSet &constraints, ref<Expr> expr,
 bool TimingSolver::getInitialValues(
     const ConstraintSet &constraints, const std::vector<const Array *> &objects,
     std::vector<std::vector<unsigned char>> &result,
-    SolverQueryMetaData &metaData) {
+    SolverQueryMetaData &metaData,
+    std::vector<ref<Expr> > &unsatCore) {
   if (objects.empty())
     return true;
 
   TimerStatIncrementer timer(stats::solverTime);
 
   bool success = solver->getInitialValues(
-      Query(constraints, ConstantExpr::alloc(0, Expr::Bool)), objects, result);
+      Query(constraints, ConstantExpr::alloc(0, Expr::Bool)), objects, result, unsatCore);
 
   metaData.queryCost += timer.delta();
 
