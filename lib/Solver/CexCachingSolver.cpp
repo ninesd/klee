@@ -220,6 +220,7 @@ bool CexCachingSolver::lookupAssignment(const Query &query,
                                         std::vector<ref<Expr> > &unsatCore) {
   key = KeyType(query.constraints.begin(), query.constraints.end());
   ref<Expr> neg = Expr::createIsZero(query.expr);
+  bool keyHasAddedConstraint = false;
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(neg)) {
     if (CE->isFalse()) {
       result = (Assignment*) 0;
@@ -228,6 +229,7 @@ bool CexCachingSolver::lookupAssignment(const Query &query,
     }
   } else {
     key.insert(neg);
+    keyHasAddedConstraint = true;
   }
 
   bool found = searchForAssignment(key, result, unsatCore);
