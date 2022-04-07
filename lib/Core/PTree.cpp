@@ -49,7 +49,7 @@ std::pair<PTreeNode*, PTreeNode*> PTree::attach(PTreeNode *node, ExecutionState 
                          ? node->parent->left.getInt()
                          : node->parent->right.getInt();
   node->right = PTreeNodePtr(new PTreeNode(node, rightState), currentNodeTag);
-  return std::make_pair(node->left, node->right)
+  return std::make_pair(node->left.getPointer(), node->right.getPointer());
 }
 
 void PTree::remove(PTreeNode *n) {
