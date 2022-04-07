@@ -11,10 +11,11 @@ add_executable(klee
 )
 
 set(KLEE_LIBS
-  kleeCore
+    kleaverSolver
 )
 
 target_link_libraries(klee ${KLEE_LIBS})
+target_link_libraries(klee kleeCore)
 
 install(TARGETS klee RUNTIME DESTINATION bin)
 
