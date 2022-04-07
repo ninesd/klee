@@ -98,7 +98,7 @@ typedef unsigned TypeSize;
 #include <sys/mman.h>
 #include <vector>
 #include <dirent.h>
-#include <stdlib.h>
+#include <sys/time.h>
 
 using namespace llvm;
 using namespace klee;
