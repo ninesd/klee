@@ -10,11 +10,11 @@ add_executable(kleaver
   main.cpp
 )
 
-set(KLEE_LIBS
+set(LLVM_COMPONENTS
   kleaverSolver
-  kleeBasic
+  kleeCore
 )
-
+klee_get_llvm_libs(LLVM_LIBS ${LLVM_COMPONENTS})
 target_link_libraries(kleaver ${KLEE_LIBS})
 
 install(TARGETS kleaver RUNTIME DESTINATION bin)

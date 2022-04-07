@@ -10,6 +10,7 @@ klee_add_component(kleeCore
   AddressSpace.cpp
   MergeHandler.cpp
   CallPathManager.cpp
+  CmdLineOptions.cpp
   Context.cpp
   CoreStats.cpp
   ExecutionState.cpp
@@ -31,7 +32,6 @@ klee_add_component(kleeCore
 # TODO: Work out what the correct LLVM components are for
 # kleeCore.
 set(LLVM_COMPONENTS
-  kleeBasic
   core
   executionengine
   mcjit

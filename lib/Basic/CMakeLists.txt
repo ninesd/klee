@@ -7,7 +7,6 @@
 #
 #===------------------------------------------------------------------------===#
 klee_add_component(kleeBasic
-  CmdLineOptions.cpp
   KTest.cpp
   Statistics.cpp
 )
