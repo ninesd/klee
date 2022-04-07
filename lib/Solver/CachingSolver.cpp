@@ -63,7 +63,7 @@ private:
   typedef std::unordered_map<CacheEntry, IncompleteSolver::PartialValidity,
                              CacheEntryHash>
       cache_map;
-  typedef unordered_map<CacheEntry, std::vector<ref<Expr> >, CacheEntryHash>
+  typedef std::unordered_map<CacheEntry, std::vector<ref<Expr> >, CacheEntryHash>
       UnsatCoreStoreMap;
 
   Solver *solver;
