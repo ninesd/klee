@@ -49,9 +49,15 @@ class ExprVisitor;
 /// Manages constraints, e.g. optimisation
 class ConstraintManager {
 public:
+  typedef std::vector< ref<Expr> > constraints_ty;
+  typedef constraints_ty::iterator iterator;
+  typedef constraints_ty::const_iterator const_iterator;
+
   /// Create constraint manager that modifies constraints
   /// \param constraints
   explicit ConstraintManager(ConstraintSet &constraints);
+
+  typedef std::vector< ref<Expr> >::const_iterator constraint_iterator;
 
   /// Simplify expression expr based on constraints
   /// \param constraints set of constraints used for simplification
@@ -64,6 +70,29 @@ public:
   /// \param constraint
   void addConstraint(const ref<Expr> &constraint);
 
+  bool empty() const {
+    return constraints.empty();
+  }
+  ref<Expr> back() const {
+    return constraints.back();
+  }
+  constraint_iterator begin() const {
+    return constraints.begin();
+  }
+  constraint_iterator end() const {
+    return constraints.end();
+  }
+  size_t size() const {
+    return constraints.size();
+  }
+
+  bool operator==(const ConstraintManager &other) const {
+    return constraints == other.constraints;
+  }
+
+  constraints_ty getConstraints() const{
+    return constraints;
+  }
 private:
   /// Rewrite set of constraints using the visitor
   /// \param visitor constraint rewriter

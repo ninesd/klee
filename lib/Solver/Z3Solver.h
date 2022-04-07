@@ -36,6 +36,11 @@ public:
   /// value; 0
   /// is off.
   virtual void setCoreSolverTimeout(time::Span timeout);
+
+  /// directComputeValidity - Compute validity directly without other
+  /// layers of solving
+  bool directComputeValidity(const Query &query, Solver::Validity &result,
+                             std::vector<ref<Expr> > &unsatCore);
 };
 }
 
