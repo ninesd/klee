@@ -91,6 +91,13 @@ bool ConstraintManager::rewriteConstraints(ExprVisitor &visitor) {
 
 ref<Expr> ConstraintManager::simplifyExpr(const ConstraintSet &constraints,
                                           const ref<Expr> &e) {
+  std::vector<ref<Expr> > simplificationCore;
+  return simplifyExpr(constraints, e, simplificationCore);
+}
+
+ref<Expr> ConstraintManager::simplifyExpr(const ConstraintSet &constraints,
+                                          const ref<Expr> &e,
+                                          std::vector<ref<Expr> > &core) {
 
   if (isa<ConstantExpr>(e))
     return e;
@@ -112,7 +119,11 @@ ref<Expr> ConstraintManager::simplifyExpr(const ConstraintSet &constraints,
     }
   }
 
-  return ExprReplaceVisitor2(equalities).visit(e);
+  ExprReplaceVisitor2 visitor(equalities);
+  ref<Expr> ret = visitor.visit(e);
+  if (INTERPOLATION_ENABLED)
+    visitor.getCore(core);
+  return ret;
 }
 
 void ConstraintManager::addConstraintInternal(const ref<Expr> &e) {

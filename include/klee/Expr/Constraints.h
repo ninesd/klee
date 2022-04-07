@@ -66,6 +66,10 @@ public:
   static ref<Expr> simplifyExpr(const ConstraintSet &constraints,
                                 const ref<Expr> &expr);
 
+  static ref<Expr> simplifyExpr(const ConstraintSet &constraints,
+                                const ref<Expr> &expr,
+                                std::vector<ref<Expr> > &core);
+
   /// Add constraint to the referenced constraint set
   /// \param constraint
   void addConstraint(const ref<Expr> &constraint);
