@@ -36,7 +36,7 @@ PTree::PTree(ExecutionState *initialState)
   initialState->ptreeNode = root.getPointer();
 }
 
-void PTree::attach(PTreeNode *node, ExecutionState *leftState, ExecutionState *rightState) {
+std::pair<PTreeNode*, PTreeNode*> PTree::attach(PTreeNode *node, ExecutionState *leftState, ExecutionState *rightState) {
   assert(node && !node->left.getPointer() && !node->right.getPointer());
   assert(node == rightState->ptreeNode &&
          "Attach assumes the right state is the current state");
@@ -49,6 +49,7 @@ void PTree::attach(PTreeNode *node, ExecutionState *leftState, ExecutionState *r
                          ? node->parent->left.getInt()
                          : node->parent->right.getInt();
   node->right = PTreeNodePtr(new PTreeNode(node, rightState), currentNodeTag);
+  return std::make_pair(node->left, node->right)
 }
 
 void PTree::remove(PTreeNode *n) {

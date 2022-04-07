@@ -47,7 +47,7 @@ namespace klee {
     explicit PTree(ExecutionState *initialState);
     ~PTree() = default;
 
-    void attach(PTreeNode *node, ExecutionState *leftState,
+    std::pair<PTreeNode*, PTreeNode*> attach(PTreeNode *node, ExecutionState *leftState,
                 ExecutionState *rightState);
     void remove(PTreeNode *node);
     void dump(llvm::raw_ostream &os);
