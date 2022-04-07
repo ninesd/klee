@@ -425,33 +425,25 @@ public:
       return m_subsumptionTerminationTest;
     }
     void incSubsumptionTerminationTest() {
-      if (!NoOutput) {
-        m_subsumptionTerminationTest++;
-      }
+      m_subsumptionTerminationTest++;
     }
     unsigned getEarlyTermination() { return m_earlyTermination; }
     void incEarlyTermination() { m_earlyTermination++; }
     unsigned getEarlyTerminationTest() { return m_earlyTerminationTest; }
     void incEarlyTerminationTest() {
-      if (!NoOutput) {
-        m_earlyTerminationTest++;
-      }
+      m_earlyTerminationTest++;
     }
     unsigned getErrorTermination() { return m_errorTermination; }
     void incErrorTermination() { m_errorTermination++; }
     unsigned getErrorTerminationTest() { return m_errorTerminationTest; }
     void incErrorTerminationTest() {
-      if (!NoOutput) {
-        m_errorTerminationTest++;
-      }
+      m_errorTerminationTest++;
     }
     unsigned getExitTermination() { return m_exitTermination; }
     void incExitTermination() { m_exitTermination++; }
     unsigned getExitTerminationTest() { return m_exitTerminationTest; }
     void incExitTerminationTest() {
-      if (!NoOutput) {
-        m_exitTerminationTest++;
-      }
+      m_exitTerminationTest++;
     }
 
     void assignSubsumptionStats(std::string currentStats) {
