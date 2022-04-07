@@ -249,6 +249,8 @@ public:
   // provide this function only in the context of unittests
   ExecutionState(){}
   #endif
+  ExecutionState(const KInstIterator &srcPrevPC,
+                 const std::vector<ref<Expr> > &assumptions);
   // only to create the initial state
   explicit ExecutionState(KFunction *kf);
   // no copy assignment, use copy constructor
@@ -271,6 +273,10 @@ public:
 
   bool merge(const ExecutionState &b);
   void dumpStack(llvm::raw_ostream &out) const;
+  void debugSubsumption(uint64_t level);
+  void debugSubsumptionOff();
+  void debugState(uint64_t level);
+  void debugStateOff();
 
   std::uint32_t getID() const { return id; };
   void setID() { id = nextID++; };
