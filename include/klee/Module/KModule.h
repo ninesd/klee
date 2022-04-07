@@ -83,7 +83,7 @@ namespace klee {
   class KModule {
   public:
     std::unique_ptr<llvm::Module> module;
-    std::unique_ptr<llvm::DataLayout> targetData;
+    std::shared_ptr<llvm::DataLayout> targetData;
 
     // Our shadow versions of LLVM structures.
     std::vector<std::unique_ptr<KFunction>> functions;

@@ -916,7 +916,7 @@ public:
   /// may not have been computed.
   static bool symbolicExecutionError;
 
-  TxTree(ExecutionState *_root, std::unique_ptr<llvm::DataLayout> _targetData,
+  TxTree(ExecutionState *_root, llvm::DataLayout *_targetData,
          std::map<const llvm::GlobalValue *, ref<ConstantExpr> > *
              _globalAddresses);
 
