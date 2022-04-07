@@ -507,7 +507,7 @@ void TxDependency::execute(llvm::Instruction *instr,
             stream << binst->getParent()->getParent()->getName().str() << ": ";
           }
           if (llvm::MDNode *n = binst->getMetadata("dbg")) {
-            if (llvm::MetaData *metaData = dyn_cast<llvm::MetaData>(n))
+            if (llvm::Metadata *metaData = dyn_cast<llvm::Metadata>(n))
             llvm::DILocation loc(metaData);
             stream << "Line " << loc.getLineNumber();
           } else {
@@ -568,7 +568,7 @@ void TxDependency::execute(llvm::Instruction *instr,
         stream << "infeasible switch case [";
         stream << instr->getParent()->getParent()->getName().str() << ": ";
         if (llvm::MDNode *n = instr->getMetadata("dbg")) {
-          if (llvm::MetaData *metaData = dyn_cast<llvm::MetaData>(n))
+          if (llvm::Metadata *metaData = dyn_cast<llvm::Metadata>(n))
             llvm::DILocation loc(metaData);
           stream << "Line " << loc.getLineNumber();
         }
@@ -993,7 +993,7 @@ bool TxDependency::executeMemoryOperation(
         stream << "pointer use [";
         stream << instr->getParent()->getParent()->getName().str() << ": ";
         if (llvm::MDNode *n = instr->getMetadata("dbg")) {
-          if (llvm::MetaData *metaData = dyn_cast<llvm::MetaData>(n))
+          if (llvm::Metadata *metaData = dyn_cast<llvm::Metadata>(n))
             llvm::DILocation loc(metaData);
           stream << "Line " << loc.getLineNumber();
         }
@@ -1181,7 +1181,7 @@ void TxDependency::memoryBoundViolationInterpolation(llvm::Instruction *inst,
       stream << "memory bound violation [";
       stream << inst->getParent()->getParent()->getName().str() << ": ";
       if (llvm::MDNode *n = inst->getMetadata("dbg")) {
-        if (llvm::MetaData *metaData = dyn_cast<llvm::MetaData>(n))
+        if (llvm::Metadata *metaData = dyn_cast<llvm::Metadata>(n))
           llvm::DILocation loc(metaData);
         stream << "Line " << loc.getLineNumber();
       }
