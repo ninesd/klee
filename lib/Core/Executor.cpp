@@ -2078,9 +2078,9 @@ Executor::StatePair Executor::addSpeculationNode(ExecutionState &current,
     trueState = speculationFalseState->branch();
     addedStates.push_back(trueState);
 
-    current.ptreeNode->data = 0;
-    std::pair<PTree::Node *, PTree::Node *> res =
-        processTree->split(current.ptreeNode, speculationFalseState, trueState);
+    current.ptreeNode->state = 0;
+    std::pair<PTreeNode *, PTreeNode *> res =
+        processTree->attach(current.ptreeNode, speculationFalseState, trueState);
     speculationFalseState->ptreeNode = res.first;
     trueState->ptreeNode = res.second;
 
@@ -2128,9 +2128,9 @@ Executor::StatePair Executor::addSpeculationNode(ExecutionState &current,
     falseState = speculationTrueState->branch();
     addedStates.push_back(falseState);
 
-    current.ptreeNode->data = 0;
-    std::pair<PTree::Node *, PTree::Node *> res =
-        processTree->split(current.ptreeNode, speculationTrueState, falseState);
+    current.ptreeNode->state = 0;
+    std::pair<PTreeNode *, PTreeNode *> res =
+        processTree->attach(current.ptreeNode, speculationTrueState, falseState);
     speculationTrueState->ptreeNode = res.first;
     falseState->ptreeNode = res.second;
 
@@ -2177,7 +2177,7 @@ Executor::StatePair Executor::speculationFork(ExecutionState &current,
   // Seeding is removed intentionally
   Solver::Validity res;
 
-  double timeout = coreSolverTimeout;
+  time::Span timeout = coreSolverTimeout;
 
   // llvm::errs() << "Calling solver->evaluate on query:\n";
   // ExprPPrinter::printQuery(llvm::errs(), current.constraints, condition);
@@ -2185,7 +2185,7 @@ Executor::StatePair Executor::speculationFork(ExecutionState &current,
   solver->setTimeout(timeout);
   std::vector<ref<Expr> > unsatCore;
   bool success = solver->evaluate(current, condition, res, unsatCore);
-  solver->setTimeout(0);
+  solver->setTimeout(time::Span());
 
   if (!success) {
     current.pc = current.prevPC;
@@ -2480,12 +2480,9 @@ Executor::StatePair Executor::speculationFork(ExecutionState &current,
     falseState = trueState->branch();
     addedStates.push_back(falseState);
 
-    if (RandomizeFork && theRNG.getBool())
-      std::swap(trueState, falseState);
-
-    current.ptreeNode->data = 0;
-    std::pair<PTree::Node *, PTree::Node *> resNode =
-        processTree->split(current.ptreeNode, falseState, trueState);
+    current.ptreeNode->state = 0;
+    std::pair<PTreeNode *, PTreeNode *> resNode =
+        processTree->attach(current.ptreeNode, falseState, trueState);
     falseState->ptreeNode = resNode.first;
     trueState->ptreeNode = resNode.second;
 
