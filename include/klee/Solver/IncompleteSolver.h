@@ -61,12 +61,14 @@ public:
   /// The IncompleteSolver class provides an implementation of
   /// computeValidity using computeTruth. Sub-classes may override
   /// this if a more efficient implementation is available.
-  virtual IncompleteSolver::PartialValidity computeValidity(const Query&);
+  virtual IncompleteSolver::PartialValidity computeValidity(const Query&,
+                                                            std::vector<ref<Expr> > &unsatCore);
 
   /// computeValidity - Compute a partial validity for the given query.
   ///
   /// The passed expression is non-constant with bool type.
-  virtual IncompleteSolver::PartialValidity computeTruth(const Query&) = 0;
+  virtual IncompleteSolver::PartialValidity computeTruth(const Query&,
+                                                         std::vector<ref<Expr> > &unsatCore) = 0;
   
   /// computeValue - Attempt to compute a value for the given expression.
   virtual bool computeValue(const Query&, ref<Expr> &result) = 0;
@@ -79,7 +81,8 @@ public:
                                       &objects,
                                     std::vector< std::vector<unsigned char> > 
                                       &values,
-                                    bool &hasSolution) = 0;
+                                    bool &hasSolution,
+                                    std::vector<ref<Expr> > &unsatCore) = 0;
 };
 
 /// StagedSolver - Adapter class for staging an incomplete solver with
@@ -94,13 +97,16 @@ public:
   StagedSolverImpl(IncompleteSolver *_primary, Solver *_secondary);
   ~StagedSolverImpl();
     
-  bool computeTruth(const Query&, bool &isValid);
-  bool computeValidity(const Query&, Solver::Validity &result);
+  bool computeTruth(const Query&, bool &isValid,
+                    std::vector<ref<Expr> > &unsatCore);
+  bool computeValidity(const Query&, Solver::Validity &result,
+                       std::vector<ref<Expr> > &unsatCore);
   bool computeValue(const Query&, ref<Expr> &result);
   bool computeInitialValues(const Query&,
                             const std::vector<const Array*> &objects,
                             std::vector< std::vector<unsigned char> > &values,
-                            bool &hasSolution);
+                            bool &hasSolution,
+                            std::vector<ref<Expr> > &unsatCore);
   SolverRunStatus getOperationStatusCode();
   char *getConstraintLog(const Query&);
   void setCoreSolverTimeout(time::Span timeout);
