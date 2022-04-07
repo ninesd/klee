@@ -57,14 +57,21 @@ class ExprReplaceVisitor2 : public ExprVisitor {
 private:
   const std::map< ref<Expr>, ref<Expr> > &replacements;
 
+  std::set<ref<Expr> > usedEqualities;
+
 public:
   explicit ExprReplaceVisitor2(
       const std::map<ref<Expr>, ref<Expr>> &_replacements)
       : ExprVisitor(true), replacements(_replacements) {}
 
+  void getCore(std::vector<ref<Expr> > &core) {
+    core.insert(core.begin(), usedEqualities.begin(), usedEqualities.end());
+  }
+
   Action visitExprPost(const Expr &e) override {
     auto it = replacements.find(ref<Expr>(const_cast<Expr *>(&e)));
     if (it!=replacements.end()) {
+      usedEqualities.insert(it->second.second);
       return Action::changeTo(it->second);
     }
     return Action::doChildren();
