@@ -2184,7 +2184,8 @@ Executor::StatePair Executor::speculationFork(ExecutionState &current,
 
   solver->setTimeout(timeout);
   std::vector<ref<Expr> > unsatCore;
-  bool success = solver->evaluate(current, condition, res, unsatCore);
+  bool success = solver->evaluate(current.constraints, condition, res,
+                                  current.queryMetaData, unsatCore);
   solver->setTimeout(time::Span());
 
   if (!success) {
@@ -2982,7 +2983,7 @@ void Executor::unwindToNextLandingpad(ExecutionState &state) {
     if (popFrames) {
       // TODO DOUBT?
 //      state.popFrame();
-      state.popFrame(*(sf.caller), ConstantExpr::alloc(0, Expr::Bool));
+      state.popFrame(sf.caller, ConstantExpr::alloc(0, Expr::Bool));
       if (statsTracker != nullptr) {
         statsTracker->framePopped(state);
       }
