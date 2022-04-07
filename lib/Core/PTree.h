@@ -59,6 +59,8 @@ namespace klee {
       }
       return id;
     }
+
+    void print(llvm::raw_ostream &os);
   };
 }
 
