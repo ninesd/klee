@@ -5777,7 +5777,7 @@ void Executor::run(ExecutionState &initialState) {
       // loop over BBs of function
       std::vector<llvm::BasicBlock *> bbs;
       for (BasicBlock &BB : *f) {
-        fBBOrder[f][BB] = ++allBlockCount;
+        fBBOrder[f][&BB] = ++allBlockCount;
         if (BBCoverage >= 4) {
           // Print All atomic condition covered
           std::string liveBBFileAICMP =
