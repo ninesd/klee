@@ -5776,8 +5776,8 @@ void Executor::run(ExecutionState &initialState) {
         isCoverableFunction(f)) {
       // loop over BBs of function
       std::vector<llvm::BasicBlock *> bbs;
-      for (llvm::Function::iterator b = f->begin(); b != f->end(); ++b) {
-        fBBOrder[f][b] = ++allBlockCount;
+      for (BasicBlock &BB : Func) {
+        fBBOrder[f][BB] = ++allBlockCount;
         if (BBCoverage >= 4) {
           // Print All atomic condition covered
           std::string liveBBFileAICMP =
@@ -5788,12 +5788,12 @@ void Executor::run(ExecutionState &initialState) {
           // block content
           std::string tmpICMP;
           raw_string_ostream tmpICMPOS(tmpICMP);
-          for (llvm::BasicBlock::iterator aicmp = b->begin(); aicmp != b->end();
+          for (llvm::BasicBlock::iterator aicmp = BB.begin(); aicmp != BB.end();
                aicmp++) {
             if (llvm::isa<llvm::ICmpInst>(aicmp)) {
               allICMPCount++;
               liveBBFileAICMPOut << "Function: "
-                                 << b->getParent()->getName().str() << " ";
+                                 << BB.getParent()->getName().str() << " ";
               liveBBFileAICMPOut << "Block Order: " << allBlockCount;
               aicmp->print(tmpICMPOS);
               liveBBFileAICMPOut << tmpICMP << "\n";
