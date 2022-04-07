@@ -129,25 +129,25 @@ void PTree::dump(llvm::raw_ostream &os) {
 }
 
 void PTree::printNode(llvm::raw_ostream& stream, PTreeNode *n, std::string edges) {
-  if (n->left != 0) {
-    stream << edges << "+-- L:" << n->left << "\n";
-    if (n->right != 0) {
-      printNode(stream, n->left, edges + "|   ");
+  if (n->left.getPointer() != 0) {
+    stream << edges << "+-- L:" << n->left.getPointer() << "\n";
+    if (n->right.getPointer() != 0) {
+      printNode(stream, n->left.getPointer(), edges + "|   ");
     } else {
-      printNode(stream, n->left, edges + "    ");
+      printNode(stream, n->left.getPointer(), edges + "    ");
     }
   }
-  if (n->right != 0) {
-    stream << edges << "+-- R:" << n->right << "\n";
-    printNode(stream, n->right, edges + "    ");
+  if (n->right.getPointer() != 0) {
+    stream << edges << "+-- R:" << n->right.getPointer() << "\n";
+    printNode(stream, n->right.getPointer(), edges + "    ");
   }
 }
 
 void PTree::print(llvm::raw_ostream& stream) {
   llvm::errs() << "------------------------- PTree Structure ---------------------------\n";
-  stream << this->root;
+  stream << this->root.getPointer();
   stream << "\n";
-  this->printNode(stream, this->root, "");
+  this->printNode(stream, this->root.getPointer(), "");
 }
 
 PTreeNode::PTreeNode(PTreeNode *parent, ExecutionState *state) : parent{parent}, state{state} {

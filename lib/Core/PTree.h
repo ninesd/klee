@@ -42,6 +42,8 @@ namespace klee {
     // Number of registered ID
     int registeredIds = 0;
 
+    void printNode(llvm::raw_ostream& stream, PTreeNode *n, std::string edges);
+
   public:
     PTreeNodePtr root;
     explicit PTree(ExecutionState *initialState);
