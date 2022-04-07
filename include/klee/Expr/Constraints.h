@@ -73,9 +73,6 @@ public:
   bool empty() const {
     return constraints.empty();
   }
-  ref<Expr> back() const {
-    return constraints.back();
-  }
   constraint_iterator begin() const {
     return constraints.begin();
   }
