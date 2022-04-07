@@ -19,6 +19,7 @@
 
 namespace llvm {
   class BranchInst;
+  class BasicBlock;
   class Function;
   class Instruction;
   class raw_fd_ostream;
