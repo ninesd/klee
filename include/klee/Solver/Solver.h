@@ -116,8 +116,9 @@ namespace klee {
                     std::vector<ref<Expr> > &unsatCore);
 
     bool mustBeTrue(const Query &query, bool &result) {
-      std::vector<ref<Expr> > dummyUnsatCore;
+      std::vector<ref<Expr>> dummyUnsatCore;
       return mustBeTrue(query, result, dummyUnsatCore);
+    }
 
     /// mustBeFalse - Determine if the expression is provably false.
     ///
