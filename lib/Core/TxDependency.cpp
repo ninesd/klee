@@ -30,6 +30,7 @@
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/Metadata.h>
+#include <llvm/IR/DebugInfoMetadata.h>
 
 using namespace klee;
 
