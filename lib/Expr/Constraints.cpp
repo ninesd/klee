@@ -62,7 +62,7 @@ private:
 
 public:
   explicit ExprReplaceVisitor2(
-      const std::map<ref<Expr>, ref<Expr>> &_replacements)
+      const std::map<ref<Expr>, std::pair<ref<Expr>, ref<Expr> > > &_replacements)
       : ExprVisitor(true), replacements(_replacements) {}
 
   void getCore(std::vector<ref<Expr> > &core) {
