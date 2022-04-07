@@ -98,7 +98,6 @@ typedef unsigned TypeSize;
 #include <sys/mman.h>
 #include <vector>
 #include <dirent.h>
-#include <sys/time.h>
 
 using namespace llvm;
 using namespace klee;
@@ -3681,7 +3680,7 @@ void Executor::processBBCoverage(int BBCoverage, llvm::BasicBlock *bb,
       liveBBFileICMPOut.close();
     }
     if (BBCoverage >= 5) {
-      double diff = time(0) - startingBBPlottingTime;
+      time::Span diff = time::getWallTime() - startingBBPlottingTime;
       std::string bbPlottingFile =
           interpreterHandler->getOutputFilename("BBPlotting.txt");
       std::ofstream bbPlotingFileOut(bbPlottingFile.c_str(),
@@ -5748,7 +5747,7 @@ void Executor::run(ExecutionState &initialState) {
     visitedBlocks = readVisitedBB(DependencyFolder + "/InitialVisitedBB.txt");
   }
 
-  startingBBPlottingTime = time(0);
+  startingBBPlottingTime = time::getWallTime();
   // get interested source code
   size_t lastindex = InputFile.find_last_of(".");
   std::string InputFile1 = InputFile.substr(0, lastindex);

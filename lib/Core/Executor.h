@@ -100,7 +100,7 @@ class Executor : public Interpreter {
   friend klee::Searcher *klee::constructUserSearcher(Executor &executor);
 
 public:
-  time_t startingBBPlottingTime;
+  time::Point startingBBPlottingTime;
   int allBlockCount;
   int allICMPCount;
   int coveredICMPCount;
