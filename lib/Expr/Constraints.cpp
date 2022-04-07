@@ -112,20 +112,18 @@ ref<Expr> ConstraintManager::simplifyExpr(const ConstraintSet &constraints,
   if (isa<ConstantExpr>(e))
     return e;
 
-  std::map< ref<Expr>, ref<Expr> > equalities;
+  std::map<ref<Expr>, std::pair<ref<Expr>, ref<Expr> > > equalities;
 
   for (auto &constraint : constraints) {
     if (const EqExpr *ee = dyn_cast<EqExpr>(constraint)) {
       if (isa<ConstantExpr>(ee->left)) {
-        equalities.insert(std::make_pair(ee->right,
-                                         ee->left));
+        equalities[ee->right] = std::make_pair(ee->left, *it);
       } else {
-        equalities.insert(
-            std::make_pair(constraint, ConstantExpr::alloc(1, Expr::Bool)));
+        equalities[constraint] =
+            std::make_pair(ConstantExpr::alloc(1, Expr::Bool), *it);
       }
     } else {
-      equalities.insert(
-          std::make_pair(constraint, ConstantExpr::alloc(1, Expr::Bool)));
+      equalities[constraint] = std::make_pair(ConstantExpr::alloc(1, Expr::Bool), *it);
     }
   }
 
