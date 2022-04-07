@@ -10,7 +10,7 @@ klee_add_component(kleeCore
   AddressSpace.cpp
   MergeHandler.cpp
   CallPathManager.cpp
-  CmdLineOptions.cpp
+  #CmdLineOptions.cpp
   Context.cpp
   CoreStats.cpp
   ExecutionState.cpp
