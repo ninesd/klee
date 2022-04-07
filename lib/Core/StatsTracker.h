@@ -98,6 +98,10 @@ namespace klee {
     time::Span elapsed();
 
     void computeReachableUncovered();
+
+    static std::map<llvm::BasicBlock *, std::vector<unsigned int> > bbSpecCount;
+
+    static void increaseEle(llvm::BasicBlock *bb, int indx, bool check);
   };
 
   uint64_t computeMinDistToUncovered(const KInstruction *ki,
