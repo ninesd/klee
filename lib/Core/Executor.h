@@ -131,15 +131,6 @@ public:
   clock_t start, end;
   bool isFail;
 
-  class Timer {
-  public:
-    Timer();
-    virtual ~Timer();
-
-    /// The event callback.
-    virtual void run() = 0;
-  };
-
   typedef std::pair<ExecutionState*,ExecutionState*> StatePair;
 
   enum TerminateReason {

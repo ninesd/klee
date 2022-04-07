@@ -1440,6 +1440,7 @@ std::set<std::string> Executor::extractVarNames(ExecutionState &current,
         if (ai == &f->getEntryBlock().front()) {
           res.insert(f->arg_begin()->getName().data());
         } else if (ai == f->getEntryBlock().front().getNextNode()) {
+          // TODO DOUBT??
           res.insert((f->arg_begin()+1)->getName().data());
         }
       } else {
