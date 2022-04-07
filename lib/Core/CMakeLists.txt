@@ -26,7 +26,21 @@ klee_add_component(kleeCore
   SpecialFunctionHandler.cpp
   StatsTracker.cpp
   TimingSolver.cpp
+  TxDependency.cpp
+  TxExprHelper.cpp
+  TxPartitionHelper.cpp
+  TxPathCondition.cpp
+  TxPrintUtil.cpp
+  TxShadowArray.cpp
+  TxSpeculation.cpp
+  TxStore.cpp
+  TxTree.cpp
+  TxTreeGraph.cpp
+  TxValues.cpp
+  TxWP.cpp
+  TxWPHelper.cpp
   UserSearcher.cpp
+  Z3Simplification.cpp
 )
 
 # TODO: Work out what the correct LLVM components are for
