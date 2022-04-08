@@ -310,7 +310,7 @@ void TxTreeGraph::setCurrentNode(ExecutionState &state,
       // Display the line, char position of this instruction
       if (llvm::DISubprogram *loc = dyn_cast<llvm::DISubprogram>(n)) {
         unsigned line = loc->getLine();
-        llvm::StringRef file = loc.getFilename();
+        llvm::StringRef file = loc->getFilename();
         out << file << ":" << line << "\n";
       }
     } else {
@@ -401,7 +401,7 @@ void TxTreeGraph::setError(const ExecutionState &state,
     // Display the line, char position of this instruction
     if (llvm::DISubprogram *loc = dyn_cast<llvm::DISubprogram>(n)) {
       unsigned line = loc->getLine();
-      llvm::StringRef file = loc.getFilename();
+      llvm::StringRef file = loc->getFilename();
       out << file << ":" << line << "\n";
     }
   } else {
