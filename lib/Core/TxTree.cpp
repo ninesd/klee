@@ -1625,7 +1625,7 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
             solver->setTimeout(timeout);
             bool success = solver->evaluate(state.constraints, expr, result,
                                             state.queryMetaData, unsatCore);
-            solver->setTimeout(time::Span("0ms"));
+            solver->setTimeout(time::Span());
           }
 
           if (!success || result != Solver::True) {
@@ -1651,7 +1651,7 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
         solver->setTimeout(timeout);
         bool success = solver->evaluate(state.constraints, expr, result,
                                         state.queryMetaData, unsatCore);
-        solver->setTimeout(0);
+        solver->setTimeout(time::Span());
 
         if (!success || result != Solver::True) {
           if (debugSubsumptionLevel >= 1) {
@@ -2293,7 +2293,7 @@ std::string TxTree::getInterpolationStat() {
 }
 
 TxTree::TxTree(
-    ExecutionState *_root, llvm::DataLayout *_targetData,
+    ExecutionState *_root, std::shared_ptr<llvm::DataLayout> _targetData,
     std::map<const llvm::GlobalValue *, ref<ConstantExpr> > *_globalAddresses)
     : targetData(_targetData), globalAddresses(_globalAddresses) {
   currentTxTreeNode = 0;
