@@ -1615,7 +1615,7 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
             // to just run solver->evaluate so that the optimizations can be
             // used, but this requires handling of quantified expressions by
             // KLEE's pre-solving procedure, which does not exist currently.
-            Z3Solver *z3solver = createCoreSolver(CoreSolverType::Z3_SOLVER);
+            Solver *z3solver = createCoreSolver(CoreSolverType::Z3_SOLVER);
             z3solver->setCoreSolverTimeout(timeout);
             success = z3solver->directComputeValidity(
                 Query(state.constraints, expr), result, unsatCore);
