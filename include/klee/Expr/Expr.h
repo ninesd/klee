@@ -201,6 +201,7 @@ public:
     WPVar, // Expressions for WP Interpolation
     Upd,   // Array Update
     Sel,   // Array Select
+    Exists,
 
     LastKind = FOGe,
 
@@ -606,6 +607,45 @@ private:
 public:
   static bool classof(const Expr *E) { return E->getKind() == Expr::Sel; }
   static bool classof(const SelExpr *) { return true; }
+};
+
+class ExistsExpr : public NonConstantExpr {
+public:
+  std::set<const Array *> variables;
+  ref<Expr> body;
+
+  static ref<Expr> alloc(std::set<const Array *> variables, ref<Expr> body) {
+    ref<Expr> r(new ExistsExpr(variables, body));
+    r->computeHash();
+    return r;
+  }
+
+  static ref<Expr> create(std::set<const Array *> variables, ref<Expr> body);
+
+  Width getWidth() const { return Bool; }
+
+  Kind getKind() const { return Exists; }
+
+  unsigned getNumKids() const { return 1; }
+
+  ref<Expr> getKid(unsigned i) const {
+    assert(i == 0);
+    return body;
+  }
+
+  ref<Expr> rebuild(ref<Expr> kids[]) const {
+    return create(variables, kids[0]);
+  }
+
+  unsigned computeHash();
+
+  static bool classof(const Expr *E) { return E->getKind() == Expr::Exists; }
+
+  static bool classof(const ExistsExpr *E) { return true; }
+
+private:
+  ExistsExpr(std::set<const Array *> variables, ref<Expr> body)
+      : variables(variables), body(body) {}
 };
 
 // Special
