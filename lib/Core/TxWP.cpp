@@ -1004,7 +1004,7 @@ ref<Expr> TxWeakestPreCondition::getCallInst(llvm::CallInst *ci) {
 bool TxWeakestPreCondition::inFunction(llvm::Instruction *ins,
                                        llvm::Function *function) {
   bool result = false;
-  for (llvm::BasicBlock &BB : function) {
+  for (llvm::BasicBlock &BB : *function) {
     for (llvm::Instruction &I : BB) {
       if (ins == I)
         return true;
