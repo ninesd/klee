@@ -105,7 +105,7 @@ TxShadowArray::getShadowExpression(ref<Expr> expr,
   case Expr::FPExt: {
     CastExpr *castExpr = llvm::dyn_cast<CastExpr>(expr);
     ret = FPExtExpr::create(getShadowExpression(expr->getKid(0), replacements),
-                           castExpr->getWidth(), roundingMode);
+                           castExpr->getWidth());
     break;
   }
   case Expr::FPTrunc: {
@@ -141,49 +141,43 @@ TxShadowArray::getShadowExpression(ref<Expr> expr,
   case Expr::FSqrt: {
     CastExpr *castExpr = llvm::dyn_cast<CastExpr>(expr);
     ret = FSqrt::create(getShadowExpression(expr->getKid(0), replacements),
-                         castExpr->getWidth(), roundingMode);
+                         roundingMode);
     break;
   }
   case Expr::FAbs: {
     CastExpr *castExpr = llvm::dyn_cast<CastExpr>(expr);
-    ret = FAbs::create(getShadowExpression(expr->getKid(0), replacements),
-                         castExpr->getWidth(), roundingMode);
+    ret = FAbs::create(getShadowExpression(expr->getKid(0), replacements));
     break;
   }
   case Expr::FNeg: {
     CastExpr *castExpr = llvm::dyn_cast<CastExpr>(expr);
-    ret = FNeg::create(getShadowExpression(expr->getKid(0), replacements),
-                         castExpr->getWidth(), roundingMode);
+    ret = FNeg::create(getShadowExpression(expr->getKid(0), replacements));
     break;
   }
   case Expr::FRint: {
     CastExpr *castExpr = llvm::dyn_cast<CastExpr>(expr);
     ret = FRint::create(getShadowExpression(expr->getKid(0), replacements),
-                         castExpr->getWidth(), roundingMode);
+                         roundingMode);
     break;
   }
   case Expr::IsNaNExpr: {
     CastExpr *castExpr = llvm::dyn_cast<CastExpr>(expr);
-    ret = IsNaNExpr::create(getShadowExpression(expr->getKid(0), replacements),
-                        castExpr->getWidth(), roundingMode);
+    ret = IsNaNExpr::create(getShadowExpression(expr->getKid(0), replacements));
     break;
   }
   case Expr::IsInfiniteExpr: {
     CastExpr *castExpr = llvm::dyn_cast<CastExpr>(expr);
-    ret = IsInfiniteExpr::create(getShadowExpression(expr->getKid(0), replacements),
-                        castExpr->getWidth(), roundingMode);
+    ret = IsInfiniteExpr::create(getShadowExpression(expr->getKid(0), replacements));
     break;
   }
   case Expr::IsNormalExpr: {
     CastExpr *castExpr = llvm::dyn_cast<CastExpr>(expr);
-    ret = IsNormalExpr::create(getShadowExpression(expr->getKid(0), replacements),
-                        castExpr->getWidth(), roundingMode);
+    ret = IsNormalExpr::create(getShadowExpression(expr->getKid(0), replacements));
     break;
   }
   case Expr::IsSubnormalExpr: {
     CastExpr *castExpr = llvm::dyn_cast<CastExpr>(expr);
-    ret = IsSubnormalExpr::create(getShadowExpression(expr->getKid(0), replacements),
-                        castExpr->getWidth(), roundingMode);
+    ret = IsSubnormalExpr::create(getShadowExpression(expr->getKid(0), replacements));
     break;
   }
   case Expr::FAdd:
