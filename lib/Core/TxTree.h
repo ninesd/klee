@@ -471,7 +471,7 @@ class TxTreeNode {
   uint64_t instructionsDepth;
 
   /// \brief The data layout of the analysis target
-  llvm::DataLayout *targetData;
+  std::shared_ptr<llvm::DataLayout> targetData;
 
   /// \brief Map of globals to their bound address. This also includes globals
   /// that have no representative object (i.e. functions). This member variable
@@ -507,7 +507,7 @@ class TxTreeNode {
 
   void print(llvm::raw_ostream &stream, const unsigned paddingAmount, int debugSubsumptionLevel) const;
 
-  TxTreeNode(TxTreeNode *_parent, llvm::DataLayout *_targetData,
+  TxTreeNode(TxTreeNode *_parent, std::shared_ptr<llvm::DataLayout> _targetData,
              std::map<const llvm::GlobalValue *, ref<ConstantExpr> > *
                  _globalAddresses);
 
@@ -867,7 +867,7 @@ class TxTree {
 
   TxTreeNode *currentTxTreeNode;
 
-  llvm::DataLayout *targetData;
+  std::shared_ptr<llvm::DataLayout> targetData;
 
   /// Map of globals to their bound address. This also includes
   /// globals that have no representative object (i.e. functions). This member
