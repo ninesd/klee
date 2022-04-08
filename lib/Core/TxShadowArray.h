@@ -26,7 +26,7 @@ namespace klee {
   class TxShadowArray {
     static std::map<const Array *, const Array *> shadowArray;
 
-    static UpdateNode *getShadowUpdate(const UpdateNode *chain,
+    static UpdateNode *getShadowUpdate(const ref<UpdateNode> &chain,
 				       std::set<const Array *> &replacements);
 
   public:

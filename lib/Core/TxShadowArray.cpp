@@ -23,7 +23,7 @@ namespace klee {
 std::map<const Array *, const Array *> TxShadowArray::shadowArray;
 
 UpdateNode *
-TxShadowArray::getShadowUpdate(const UpdateNode *source,
+TxShadowArray::getShadowUpdate(const ref<UpdateNode> &source,
                              std::set<const Array *> &replacements) {
   if (!source)
     return 0;
