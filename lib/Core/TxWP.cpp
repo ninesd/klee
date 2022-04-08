@@ -41,7 +41,7 @@ typedef std::map<ref<TxAllocationContext>, LowerInterpolantStore>
 
 TxWeakestPreCondition::TxWeakestPreCondition(TxTreeNode *_node,
                                              TxDependency *_dependency,
-                                             llvm::DataLayout *_targetData) {
+                                             std::shared_ptr<llvm::DataLayout> _targetData) {
   WPExpr = True();
 
   // Used to represent constants during the simplification of WPExpr to

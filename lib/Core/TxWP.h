@@ -51,11 +51,11 @@ class TxWeakestPreCondition {
 
   int debugSubsumptionLevel;
 
-  llvm::DataLayout *targetData;
+  std::shared_ptr<llvm::DataLayout> targetData;
 
 public:
   TxWeakestPreCondition(TxTreeNode *_node, TxDependency *_dependency,
-                        llvm::DataLayout *_targetData);
+                        std::shared_ptr<llvm::DataLayout> _targetData);
 
   ~TxWeakestPreCondition();
 
