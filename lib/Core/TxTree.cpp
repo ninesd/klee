@@ -26,6 +26,7 @@
 #include "klee/Support/ErrorHandling.h"
 #include "klee/Solver/Solver.h"
 #include "klee/Solver/SolverStats.h"
+#include "klee/Expr/Constraints.h"
 #include "../Solver/Z3Solver.h"
 #include "klee/Expr/ExprPPrinter.h"
 #include "klee/util/TxExprUtil.h"
