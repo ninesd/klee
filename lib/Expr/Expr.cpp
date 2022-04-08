@@ -1565,8 +1565,8 @@ ref<Expr> ExistsExpr::create(std::set<const Array *> variables,
 // TODO DOUBT??
 int ExistsExpr::compareContents(const Expr &b) const {
   const ExistsExpr &eb = static_cast<const ExistsExpr &>(b);
-  if (body != ub.body)
-    return body < ub.body ? -1 : 1;
+  if (body != eb.body)
+    return body < eb.body ? -1 : 1;
   return 0;
 }
 
