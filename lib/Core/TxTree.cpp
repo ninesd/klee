@@ -1610,9 +1610,9 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
             // used, but this requires handling of quantified expressions by
             // KLEE's pre-solving procedure, which does not exist currently.
 #ifdef ENABLE_FP
-            Z3Solver z3solver(Z3BuilderType::KLEE_BITVECTOR);
+            Z3Solver *z3solver = new Z3Solver(Z3BuilderType::KLEE_BITVECTOR);
 #else
-            Z3Solver z3solver(Z3BuilderType::KLEE_CORE);
+            Z3Solver *z3solver = new Z3Solver(Z3BuilderType::KLEE_CORE);
 #endif
             z3solver->setCoreSolverTimeout(timeout);
             success = z3solver->directComputeValidity(
