@@ -291,7 +291,7 @@ void TxDependency::populateArgumentValuesList(
 }
 
 TxDependency::TxDependency(
-    TxDependency *parent, llvm::DataLayout *_targetData,
+    TxDependency *parent, std::shared_ptr<llvm::DataLayout> _targetData,
     std::map<const llvm::GlobalValue *, ref<ConstantExpr> > *_globalAddresses)
     : parent(parent), left(0), right(0), targetData(_targetData),
       globalAddresses(_globalAddresses) {

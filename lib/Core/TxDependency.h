@@ -179,7 +179,7 @@ class TxDependency {
   std::map<llvm::Value *, std::vector<ref<TxStateValue> > > valuesMap;
 
   /// \brief The data layout of the analysis target program
-  llvm::DataLayout *targetData;
+  std::shared_ptr<llvm::DataLayout> targetData;
 
   /// \brief Map of globals to their bound address. This also includes globals
   /// that have no representative object (i.e. functions). This member
@@ -321,7 +321,7 @@ public:
   /// \brief Flag to display debug information on the state.
   uint64_t debugStateLevel;
 
-  TxDependency(TxDependency *parent, llvm::DataLayout *_targetData,
+  TxDependency(TxDependency *parent, std::shared_ptr<llvm::DataLayout> _targetData,
                std::map<const llvm::GlobalValue *, ref<ConstantExpr> > *
                    _globalAddresses);
 
