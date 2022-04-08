@@ -28,6 +28,7 @@
 namespace llvm {
 class Type;
 class raw_ostream;
+class Value;
 } // namespace llvm
 
 namespace klee {
