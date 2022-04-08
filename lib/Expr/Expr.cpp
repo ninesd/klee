@@ -259,6 +259,38 @@ unsigned ReadExpr::computeHash() {
   return hashValue;
 }
 
+unsigned WPVarExpr::computeHash() {
+  unsigned hash = 0;
+  for (unsigned i = 0; i < name.size(); i++) {
+    hash = (hash * Expr::MAGIC_HASH_CONSTANT) + name[i];
+  }
+  unsigned res = index->hash() * Expr::MAGIC_HASH_CONSTANT * hash;
+  hashValue = res;
+  return hashValue;
+}
+
+unsigned SelExpr::computeHash() {
+  hashValue = array->hash() * index->hash() * Expr::MAGIC_HASH_CONSTANT;
+  return hashValue;
+}
+
+unsigned UpdExpr::computeHash() {
+  hashValue =
+      array->hash() * index->hash() * value->hash() * Expr::MAGIC_HASH_CONSTANT;
+  return hashValue;
+}
+
+unsigned ExistsExpr::computeHash() {
+  unsigned res = body->hash() * Expr::MAGIC_HASH_CONSTANT;
+  for (std::set<const Array *>::iterator it = variables.begin(),
+                                         itEnd = variables.end();
+       it != itEnd; ++it) {
+    res <<= 1;
+    res ^= (*it)->hash() * Expr::MAGIC_HASH_CONSTANT;
+  }
+  return res;
+}
+
 unsigned NotExpr::computeHash() {
   hashValue = expr->hash() * Expr::MAGIC_HASH_CONSTANT * Expr::Not;
   return hashValue;
@@ -1462,6 +1494,72 @@ ref<Expr> ReadExpr::create(const UpdateList &ul, ref<Expr> index) {
 
 int ReadExpr::compareContents(const Expr &b) const {
   return updates.compare(static_cast<const ReadExpr &>(b).updates);
+}
+
+ref<Expr> WPVarExpr::create(llvm::Value *address, std::string name,
+                            ref<Expr> index) {
+  return WPVarExpr::alloc(address, name, index);
+}
+
+int WPVarExpr::compareContents(const Expr &b) const {
+  return this->address == static_cast<const WPVarExpr &>(b).address;
+}
+
+void WPVarExpr::print(llvm::raw_ostream &os) const {
+  os << "(WPVar ";
+  os << name;
+  os << ")";
+}
+
+ref<Expr> SelExpr::create(ref<Expr> array, ref<Expr> index) {
+  return SelExpr::alloc(array, index);
+}
+
+int SelExpr::compareContents(const Expr &b) const {
+  const SelExpr &sb = static_cast<const SelExpr &>(b);
+  if (array != sb.array)
+    return array < sb.array ? -1 : 1;
+  if (index != sb.index)
+    return index < sb.index ? -1 : 1;
+  return 0;
+}
+
+void SelExpr::print(llvm::raw_ostream &os) const {
+  os << "(Sel < ";
+  array->print(os);
+  os << "> [ ";
+  index->print(os);
+  os << "] )";
+}
+
+ref<Expr> UpdExpr::create(ref<Expr> array, ref<Expr> index, ref<Expr> value) {
+  return UpdExpr::alloc(array, index, value);
+}
+
+int UpdExpr::compareContents(const Expr &b) const {
+  const UpdExpr &ub = static_cast<const UpdExpr &>(b);
+  if (array != ub.array)
+    return array < ub.array ? -1 : 1;
+  if (index != ub.index)
+    return index < ub.index ? -1 : 1;
+  if (value != ub.value)
+    return value < ub.value ? -1 : 1;
+  return 0;
+}
+
+void UpdExpr::print(llvm::raw_ostream &os) const {
+  os << "(Upd < ";
+  array->print(os);
+  os << "> [ ";
+  index->print(os);
+  os << "] = ";
+  value->print(os);
+  os << " )";
+}
+
+ref<Expr> ExistsExpr::create(std::set<const Array *> variables,
+                             ref<Expr> body) {
+  return alloc(variables, body);
 }
 
 ref<Expr> SelectExpr::create(ref<Expr> c, ref<Expr> t, ref<Expr> f) {
