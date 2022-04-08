@@ -591,7 +591,7 @@ ref<Expr> TxWeakestPreCondition::getConstantExpr(llvm::ConstantExpr *ce) {
   default: {
     klee_warning(
         "TxWeakestPreCondition::getConstantExpr: ConstantExpr is not support");
-    ce->dump();
+//    ce->dump();
   }
   }
 
@@ -689,7 +689,7 @@ ref<Expr> TxWeakestPreCondition::getLoad(llvm::LoadInst *p) {
     result =
         WPVarExpr::create(p->getOperand(0), p->getOperand(0)->getName(), index);
   } else {
-    p->getOperand(0)->dump();
+//    p->getOperand(0)->dump();
     klee_warning("TxWeakestPreCondition::getLoad: Not implemented yet!");
   }
   return result;
@@ -798,7 +798,7 @@ ref<Expr> TxWeakestPreCondition::getCastInst(llvm::CastInst *ci) {
   else if (ci->getDestTy()->isDoubleTy())
     width = Expr::Fl80;
   else {
-    ci->getDestTy()->dump();
+//    ci->getDestTy()->dump();
     klee_warning("TxWeakestPreCondition::getCastInst size not supported yet!");
     return result;
   }
@@ -833,7 +833,7 @@ ref<Expr> TxWeakestPreCondition::getCastInst(llvm::CastInst *ci) {
   case llvm::Instruction::IntToPtr:
   case llvm::Instruction::PtrToInt:
   default: {
-    ci->dump();
+//    ci->dump();
     klee_warning("TxWeakestPreCondition::generateExprFromOperand Unary Operand "
                  "not implemented...\n");
     return result;
@@ -1074,9 +1074,9 @@ TxWeakestPreCondition::getGlobalVariabletSize(llvm::GlobalValue *gv) {
   } else if (gv->getType()->isArrayTy()) {
     size = Expr::Int32;
   } else {
-    gv->dump();
-    gv->getType()->dump();
-    gv->getType()->getElementType()->dump();
+//    gv->dump();
+//    gv->getType()->dump();
+//    gv->getType()->getElementType()->dump();
     klee_error(
         "TxWeakestPreCondition::getGlobalVariabletSize getting size is not "
         "defined for this type yet");
@@ -1099,8 +1099,8 @@ TxWeakestPreCondition::getFunctionArgumentSize(llvm::Argument *arg) {
   } else if (arg->getType()->isPointerTy()) {
     size = Expr::Int32;
   } else {
-    arg->dump();
-    arg->getType()->dump();
+//    arg->dump();
+//    arg->getType()->dump();
     klee_error(
         "TxWeakestPreCondition::getGlobalVariabletSize getting size is not "
         "defined for this type yet");
@@ -1122,7 +1122,7 @@ unsigned int TxWeakestPreCondition::getGepSize(llvm::Type *ty) {
   } else if (ty->isPointerTy()) {
     size = getGepSize(ty->getPointerElementType());
   } else {
-    ty->dump();
+//    ty->dump();
     klee_error(
         "TxWeakestPreCondition::getGlobalVariabletSize getting size is not "
         "defined for this type yet");
