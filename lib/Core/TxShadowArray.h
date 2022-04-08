@@ -18,6 +18,7 @@
 #define KLEE_SHADOWARRAY_H
 
 #include "AddressSpace.h"
+#include "klee/Expr/Expr.h"
 
 namespace klee {
 
