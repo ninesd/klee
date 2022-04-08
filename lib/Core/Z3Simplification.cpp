@@ -478,9 +478,9 @@ std::string Z3Simplification::extractVarName(ref<Expr> e) {
   case Expr::WPVar:
     return dyn_cast<WPVarExpr>(e)->getName();
   case Expr::Read:
-    return dyn_cast<ReadExpr>(e)->getName();
+    return dyn_cast<ReadExpr>(e)->updates.root->name;
   case Expr::Concat:
-    return dyn_cast<ReadExpr>(e->getKid(0))->getName();
+    return dyn_cast<ReadExpr>(e->getKid(0))->updates.root->name;
   default:
     return "";
   }

@@ -852,8 +852,6 @@ public:
 
   ref<Expr> getKid(unsigned i) const { return !i ? index : 0; }
 
-  std::string getName() const { return name; }
-
   int compareContents(const Expr &b) const;
 
   virtual ref<Expr> rebuild(ref<Expr> kids[]) const {
