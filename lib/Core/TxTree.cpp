@@ -770,8 +770,8 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
           instr->getParent()->getParent()->getName().str());
       stream << functionName << ": ";
       if (llvm::MDNode *n = instr->getMetadata("dbg")) {
-        llvm::DILocation loc(n);
-        stream << "Line " << loc.getLineNumber();
+        if (llvm::DISubprogram *loc = dyn_cast<llvm::DISubprogram>(n))
+          stream << "Line " << loc->getLine();
       } else {
         instr->print(stream);
       }
@@ -2465,8 +2465,8 @@ void TxTree::markPathCondition(ExecutionState &state,
         stream << binst->getParent()->getParent()->getName().str() << ": ";
       }
       if (llvm::MDNode *n = binst->getMetadata("dbg")) {
-        llvm::DILocation loc(n);
-        stream << "Line " << loc.getLineNumber();
+        if (llvm::DISubprogram *loc = dyn_cast<llvm::DISubprogram>(n))
+          stream << "Line " << loc->getLine();
       } else {
         binst->print(stream);
       }
@@ -2708,8 +2708,8 @@ void TxTreeNode::mark() {
         stream << binst->getParent()->getParent()->getName().str() << ": ";
       }
       if (llvm::MDNode *n = binst->getMetadata("dbg")) {
-        llvm::DILocation loc(n);
-        stream << "Line " << loc.getLineNumber();
+        if (llvm::DISubprogram *loc = dyn_cast<llvm::DISubprogram>(n))
+          stream << "Line " << loc->getLine();
       } else {
         binst->print(stream);
       }
