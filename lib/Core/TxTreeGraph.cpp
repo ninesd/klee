@@ -18,21 +18,11 @@
 #include "ExecutionState.h"
 #include "klee/util/TxPrintUtil.h"
 
-#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
-#else
-#include "llvm/BasicBlock.h"
-#include "llvm/Function.h"
-#endif
 
-#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 5)
 #include <llvm/IR/DebugInfo.h>
-#elif LLVM_VERSION_CODE >= LLVM_VERSION(3, 2)
-#include <llvm/DebugInfo.h>
-#else
-#include <llvm/Analysis/DebugInfo.h>
-#endif
+#include "llvm/IR/Instructions.h"
 
 #include <fstream>
 #include <string>

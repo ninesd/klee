@@ -25,13 +25,8 @@
 #include "klee/util/TxPrintUtil.h"
 #include "TxShadowArray.h"
 
-#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Type.h>
-#else
-#include <llvm/Function.h>
-#include <llvm/Type.h>
-#endif
 
 using namespace klee;
 

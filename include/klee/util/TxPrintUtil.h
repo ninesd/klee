@@ -19,11 +19,7 @@
 #include "klee/Expr/Constraints.h"
 #include "klee/Expr/Expr.h"
 
-#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
 #include <llvm/IR/Value.h>
-#else
-#include <llvm/Value.h>
-#endif
 
 #include <string>
 

@@ -33,13 +33,7 @@
 #include "klee/util/TxPrintUtil.h"
 #include <vector>
 
-#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 5)
 #include <llvm/IR/DebugInfo.h>
-#elif LLVM_VERSION_CODE >= LLVM_VERSION(3, 2)
-#include <llvm/DebugInfo.h>
-#else
-#include <llvm/Analysis/DebugInfo.h>
-#endif
 
 using namespace klee;
 

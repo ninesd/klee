@@ -14,15 +14,9 @@
 
 #include "klee/util/TxPrintUtil.h"
 
-#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Instruction.h>
-#else
-#include <llvm/BasicBlock.h>
-#include <llvm/Function.h>
-#include <llvm/Instruction.h>
-#endif
 
 using namespace klee;
 
