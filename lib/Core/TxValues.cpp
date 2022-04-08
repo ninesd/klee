@@ -231,6 +231,7 @@ void TxInterpolantValue::init(
     const std::set<std::string> &_coreReasons, ref<TxStateAddress> _location,
     const std::map<ref<Expr>, ref<Expr> > &substitution,
     std::set<const Array *> &replacements, bool shadowing) {
+  _refCount = 0;
   id = reinterpret_cast<uintptr_t>(this);
   if (shadowing) {
     _expr = TxShadowArray::getShadowExpression(_expr, replacements);
@@ -948,7 +949,7 @@ TxStoreEntry::TxStoreEntry(ref<TxStateAddress> _address,
                            ref<TxStateValue> _addressValue,
                            ref<TxStateValue> _content, const TxStore *store,
                            uint64_t _depth)
-    : address(_address), addressValue(_addressValue),
+    : _refCount(0), address(_address), addressValue(_addressValue),
       content(_content), depth(_depth), value(content->getValue()),
       valueExpr(content->getExpression()), leftDoNotInterpolateBound(false),
       rightDoNotInterpolateBound(false), leftCore(false), rightCore(false) {
