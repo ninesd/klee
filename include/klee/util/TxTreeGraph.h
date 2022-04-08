@@ -18,6 +18,8 @@
 
 #include "klee/CommandLine.h"
 #include "klee/Expr/Expr.h"
+#include "klee/Module/KInstruction.h"
+#include "klee/Module/KInstIterator.h"
 
 #include "llvm/Support/raw_ostream.h"
 

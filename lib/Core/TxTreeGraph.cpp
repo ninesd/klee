@@ -308,10 +308,11 @@ void TxTreeGraph::setCurrentNode(ExecutionState &state,
     llvm::raw_string_ostream out(node->name);
     if (llvm::MDNode *n = state.pc->inst->getMetadata("dbg")) {
       // Display the line, char position of this instruction
-      llvm::DILocation loc(n);
-      unsigned line = loc.getLineNumber();
-      llvm::StringRef file = loc.getFilename();
-      out << file << ":" << line << "\n";
+      if (llvm::DISubprogram *loc = dyn_cast<llvm::DISubprogram>(n)) {
+        unsigned line = loc->getLine();
+        llvm::StringRef file = loc.getFilename();
+        out << file << ":" << line << "\n";
+      }
     } else {
       state.pc->inst->print(out);
     }
@@ -398,10 +399,11 @@ void TxTreeGraph::setError(const ExecutionState &state,
   llvm::raw_string_ostream out(node->errorLocation);
   if (llvm::MDNode *n = state.pc->inst->getMetadata("dbg")) {
     // Display the line, char position of this instruction
-    llvm::DILocation loc(n);
-    unsigned line = loc.getLineNumber();
-    llvm::StringRef file = loc.getFilename();
-    out << file << ":" << line << "\n";
+    if (llvm::DISubprogram *loc = dyn_cast<llvm::DISubprogram>(n)) {
+      unsigned line = loc->getLine();
+      llvm::StringRef file = loc.getFilename();
+      out << file << ":" << line << "\n";
+    }
   } else {
     state.pc->inst->print(out);
   }
