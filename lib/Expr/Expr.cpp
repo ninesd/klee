@@ -1564,7 +1564,10 @@ ref<Expr> ExistsExpr::create(std::set<const Array *> variables,
 
 // TODO DOUBT??
 int ExistsExpr::compareContents(const Expr &b) const {
-  return this->address == static_cast<const ExistsExpr &>(b).address;
+  const ExistsExpr &eb = static_cast<const ExistsExpr &>(b);
+  if (body != ub.body)
+    return body < ub.body ? -1 : 1;
+  return 0;
 }
 
 ref<Expr> SelectExpr::create(ref<Expr> c, ref<Expr> t, ref<Expr> f) {
