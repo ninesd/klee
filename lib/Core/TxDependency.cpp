@@ -1033,9 +1033,9 @@ TxDependency::bindCallArguments(llvm::Instruction *i,
 
   unsigned index = 0;
   callHistory.push_back(i);
-  for (llvm::Function::ArgumentListType::iterator
-           it = callee->getArgumentList().begin(),
-           ie = callee->getArgumentList().end();
+  for (llvm::Function::arg_iterator
+           it = callee->arg_begin(),
+           ie = callee->arg_end();
        it != ie; ++it) {
     if (!argumentValuesList.back().isNull()) {
 
@@ -1285,7 +1285,7 @@ ref<TxStateValue> TxDependency::evalConstant(
 ref<TxStateValue> TxDependency::evalConstantExpr(
     llvm::ConstantExpr *ce,
     const std::vector<llvm::Instruction *> &callHistory) {
-  LLVM_TYPE_Q llvm::Type *type = ce->getType();
+  llvm::Type *type = ce->getType();
 
   ref<TxStateValue> op1(0), op2(0), op3(0);
   ref<ConstantExpr> op1Expr(0), op2Expr(0), op3Expr(0);
@@ -1438,7 +1438,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
       ref<ConstantExpr> addend =
           ConstantExpr::alloc(0, Context::get().getPointerWidth());
 
-      if (LLVM_TYPE_Q llvm::StructType *st =
+      if (llvm::StructType *st =
               llvm::dyn_cast<llvm::StructType>(*ii)) {
         const llvm::StructLayout *sl = targetData->getStructLayout(st);
         const llvm::ConstantInt *ci = cast<llvm::ConstantInt>(ii.getOperand());
