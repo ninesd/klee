@@ -15,7 +15,6 @@ set(KLEE_LIBS
 )
 
 target_link_libraries(klee ${KLEE_LIBS})
-target_link_libraries(klee kleeCore)
 
 install(TARGETS klee RUNTIME DESTINATION bin)
 
