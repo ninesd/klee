@@ -51,6 +51,7 @@ set(LLVM_COMPONENTS
   mcjit
   native
   support
+  value
 )
 
 klee_get_llvm_libs(LLVM_LIBS ${LLVM_COMPONENTS})
