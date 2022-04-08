@@ -43,10 +43,6 @@ const uint64_t symbolicBoundId = ULONG_MAX;
 void setDebugSubsumptionLevelTxValue(int debugSubsumptionLevel);
 
 class TxAllocationContext {
-
-public:
-  class ReferenceCounter _refCount;
-
 private:
   /// \brief The location's LLVM value
   llvm::Value *value;
@@ -126,9 +122,6 @@ public:
 };
 
 class TxAllocationInfo {
-public:
-  class ReferenceCounter _refCount;
-
 private:
   ref<TxAllocationContext> context;
 
@@ -199,9 +192,6 @@ public:
 /// weaker equality comparison to addresses for the purpose of subsumption
 /// checking.
 class TxVariable {
-public:
-  class ReferenceCounter _refCount;
-
 private:
   /// \brief The allocation information of this variable
   ref<TxAllocationInfo> allocInfo;
@@ -296,9 +286,6 @@ public:
 
 /// \brief A processed form of a value to be stored in the subsumption table
 class TxInterpolantValue {
-public:
-  class ReferenceCounter _refCount;
-
 private:
   ref<Expr> expr;
 
@@ -433,10 +420,6 @@ public:
 
 /// \brief A class to represent memory locations.
 class TxStateAddress {
-
-public:
-  class ReferenceCounter _refCount;
-
 private:
   /// \brief This address as a variable, with less information
   ref<TxVariable> variable;
@@ -627,9 +610,6 @@ public:
 /// \brief A class that represents LLVM value that can be destructively
 /// updated (versioned).
 class TxStateValue {
-public:
-  class ReferenceCounter _refCount;
-
 private:
   llvm::Value *value;
 
@@ -780,9 +760,6 @@ public:
 /// TxStoreEntry#rightCore,
 /// TxStoreEntry#leftCoreReasons, TxStoreEntry#rightCoreReasons).
 class TxStoreEntry {
-public:
-  class ReferenceCounter _refCount;
-
 private:
   ref<TxStateAddress> address;
 
