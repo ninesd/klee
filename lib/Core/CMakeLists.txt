@@ -51,7 +51,7 @@ set(LLVM_COMPONENTS
   mcjit
   native
   support
-  llvm_libs
+  irreader
 )
 
 klee_get_llvm_libs(LLVM_LIBS ${LLVM_COMPONENTS})
