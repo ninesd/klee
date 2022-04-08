@@ -53,7 +53,7 @@ std::set<std::string> TxPartitionHelper::getExprVars(ref<Expr> expr) {
 
   case Expr::Read: {
     ref<ReadExpr> readExpr = dyn_cast<ReadExpr>(expr);
-    vars.insert(readExpr->getName());
+    vars.insert(readExpr->updates.root->name);
     return vars;
   }
 
