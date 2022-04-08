@@ -46,6 +46,18 @@ ref<Expr> TxShadowArray::createBinaryOfSameKind(ref<Expr> originalExpr,
   return Expr::createFromKind(originalExpr->getKind(), exprs);
 }
 
+ref<Expr> TxShadowArray::createBinaryOfSameFPKind(ref<Expr> originalExpr,
+                                                ref<Expr> newLhs,
+                                                ref<Expr> newRhs) {
+  std::vector<Expr::CreateArg> exprs;
+  Expr::CreateArg arg1(newLhs);
+  Expr::CreateArg arg2(newRhs);
+  exprs.push_back(arg1);
+  exprs.push_back(arg2);
+  exprs.push_back(roundingMode);
+  return Expr::createFromKind(originalExpr->getKind(), exprs);
+}
+
 void TxShadowArray::addShadowArrayMap(const Array *source, const Array *target) {
   shadowArray[source] = target;
 }
@@ -172,13 +184,6 @@ TxShadowArray::getShadowExpression(ref<Expr> expr,
     ret = IsSubnormalExpr::create(getShadowExpression(expr->getKid(0), replacements));
     break;
   }
-  case Expr::FAdd:
-  case Expr::FSub:
-  case Expr::FMul:
-  case Expr::FDiv:
-  case Expr::FRem:
-  case Expr::FMax:
-  case Expr::FMin:
   case Expr::FOEq:
   case Expr::FOLt:
   case Expr::FOLe:
@@ -210,6 +215,18 @@ TxShadowArray::getShadowExpression(ref<Expr> expr,
   case Expr::Sgt:
   case Expr::Sge: {
     ret = createBinaryOfSameKind(
+        expr, getShadowExpression(expr->getKid(0), replacements),
+        getShadowExpression(expr->getKid(1), replacements));
+    break;
+  }
+  case Expr::FAdd:
+  case Expr::FSub:
+  case Expr::FMul:
+  case Expr::FDiv:
+  case Expr::FRem:
+  case Expr::FMax:
+  case Expr::FMin: {
+    ret = createBinaryOfSameFPKind(
         expr, getShadowExpression(expr->getKid(0), replacements),
         getShadowExpression(expr->getKid(1), replacements));
     break;
