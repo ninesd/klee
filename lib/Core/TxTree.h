@@ -513,7 +513,7 @@ class TxTreeNode {
 
   ~TxTreeNode();
 
-  static TxTreeNode *createRoot(llvm::DataLayout *targetData,
+  static TxTreeNode *createRoot(std::shared_ptr<llvm::DataLayout> targetData,
                                 std::map<const llvm::GlobalValue *,
                                          ref<ConstantExpr> > *globalAddresses) {
     return new TxTreeNode(0, targetData, globalAddresses);

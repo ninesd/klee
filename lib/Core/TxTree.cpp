@@ -1623,7 +1623,7 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
             delete z3solver;
           } else {
             solver->setTimeout(timeout);
-            bool success = solver->evaluate(state.constraints, expr, result,
+            success = solver->evaluate(state.constraints, expr, result,
                                             state.queryMetaData, unsatCore);
             solver->setTimeout(time::Span());
           }
@@ -1649,7 +1649,7 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
         // We call the solver in the standard way if the
         // formula is unquantified.
         solver->setTimeout(timeout);
-        bool success = solver->evaluate(state.constraints, expr, result,
+        success = solver->evaluate(state.constraints, expr, result,
                                         state.queryMetaData, unsatCore);
         solver->setTimeout(time::Span());
 

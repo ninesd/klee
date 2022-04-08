@@ -150,12 +150,13 @@ public:
 #else
 private:
 #endif
-  // copy ctor
-  ExecutionState(const ExecutionState &state);
 
   void addTxTreeConstraint(ref<Expr> e, llvm::Instruction *instr);
 
 public:
+  // copy ctor
+  ExecutionState(const ExecutionState &state);
+
   using stack_ty = std::vector<StackFrame>;
 
   // Execution - Control Flow specific
