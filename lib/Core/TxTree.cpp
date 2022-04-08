@@ -880,7 +880,8 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
 
     Solver::Validity result;
     std::vector<ref<Expr> > unsatCore;
-    bool success = solver->evaluate(state, wpBoolean, result, unsatCore);
+    bool success = solver->evaluate(state.constraints, wpBoolean, result,
+                                    state.queryMetaData, unsatCore);
 
     if (!success || result != Solver::True) {
       if (debugSubsumptionLevel >= 1) {
@@ -1619,7 +1620,8 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
             delete z3solver;
           } else {
             solver->setTimeout(timeout);
-            success = solver->evaluate(state, expr, result, unsatCore);
+            bool success = solver->evaluate(state.constraints, expr, result,
+                                            state.queryMetaData, unsatCore);
             solver->setTimeout(time::Span("0ms"));
           }
 
@@ -1643,7 +1645,8 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
         // We call the solver in the standard way if the
         // formula is unquantified.
         solver->setTimeout(timeout);
-        success = solver->evaluate(state, expr, result, unsatCore);
+        bool success = solver->evaluate(state.constraints, expr, result,
+                                        state.queryMetaData, unsatCore);
         solver->setTimeout(0);
 
         if (!success || result != Solver::True) {
