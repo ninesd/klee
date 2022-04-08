@@ -3416,7 +3416,7 @@ void Executor::transferToBasicBlock(BasicBlock *dst, BasicBlock *src,
   }
 }
 
-bool isCoverableFunction(llvm::Function *f) {
+bool Executor::isCoverableFunction(llvm::Function *f) {
   return !f->isIntrinsic() && (f->getName().str().substr(0, 5) != "klee_") &&
          (f->getName().str().substr(0, 3) != "tx_") &&
          (f->getName() != "memcpy") && (f->getName() != "memmove") &&
