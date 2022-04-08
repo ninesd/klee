@@ -2386,8 +2386,8 @@ void TxTree::remove(ExecutionState *state, TimingSolver *solver, bool dumping) {
       if (debugSubsumptionLevel >= 2) {
 	if (debugSubsumptionLevel == 3){ // Printing block info for prettyPrint begin
 	llvm::outs()<<"\n------------------Printing Block Starts------------------\n";
-	llvm::outs()<<node->basicBlock->getName(); 
-	node->basicBlock->dump();
+	llvm::outs()<<node->basicBlock->getName();
+//	node->basicBlock->dump();
 	llvm::outs()<<"------------------Printing Block Ends------------------\n\n\n";} // Printing block info for prettyPrint ends
         klee_message("Storing entry for Node #%lu, Program Point %lu",
                      node->getNodeSequenceNumber(), node->getProgramPoint());

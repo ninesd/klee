@@ -1307,7 +1307,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
 
   switch (ce->getOpcode()) {
   default:
-    ce->dump();
+//    ce->dump();
     llvm::errs() << "error: unknown ConstantExpr type\n"
                  << "opcode: " << ce->getOpcode() << "\n";
     abort();

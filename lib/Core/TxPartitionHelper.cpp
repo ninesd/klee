@@ -220,7 +220,7 @@ ref<Expr> TxPartitionHelper::createAnd(std::vector<ref<Expr> > exprs) {
 void TxPartitionHelper::testing(ref<Expr> expr, ExecutionState es) {
   std::set<std::string> readSet = getExprVars(expr);
   llvm::outs() << "=========begin\n";
-  es.prevPC->inst->dump();
+//  es.prevPC->inst->dump();
   for (std::set<std::string>::iterator it = readSet.begin(), ie = readSet.end();
        it != ie; ++it) {
     llvm::outs() << (*it) << "\n";

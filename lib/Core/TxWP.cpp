@@ -463,19 +463,19 @@ ref<Expr> TxWeakestPreCondition::generateExprFromOperand(llvm::Value *val,
     if (isa<llvm::ConstantPointerNull>(val)) {
       return Expr::createPointer(0);
     } else {
-      llvm::errs() << "Value:";
-      val->dump();
-      llvm::errs() << "\nType:";
-      val->getType()->dump();
+//      llvm::errs() << "Value:";
+//      val->dump();
+//      llvm::errs() << "\nType:";
+//      val->getType()->dump();
       klee_error(
           "\nTxWeakestPreCondition::generateExprFromOperand, This constant"
           " case not implemented yet\n");
     }
   } else {
-    llvm::errs() << "Value:";
-    val->dump();
-    llvm::errs() << "\nType:";
-    val->getType()->dump();
+//    llvm::errs() << "Value:";
+//    val->dump();
+//    llvm::errs() << "\nType:";
+//    val->getType()->dump();
     klee_error("\nTxWeakestPreCondition::generateExprFromOperand Remaining"
                " cases not implemented yet\n");
   }
@@ -517,7 +517,7 @@ ref<Expr> TxWeakestPreCondition::getCondition(llvm::Value *value) {
       break;
     }
     default: {
-      binOp->dump();
+//      binOp->dump();
       klee_error("TxWeakestPreCondition::getCondition: Binary operator is not "
                  "implemented yet!");
     }
@@ -528,7 +528,7 @@ ref<Expr> TxWeakestPreCondition::getCondition(llvm::Value *value) {
     if (result.isNull())
       return result;
   } else {
-    value->dump();
+//    value->dump();
     klee_error("TxWeakestPreCondition::getCondition: value is not "
                "implemented yet!");
   }
