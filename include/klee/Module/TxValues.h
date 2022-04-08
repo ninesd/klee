@@ -22,17 +22,10 @@
 #include "klee/Config/Version.h"
 #include "klee/Expr/Expr.h"
 
-#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Instruction.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Value.h>
-#else
-#include <llvm/BasicBlock.h>
-#include <llvm/Instruction.h>
-#include <llvm/Instructions.h>
-#include <llvm/Value.h>
-#endif
 
 #include <vector>
 
