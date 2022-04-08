@@ -94,7 +94,7 @@ class TxPrettyExpressionBuilder {
   std::string constructSDivByConstant(std::string expr_n, uint64_t d);
 
   std::string getInitialArray(const Array *root);
-  std::string getArrayForUpdate(const Array *root, const UpdateNode *un);
+  std::string getArrayForUpdate(const Array *root, const ref<UpdateNode> &un);
 
   std::string constructActual(ref<Expr> e);
 
