@@ -19,6 +19,7 @@
 #include "TxStore.h"
 #include "ExecutionState.h"
 #include "klee/Support/ErrorHandling.h"
+#include "klee/Module/KInstruction.h"
 #include "llvm/IR/Value.h"
 #include <iostream>
 #include <map>
