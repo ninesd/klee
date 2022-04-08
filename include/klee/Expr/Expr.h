@@ -198,12 +198,13 @@ public:
     FOLe,
     FOGt,
     FOGe,
+
     WPVar, // Expressions for WP Interpolation
     Upd,   // Array Update
     Sel,   // Array Select
     Exists,
 
-    LastKind = FOGe,
+    LastKind = Exists,
 
     CastKindFirst = ZExt,
     CastKindLast = SIToFP,
