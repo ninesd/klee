@@ -2635,7 +2635,7 @@ void TxTreeNode::printTimeStat(std::stringstream &stream) {
 }
 
 TxTreeNode::TxTreeNode(
-    TxTreeNode *_parent, llvm::DataLayout *_targetData,
+    TxTreeNode *_parent, std::shared_ptr<llvm::DataLayout> _targetData,
     std::map<const llvm::GlobalValue *, ref<ConstantExpr> > *_globalAddresses)
     : parent(_parent), left(0), right(0), programPoint(0), prevProgramPoint(0),
       phiValuesFlag(1), nodeSequenceNumber(0), storable(true),
