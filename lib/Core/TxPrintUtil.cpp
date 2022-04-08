@@ -239,7 +239,7 @@ std::string TxPrettyExpressionBuilder::getInitialArray(const Array *root) {
   return arrayExpr;
 }
 std::string TxPrettyExpressionBuilder::getArrayForUpdate(const Array *root,
-                                                         const UpdateNode *un) {
+                                                         const ref<UpdateNode> &un) {
   if (!un) {
     return (getInitialArray(root));
   }
