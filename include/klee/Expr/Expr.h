@@ -633,6 +633,8 @@ public:
     return body;
   }
 
+  int compareContents(const Expr &b) const;
+
   ref<Expr> rebuild(ref<Expr> kids[]) const {
     return create(variables, kids[0]);
   }
