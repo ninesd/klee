@@ -1007,9 +1007,8 @@ bool TxWeakestPreCondition::inFunction(llvm::Instruction *ins,
   for (llvm::Function::iterator bbit = function->begin(),
                                 bbie = function->end();
        bbit != bbie; ++bbit) {
-    for (llvm::BasicBlock::iterator it = bbit->begin(), ie = bbit->end();
-         it != ie; ++it) {
-      if (ins == it)
+    for (Instruction &I : bbit) {
+      if (ins == I)
         return true;
     }
   }
