@@ -1524,7 +1524,7 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
       if (debugSubsumptionLevel >= 2) {
         klee_message("Before simplification:\n%s",
                      TxPrettyExpressionBuilder::constructQuery(
-                         state.constraints, existsExpr,debugSubsumptionLevel).c_str()); // Added 'debugSubsumptionLevel' variable for PrettyPrint 
+                         ConstraintManager(state.constraints), existsExpr,debugSubsumptionLevel).c_str()); // Added 'debugSubsumptionLevel' variable for PrettyPrint
       }
       expr = simplifyExistsExpr(existsExpr, exprHasNoFreeVariables);
     }
@@ -1603,7 +1603,7 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
           if (debugSubsumptionLevel >= 2 and debugSubsumptionLevel != 3 ) { /*Added 'debugSubsumptionLevel != 3' constraint for Pretty Print*/
             klee_message("Querying for subsumption check:\n%s",
                          TxPrettyExpressionBuilder::constructQuery(
-                             state.constraints, expr,debugSubsumptionLevel).c_str()); /*Added 'debugSubsumptionLevel' variable in 'constructQuery' function for Pretty Print*/
+                             ConstraintManager(state.constraints), expr,debugSubsumptionLevel).c_str()); /*Added 'debugSubsumptionLevel' variable in 'constructQuery' function for Pretty Print*/
           }
 
           if (llvm::isa<ExistsExpr>(expr)) {
@@ -1640,7 +1640,7 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
         if (debugSubsumptionLevel >= 2 and debugSubsumptionLevel != 3) { /*Added 'debugSubsumptionLevel != 3' constraint for prettyPrint*/
           klee_message("Querying for subsumption check:\n%s",
                        TxPrettyExpressionBuilder::constructQuery(
-                           state.constraints, expr, debugSubsumptionLevel).c_str());/*Added 'debugSubsumptionLevel' variable in 'constructQuery' function for Pretty Print*/
+                           ConstraintManager(state.constraints), expr, debugSubsumptionLevel).c_str());/*Added 'debugSubsumptionLevel' variable in 'constructQuery' function for Pretty Print*/
         }
         // We call the solver in the standard way if the
         // formula is unquantified.
