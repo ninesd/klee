@@ -198,6 +198,7 @@ public:
     FOLe,
     FOGt,
     FOGe,
+    WPVar, // Expressions for WP Interpolation
 
     LastKind = FOGe,
 
