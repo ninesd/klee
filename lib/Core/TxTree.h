@@ -113,7 +113,7 @@ public:
                      const std::vector<llvm::Instruction *> &callHistory,
                      TxSubsumptionTableEntry *entry);
 
-  static bool check(TimingSolver *solver, ExecutionState &state, double timeout,
+  static bool check(TimingSolver *solver, ExecutionState &state, time::Span timeout,
                     int debugSubsumptionLevel);
 
   static bool hasInterpolation(ExecutionState &state);
@@ -316,7 +316,7 @@ public:
   ~TxSubsumptionTableEntry();
 
   bool
-  subsumed(TimingSolver *solver, ExecutionState &state, double timeout,
+  subsumed(TimingSolver *solver, ExecutionState &state, time::Span timeout,
            bool leftRetrieval, TxStore::TopStateStore &__internalStore,
            TxStore::LowerStateStore &__concretelyAddressedHistoricalStore,
            TxStore::LowerStateStore &__symbolicallyAddressedHistoricalStore,
