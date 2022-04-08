@@ -1562,6 +1562,11 @@ ref<Expr> ExistsExpr::create(std::set<const Array *> variables,
   return alloc(variables, body);
 }
 
+// TODO DOUBT??
+int ExistsExpr::compareContents(const Expr &b) const {
+  return this->address == static_cast<const ExistsExpr &>(b).address;
+}
+
 ref<Expr> SelectExpr::create(ref<Expr> c, ref<Expr> t, ref<Expr> f) {
   Expr::Width kt = t->getWidth();
 
