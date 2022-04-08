@@ -1006,7 +1006,7 @@ bool TxWeakestPreCondition::inFunction(llvm::Instruction *ins,
   bool result = false;
   for (llvm::BasicBlock &BB : *function) {
     for (llvm::Instruction &I : BB) {
-      if (ins == I)
+      if (*ins == I)
         return true;
     }
   }
