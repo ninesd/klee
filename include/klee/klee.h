@@ -177,6 +177,32 @@ extern "C" {
   /* Get errno value of the current state */
   int klee_get_errno(void);
 
+  /* Set dynamic level of subsumption-related debugging information. This
+   * corresponds to -debug-subsumption command-line option, but this API allows
+   * users to specify where in the code to start to output debug information. */
+  void tracerx_debug_subsumption(uint64_t level);
+
+  /* Reset dynamic level of subsumption-related debugging information to
+   * previous value. This resets the debug level to the value specified via
+   * -debug-subsumption command-line option if exists, otherwise this switches
+   * off subsumption-related debugging. */
+  void tracerx_debug_subsumption_off();
+
+  /* Set dynamic level of state-related debugging information. This corresponds
+   * to -debug-state command-line option. */
+  void tracerx_debug_state();
+
+  /* Reset dynamic level of state-related debugging information. This resets the
+   * state debug flag to the value specified via -debug-state command-line
+   * option, otherwise, it switches off state debugging. */
+  void tracerx_debug_state_off();
+
+  /* Store a vector of integers persistently. */
+  void tracerx_memo();
+
+  /* Check if a vector of integers is stored previously. */
+  void tracerx_memo_check();
+
 /* KLEE float intrinsics */
 #ifdef __cplusplus
 #define KLEE_BOOL_TYPE bool

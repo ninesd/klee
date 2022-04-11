@@ -198,13 +198,13 @@ public:
     FOLe,
     FOGt,
     FOGe,
+    Exists,
+
+    LastKind = Exists,
 
     WPVar, // Expressions for WP Interpolation
     Upd,   // Array Update
     Sel,   // Array Select
-    Exists,
-
-    LastKind = Exists,
 
     CastKindFirst = ZExt,
     CastKindLast = SIToFP,
@@ -852,6 +852,12 @@ public:
   unsigned getNumKids() const { return numKids; }
 
   ref<Expr> getKid(unsigned i) const { return !i ? index : 0; }
+
+  std::string getName() const { return updates.root->name; }
+
+  const Array *getArray() const { return updates.root; }
+
+  void replaceArray(const Array *arr) { updates.root = arr; }
 
   int compareContents(const Expr &b) const;
 

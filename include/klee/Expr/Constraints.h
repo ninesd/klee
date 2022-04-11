@@ -90,6 +90,11 @@ public:
   bool operator==(const ConstraintManager &other) const {
     return constraints == other.constraints;
   }
+
+  constraints_ty getConstraints() const{
+    return constraints;
+  }
+
 private:
   /// Rewrite set of constraints using the visitor
   /// \param visitor constraint rewriter

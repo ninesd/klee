@@ -106,6 +106,7 @@ ref<Expr> ExprVisitor::visitActual(const ref<Expr> &e) {
     case Expr::Sle: res = visitSle(static_cast<SleExpr&>(ep)); break;
     case Expr::Sgt: res = visitSgt(static_cast<SgtExpr&>(ep)); break;
     case Expr::Sge: res = visitSge(static_cast<SgeExpr&>(ep)); break;
+    case Expr::Exists: res = visitExists(static_cast<ExistsExpr&>(ep)); break;
     case Expr::FOEq: res = visitFOEq(static_cast<FOEqExpr &>(ep)); break;
     case Expr::FOLt: res = visitFOLt(static_cast<FOLtExpr &>(ep)); break;
     case Expr::FOLe: res = visitFOLe(static_cast<FOLeExpr &>(ep)); break;
@@ -334,6 +335,18 @@ ExprVisitor::Action ExprVisitor::visitSgt(const SgtExpr&) {
 
 ExprVisitor::Action ExprVisitor::visitSge(const SgeExpr&) {
   return Action::doChildren(); 
+}
+
+ExprVisitor::Action ExprVisitor::visitExists(const ExistsExpr&) {
+  return Action::doChildren();
+}
+
+ExprVisitor::Action ExprVisitor::visitSel(const SelExpr &) {
+  return Action::doChildren();
+}
+
+ExprVisitor::Action ExprVisitor::visitUpd(const UpdExpr &) {
+  return Action::doChildren();
 }
 
 ExprVisitor::Action ExprVisitor::visitFOEq(const FOEqExpr &) {

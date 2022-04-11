@@ -148,6 +148,14 @@ static SpecialFunctionHandler::HandlerInfo handlerInfo[] = {
   add("__ubsan_handle_mul_overflow", handleMulOverflow, false),
   add("__ubsan_handle_divrem_overflow", handleDivRemOverflow, false),
 
+  // change debug information
+  add("tracerx_debug_subsumption", handleDebugSubsumption, false),
+  add("tracerx_debug_subsumption_off", handleDebugSubsumption, false),
+  add("tracerx_debug_state", handleDebugState, false),
+  add("tracerx_debug_state_off", handleDebugStateOff, false),
+  add("tracerx_memo_check", handleMemoCheck, true),
+  add("tracerx_memo", handleMemo, false),
+
   // float classification instrinsics
   add("klee_is_nan_float", handleIsNaN, true),
   add("klee_is_nan_double", handleIsNaN, true),
@@ -859,6 +867,89 @@ void SpecialFunctionHandler::handleCheckMemoryAccess(ExecutionState &state,
       }
     }
   }
+}
+
+void SpecialFunctionHandler::handleDebugSubsumption(
+    ExecutionState &state, KInstruction *target,
+    std::vector<ref<Expr> > &arguments) {
+  assert(arguments.size() == 1 &&
+         "invalid number of arguments to tracerx_debug_subsumption");
+
+  ref<Expr> level = executor.toUnique(state, arguments[0]);
+  if (ConstantExpr *cLevel = llvm::dyn_cast<ConstantExpr>(level)) {
+    state.debugSubsumption(cLevel->getZExtValue());
+    return;
+  }
+
+  executor.terminateStateOnError(
+      state, "push_debug_level requires constant arguments", Executor::User);
+}
+
+void SpecialFunctionHandler::handleDebugSubsumptionOff(
+    ExecutionState &state, KInstruction *target,
+    std::vector<ref<Expr> > &arguments) {
+  assert(arguments.size() == 0 &&
+         "invalid number of arguments to tracerx_debug_subsumption_off");
+  state.debugSubsumptionOff();
+}
+
+void
+SpecialFunctionHandler::handleDebugState(ExecutionState &state,
+                                         KInstruction *target,
+                                         std::vector<ref<Expr> > &arguments) {
+  assert(arguments.size() == 1 &&
+         "invalid number of arguments to tracerx_debug_state");
+
+  ref<Expr> level = executor.toUnique(state, arguments[0]);
+  if (ConstantExpr *cLevel = llvm::dyn_cast<ConstantExpr>(level)) {
+    state.debugState(cLevel->getZExtValue());
+    return;
+  }
+
+  executor.terminateStateOnError(
+      state, "push_debug_level requires constant arguments", Executor::User);
+}
+
+void SpecialFunctionHandler::handleDebugStateOff(
+    ExecutionState &state, KInstruction *target,
+    std::vector<ref<Expr> > &arguments) {
+  assert(arguments.size() == 0 &&
+         "invalid number of arguments to tracerx_debug_state_off");
+  state.debugStateOff();
+}
+
+void SpecialFunctionHandler::handleMemoCheck(
+    ExecutionState &state, KInstruction *target,
+    std::vector<ref<Expr> > &arguments) {
+  assert(arguments[0]->getKind() == 0 &&
+         "invalid length variable, the first argument should be constant");
+  ref<ConstantExpr> length = dyn_cast<ConstantExpr>(arguments[0]);
+  std::vector<int> obj;
+  for (int i = 1; i <= length->getAPValue().getSExtValue(); i++) {
+    assert(arguments[i]->getKind() == 0 &&
+           "invalid item, the items should be constant");
+    ref<ConstantExpr> item = dyn_cast<ConstantExpr>(arguments[i]);
+    obj.push_back(item->getAPValue().getSExtValue());
+  }
+  if (po.contains(obj))
+    executor.terminateStateOnExit(state);
+}
+
+void SpecialFunctionHandler::handleMemo(ExecutionState &state,
+                                        KInstruction *target,
+                                        std::vector<ref<Expr> > &arguments) {
+  assert(arguments[0]->getKind() == 0 &&
+         "invalid length variable, the first argument should be constant");
+  ref<ConstantExpr> length = dyn_cast<ConstantExpr>(arguments[0]);
+  std::vector<int> obj;
+  for (int i = 1; i <= length->getAPValue().getSExtValue(); i++) {
+    assert(arguments[i]->getKind() == 0 &&
+           "invalid item, the items should be constant");
+    ref<ConstantExpr> item = dyn_cast<ConstantExpr>(arguments[i]);
+    obj.push_back(item->getAPValue().getSExtValue());
+  }
+
+  po.insert(obj);
 }
 
 void SpecialFunctionHandler::handleGetValue(ExecutionState &state,

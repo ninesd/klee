@@ -956,7 +956,10 @@ void Executor::branch(ExecutionState &state,
       ExecutionState *ns = es->branch();
       addedStates.push_back(ns);
       result.push_back(ns);
-      processTree->attach(es->ptreeNode, ns, es);
+      std::pair<PTree::Node *, PTree::Node *> res =
+          processTree->attach(es->ptreeNode, ns, es);
+      ns->ptreeNode = res.first;
+      es->ptreeNode = res.second;
 
       if (INTERPOLATION_ENABLED) {
         std::pair<TxTreeNode *, TxTreeNode *> ires =
@@ -4494,7 +4497,8 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   case Instruction::Store: {
     ref<Expr> base = eval(ki, 1, state).value;
     ref<Expr> value = eval(ki, 0, state).value;
-    executeMemoryOperation(state, true, base, value, 0);
+    // TODO DOUBT???
+    executeMemoryOperation(state, true, base, value, ki);
     break;
   }
 
@@ -5802,28 +5806,15 @@ void Executor::run(ExecutionState &initialState) {
     if (INTERPOLATION_ENABLED && txTree->subsumptionCheck(solver, state, coreSolverTimeout)) {
       terminateStateOnSubsumption(state);
     }
-//    else {
-//      KInstruction *ki = state.pc;
-//      stepInstruction(state);
-//
-//      executeInstruction(state, ki);
-//
-//      if (INTERPOLATION_ENABLED) {
-//        state.txTreeNode->incInstructionsDepth();
-//      }
-//
-//      timers.invoke();
-//      if (::dumpStates) dumpStates();
-//      if (::dumpPTree) dumpPTree();
-//    }
+    else {
+      KInstruction *ki = state.pc;
+      stepInstruction(state);
 
-    KInstruction *ki = state.pc;
-    stepInstruction(state);
+      executeInstruction(state, ki);
 
-    executeInstruction(state, ki);
-
-    if (INTERPOLATION_ENABLED) {
-      state.txTreeNode->incInstructionsDepth();
+      if (INTERPOLATION_ENABLED) {
+        state.txTreeNode->incInstructionsDepth();
+      }
     }
 
     timers.invoke();
