@@ -235,10 +235,6 @@ std::string TxPrettyExpressionBuilder::fbvLeExpr(std::string lhs,
                                                  std::string rhs) {
   return "(" + lhs + " \\<= " + rhs + ")";
 }
-std::string TxPrettyExpressionBuilder::fpExtExpr(std::string lhs,
-                                                 std::string rhs) {
-  return "(" + lhs + " \\<= " + rhs + ")";
-}
 
 std::string TxPrettyExpressionBuilder::constructAShrByConstant(
     std::string expr, unsigned shift, std::string isSigned) {

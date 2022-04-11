@@ -64,6 +64,8 @@ class TxPrettyExpressionBuilder {
   std::string fbvMultExpr(std::string multiplacand, std::string multiplier);
   std::string fbvDivExpr(std::string dividend, std::string divisor);
   std::string fbvModExpr(std::string dividend, std::string divisor);
+  std::string fbvMaxExpr(std::string dividend, std::string divisor);
+  std::string fbvMinExpr(std::string dividend, std::string divisor);
   std::string notExpr(std::string expr);
   std::string bvAndExpr(std::string lhs, std::string rhs);
   std::string bvOrExpr(std::string lhs, std::string rhs);
