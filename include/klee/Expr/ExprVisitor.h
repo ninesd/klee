@@ -86,6 +86,8 @@ namespace klee {
     virtual Action visitSgt(const SgtExpr&);
     virtual Action visitSge(const SgeExpr&);
     virtual Action visitExists(const ExistsExpr&);
+    virtual Action visitSel(const SelExpr &);
+    virtual Action visitUpd(const UpdExpr &);
     virtual Action visitFOEq(const FOEqExpr &);
     virtual Action visitFOLt(const FOLtExpr &);
     virtual Action visitFOLe(const FOLeExpr &);
