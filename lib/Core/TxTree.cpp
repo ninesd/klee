@@ -2308,6 +2308,10 @@ bool TxTree::subsumptionCheck(TimingSolver *solver, ExecutionState &state,
                               time::Span timeout) {
   assert(state.txTreeNode == currentTxTreeNode);
 
+  klee_message("Subsumption check for Node #%lu, Program Point %lu",
+               state.txTreeNode->getNodeSequenceNumber(),
+               state.txTreeNode->getProgramPoint());
+
   // Immediately return if the state's instruction is not the
   // the interpolation node id. The interpolation node id is the
   // first instruction executed of the sequence executed for a state
