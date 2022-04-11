@@ -349,54 +349,39 @@ std::string TxPrettyExpressionBuilder::constructActual(ref<Expr> e) {
   }
 
   // TODO complete state print
-  case Expr::Sel: {
-    SelExpr *expr = cast<SelExpr>(e);
-    return constructActual(expr->src);
-  }
-
-  case Expr::Upd: {
-    UpdExpr *expr = cast<UpdExpr>(e);
-    return constructActual(expr->src);
-  }
-
-  case Expr::WPVar: {
-    WPVarExpr *expr = cast<WPVarExpr>(e);
-    return constructActual(expr->src);
-  }
-
   case Expr::FAbs: {
     FAbsExpr *expr = cast<FAbsExpr>(e);
-    return constructActual(expr->src);
+    return constructActual(expr->expr);
   }
 
   case Expr::FNeg: {
     FNegExpr *expr = cast<FNegExpr>(e);
-    return constructActual(expr->src);
+    return constructActual(expr->expr);
   }
 
   case Expr::FRint: {
     FRintExpr *expr = cast<FRintExpr>(e);
-    return constructActual(expr->src);
+    return constructActual(expr->expr);
   }
 
   case Expr::IsNaN: {
     IsNaNExpr *expr = cast<IsNaNExpr>(e);
-    return constructActual(expr->src);
+    return constructActual(expr->expr);
   }
 
   case Expr::IsInfinite: {
     IsInfiniteExpr *expr = cast<IsInfiniteExpr>(e);
-    return constructActual(expr->src);
+    return constructActual(expr->expr);
   }
 
   case Expr::IsNormal: {
     IsNormalExpr *expr = cast<IsNormalExpr>(e);
-    return constructActual(expr->src);
+    return constructActual(expr->expr);
   }
 
   case Expr::IsSubnormal: {
     IsSubnormalExpr *expr = cast<IsSubnormalExpr>(e);
-    return constructActual(expr->src);
+    return constructActual(expr->expr);
   }
 
   // Casting

@@ -59,6 +59,11 @@ class TxPrettyExpressionBuilder {
   std::string sbvDivExpr(std::string dividend, std::string divisor);
   std::string bvModExpr(std::string dividend, std::string divisor);
   std::string sbvModExpr(std::string dividend, std::string divisor);
+  std::string fbvMinusExpr(std::string minuend, std::string subtrahend);
+  std::string fbvPlusExpr(std::string augend, std::string addend);
+  std::string fbvMultExpr(std::string multiplacand, std::string multiplier);
+  std::string fbvDivExpr(std::string dividend, std::string divisor);
+  std::string fbvModExpr(std::string dividend, std::string divisor);
   std::string notExpr(std::string expr);
   std::string bvAndExpr(std::string lhs, std::string rhs);
   std::string bvOrExpr(std::string lhs, std::string rhs);
@@ -80,6 +85,9 @@ class TxPrettyExpressionBuilder {
   std::string bvLeExpr(std::string lhs, std::string rhs);
   std::string sbvLtExpr(std::string lhs, std::string rhs);
   std::string sbvLeExpr(std::string lhs, std::string rhs);
+  std::string feqExpr(std::string a, std::string b);
+  std::string fbvLtExpr(std::string lhs, std::string rhs);
+  std::string fbvLeExpr(std::string lhs, std::string rhs);
 
   std::string existsExpr(std::string body);
 
