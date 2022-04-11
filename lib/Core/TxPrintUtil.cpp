@@ -526,42 +526,42 @@ std::string TxPrettyExpressionBuilder::constructActual(ref<Expr> e) {
   }
 
   case Expr::FSub: {
-    FSub *expr = cast<FSub>(e);
+    FSubExpr *expr = cast<FSubExpr>(e);
     std::string left = constructActual(expr->left);
     std::string right = constructActual(expr->right);
     return fbvMinusExpr(left, right);
   }
 
   case Expr::FMul: {
-    FMul *expr = cast<FMul>(e);
+    FMulExpr *expr = cast<FMulExpr>(e);
     std::string left = constructActual(expr->left);
     std::string right = constructActual(expr->right);
     return fbvMultExpr(left, right);
   }
 
   case Expr::FDiv: {
-    FDiv *expr = cast<FDiv>(e);
+    FDivExpr *expr = cast<FDivExpr>(e);
     std::string left = constructActual(expr->left);
     std::string right = constructActual(expr->right);
     return fbvDivExpr(left, right);
   }
 
   case Expr::FRem: {
-    FRem *expr = cast<FRem>(e);
+    FRemExpr *expr = cast<FRemExpr>(e);
     std::string left = constructActual(expr->left);
     std::string right = constructActual(expr->right);
     return fbvModExpr(left, right);
   }
 
   case Expr::FMax: {
-    FMax *expr = FMax<FDiv>(e);
+    FMaxExpr *expr = FMax<FDivExpr>(e);
     std::string left = constructActual(expr->left);
     std::string right = constructActual(expr->right);
     return fbvMaxExpr(left, right);
   }
 
   case Expr::FMin: {
-    FMin *expr = cast<FMin>(e);
+    FMinExpr *expr = cast<FMinExpr>(e);
     std::string left = constructActual(expr->left);
     std::string right = constructActual(expr->right);
     return fbvMinExpr(left, right);
