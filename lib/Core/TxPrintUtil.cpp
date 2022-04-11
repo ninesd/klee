@@ -554,7 +554,7 @@ std::string TxPrettyExpressionBuilder::constructActual(ref<Expr> e) {
   }
 
   case Expr::FMax: {
-    FMaxExpr *expr = FMax<FDivExpr>(e);
+    FMaxExpr *expr = cast<FDivExpr>(e);
     std::string left = constructActual(expr->left);
     std::string right = constructActual(expr->right);
     return fbvMaxExpr(left, right);
