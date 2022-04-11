@@ -80,6 +80,11 @@ std::string TxPrettyExpressionBuilder::eqExpr(std::string a, std::string b) {
     return "!" + b;
   return "(" + a + " = " + b + ")";
 }
+std::string TxPrettyExpressionBuilder::feqExpr(std::string a, std::string b) {
+  if (a == "false")
+    return "!" + b;
+  return "(" + a + " = " + b + ")";
+}
 
 // logical left and right shift (not arithmetic)
 std::string TxPrettyExpressionBuilder::bvLeftShift(std::string expr,
@@ -136,6 +141,34 @@ std::string TxPrettyExpressionBuilder::sbvModExpr(std::string dividend,
                                                   std::string divisor) {
   return "(" + dividend + " % " + divisor + ")";
 }
+std::string TxPrettyExpressionBuilder::fbvMinusExpr(std::string minuend,
+                                                   std::string subtrahend) {
+  return "(" + minuend + " - " + subtrahend + ")";
+}
+std::string TxPrettyExpressionBuilder::fbvPlusExpr(std::string augend,
+                                                  std::string addend) {
+  return "(" + augend + " + " + addend + ")";
+}
+std::string TxPrettyExpressionBuilder::fbvMultExpr(std::string multiplacand,
+                                                  std::string multiplier) {
+  return "(" + multiplacand + " * " + multiplier + ")";
+}
+std::string TxPrettyExpressionBuilder::fbvDivExpr(std::string dividend,
+                                                 std::string divisor) {
+  return "(" + dividend + " / " + divisor + ")";
+}
+std::string TxPrettyExpressionBuilder::fbvModExpr(std::string dividend,
+                                                 std::string divisor) {
+  return "(" + dividend + " % " + divisor + ")";
+}
+std::string TxPrettyExpressionBuilder::fbvMaxExpr(std::string a,
+                                                  std::string b) {
+  return "( Max{" + a + ", " + b + "} )";
+}
+std::string TxPrettyExpressionBuilder::fbvMinExpr(std::string a,
+                                                  std::string b) {
+  return "( Min{" + a + ", " + b + "} )";
+}
 std::string TxPrettyExpressionBuilder::notExpr(std::string expr) {
   return "!(" + expr + ")";
 }
@@ -191,6 +224,18 @@ std::string TxPrettyExpressionBuilder::sbvLtExpr(std::string lhs,
   return "(" + lhs + " \\< " + rhs + ")";
 }
 std::string TxPrettyExpressionBuilder::sbvLeExpr(std::string lhs,
+                                                 std::string rhs) {
+  return "(" + lhs + " \\<= " + rhs + ")";
+}
+std::string TxPrettyExpressionBuilder::fbvLtExpr(std::string lhs,
+                                                 std::string rhs) {
+  return "(" + lhs + " \\< " + rhs + ")";
+}
+std::string TxPrettyExpressionBuilder::fbvLeExpr(std::string lhs,
+                                                 std::string rhs) {
+  return "(" + lhs + " \\<= " + rhs + ")";
+}
+std::string TxPrettyExpressionBuilder::fpExtExpr(std::string lhs,
                                                  std::string rhs) {
   return "(" + lhs + " \\<= " + rhs + ")";
 }
@@ -303,6 +348,57 @@ std::string TxPrettyExpressionBuilder::constructActual(ref<Expr> e) {
     }
   }
 
+  // TODO complete state print
+  case Expr::Sel: {
+    SelExpr *expr = cast<SelExpr>(e);
+    return constructActual(expr->src);
+  }
+
+  case Expr::Upd: {
+    UpdExpr *expr = cast<UpdExpr>(e);
+    return constructActual(expr->src);
+  }
+
+  case Expr::WPVar: {
+    WPVarExpr *expr = cast<WPVarExpr>(e);
+    return constructActual(expr->src);
+  }
+
+  case Expr::FAbs: {
+    FAbsExpr *expr = cast<FAbsExpr>(e);
+    return constructActual(expr->src);
+  }
+
+  case Expr::FNeg: {
+    FNegExpr *expr = cast<FNegExpr>(e);
+    return constructActual(expr->src);
+  }
+
+  case Expr::FRint: {
+    FRintExpr *expr = cast<FRintExpr>(e);
+    return constructActual(expr->src);
+  }
+
+  case Expr::IsNaN: {
+    IsNaNExpr *expr = cast<IsNaNExpr>(e);
+    return constructActual(expr->src);
+  }
+
+  case Expr::IsInfinite: {
+    IsInfiniteExpr *expr = cast<IsInfiniteExpr>(e);
+    return constructActual(expr->src);
+  }
+
+  case Expr::IsNormal: {
+    IsNormalExpr *expr = cast<IsNormalExpr>(e);
+    return constructActual(expr->src);
+  }
+
+  case Expr::IsSubnormal: {
+    IsSubnormalExpr *expr = cast<IsSubnormalExpr>(e);
+    return constructActual(expr->src);
+  }
+
   // Casting
   case Expr::ZExt: {
     CastExpr *ce = cast<CastExpr>(e);
@@ -319,6 +415,43 @@ std::string TxPrettyExpressionBuilder::constructActual(ref<Expr> e) {
     CastExpr *ce = cast<CastExpr>(e);
     std::string src = constructActual(ce->src);
     return bvSignExtend(src);
+  }
+
+  // TODO complete state print
+  case Expr::FPExt: {
+    CastExpr *ce = cast<CastExpr>(e);
+    std::string src = constructActual(ce->src);
+    return src;
+  }
+
+  case Expr::FPTrunc: {
+    CastExpr *ce = cast<CastExpr>(e);
+    std::string src = constructActual(ce->src);
+    return src;
+  }
+
+  case Expr::FPToUI: {
+    CastExpr *ce = cast<CastExpr>(e);
+    std::string src = constructActual(ce->src);
+    return src;
+  }
+
+  case Expr::FPToSI: {
+    CastExpr *ce = cast<CastExpr>(e);
+    std::string src = constructActual(ce->src);
+    return src;
+  }
+
+  case Expr::UIToFP: {
+    CastExpr *ce = cast<CastExpr>(e);
+    std::string src = constructActual(ce->src);
+    return src;
+  }
+
+  case Expr::SIToFP: {
+    CastExpr *ce = cast<CastExpr>(e);
+    std::string src = constructActual(ce->src);
+    return src;
   }
 
   // Arithmetic
@@ -402,6 +535,55 @@ std::string TxPrettyExpressionBuilder::constructActual(ref<Expr> e) {
     std::string left = constructActual(de->left);
     std::string right = constructActual(de->right);
     return sbvModExpr(left, right);
+  }
+
+  case Expr::FAdd: {
+    FAddExpr *expr = cast<FAddExpr>(e);
+    std::string left = constructActual(expr->left);
+    std::string right = constructActual(expr->right);
+    return fbvPlusExpr(left, right);
+  }
+
+  case Expr::FSub: {
+    FSub *expr = cast<FSub>(e);
+    std::string left = constructActual(expr->left);
+    std::string right = constructActual(expr->right);
+    return fbvMinusExpr(left, right);
+  }
+
+  case Expr::FMul: {
+    FMul *expr = cast<FMul>(e);
+    std::string left = constructActual(expr->left);
+    std::string right = constructActual(expr->right);
+    return fbvMultExpr(left, right);
+  }
+
+  case Expr::FDiv: {
+    FDiv *expr = cast<FDiv>(e);
+    std::string left = constructActual(expr->left);
+    std::string right = constructActual(expr->right);
+    return fbvDivExpr(left, right);
+  }
+
+  case Expr::FRem: {
+    FRem *expr = cast<FRem>(e);
+    std::string left = constructActual(expr->left);
+    std::string right = constructActual(expr->right);
+    return fbvModExpr(left, right);
+  }
+
+  case Expr::FMax: {
+    FMax *expr = FMax<FDiv>(e);
+    std::string left = constructActual(expr->left);
+    std::string right = constructActual(expr->right);
+    return fbvMaxExpr(left, right);
+  }
+
+  case Expr::FMin: {
+    FMin *expr = cast<FMin>(e);
+    std::string left = constructActual(expr->left);
+    std::string right = constructActual(expr->right);
+    return fbvMinExpr(left, right);
   }
 
   // Bitwise
@@ -495,6 +677,27 @@ std::string TxPrettyExpressionBuilder::constructActual(ref<Expr> e) {
     std::string left = constructActual(se->left);
     std::string right = constructActual(se->right);
     return sbvLeExpr(left, right);
+  }
+
+  case Expr::FOEq: {
+    FOEqExpr *ee = cast<FOEqExpr>(e);
+    std::string left = constructActual(ee->left);
+    std::string right = constructActual(ee->right);
+    return feqExpr(left, right);
+  }
+
+  case Expr::FOLt: {
+    FOLtExpr *ue = cast<FOLtExpr>(e);
+    std::string left = constructActual(ue->left);
+    std::string right = constructActual(ue->right);
+    return fbvLtExpr(left, right);
+  }
+
+  case Expr::FOLe: {
+    FOLeExpr *ue = cast<FOLeExpr>(e);
+    std::string left = constructActual(ue->left);
+    std::string right = constructActual(ue->right);
+    return fbvLeExpr(left, right);
   }
 
   case Expr::Exists: {
