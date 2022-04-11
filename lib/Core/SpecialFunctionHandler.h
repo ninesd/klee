@@ -71,6 +71,8 @@ namespace klee {
     static const_iterator end();
     static int size();
 
+    persistentObject po;
+
 
 
   public:
