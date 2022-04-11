@@ -71,6 +71,19 @@ namespace klee {
     static const_iterator end();
     static int size();
 
+    class persistentObject {
+    private:
+      std::vector<std::vector<int> > objects;
+      int count;
+
+    public:
+      void insert(std::vector<int> items) { objects.push_back(items); }
+      bool contains(std::vector<int> items) {
+        return std::find(objects.begin(), objects.end(), items) !=
+               objects.end();
+      }
+    };
+
     persistentObject po;
 
 
