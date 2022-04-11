@@ -956,7 +956,7 @@ void Executor::branch(ExecutionState &state,
       ExecutionState *ns = es->branch();
       addedStates.push_back(ns);
       result.push_back(ns);
-      std::pair<PTree::Node *, PTree::Node *> res =
+      std::pair<PTreeNode*, PTreeNode*> res =
           processTree->attach(es->ptreeNode, ns, es);
       ns->ptreeNode = res.first;
       es->ptreeNode = res.second;

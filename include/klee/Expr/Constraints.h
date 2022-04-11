@@ -91,7 +91,7 @@ public:
     return constraints == other.constraints;
   }
 
-  constraints_ty getConstraints() const{
+  ConstraintSet &getConstraints() const{
     return constraints;
   }
 
