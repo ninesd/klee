@@ -893,7 +893,7 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
     }
   }
 
-  if (isa<llvm::PHINode>(state.pc->inst)) {
+  if (debugSubsumptionLevel >= 1 && isa<llvm::PHINode>(state.pc->inst)) {
     llvm::errs() << "WARNING PhiNode Check : \n";
     llvm::errs() << "PC : " << reinterpret_cast<uintptr_t>(state.pc->inst) << "\n";
     llvm::errs() << "prevPC : " << reinterpret_cast<uintptr_t>(state.prevPC->inst) << "\n";
