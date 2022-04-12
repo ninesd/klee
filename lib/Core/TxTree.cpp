@@ -2339,6 +2339,8 @@ bool TxTree::subsumptionCheck(TimingSolver *solver, ExecutionState &state,
 
   TimerStatIncrementer t(subsumptionCheckTime);
 
+  llvm::errs() << "WARNING before TxSubsumptionTable::check prevPC: " << reinterpret_cast<uintptr_t>(state.prevPC->inst) << "\n";
+  llvm::errs() << "WARNING before TxSubsumptionTable::check prevProgramPoint: " << state.txTreeNode->getPrevProgramPoint() << "\n";
   return TxSubsumptionTable::check(solver, state, timeout,
                                    debugSubsumptionLevel);
   return false;
