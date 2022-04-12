@@ -1459,7 +1459,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
             ConstantExpr::alloc(elementSize, Context::get().getPointerWidth()));
       } else {
         llvm::errs() << "ERROR incomplete type!\n";
-        const llvm::ArrayType *set = cast<llvm::ArrayType>(*ii);
+        const llvm::ArrayType *sset = cast<llvm::ArrayType>(*ii);
       }
 
       offset = offset->Add(addend);
