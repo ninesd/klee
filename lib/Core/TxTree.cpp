@@ -893,6 +893,8 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
     }
   }
 
+  llvm::errs() << "WARNING before PHICheck prevPC: " << reinterpret_cast<uintptr_t>(state.prevPC->inst) << "\n";
+  llvm::errs() << "WARNING before PHICheck prevProgramPoint: " << state.txTreeNode->getPrevProgramPoint() << "\n";
   if (debugSubsumptionLevel >= 1 && isa<llvm::PHINode>(state.pc->inst)) {
     llvm::errs() << "WARNING PhiNode Check : \n";
     llvm::errs() << "PC : " << reinterpret_cast<uintptr_t>(state.pc->inst) << "\n";
