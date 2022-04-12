@@ -1438,14 +1438,15 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
       ref<ConstantExpr> addend =
           ConstantExpr::alloc(0, Context::get().getPointerWidth());
 
-      if (llvm::StructType *st = llvm::dyn_cast<llvm::StructType>(ii.getIndexedType())) {
+      llvm::Type * itype = ii.getIndexedType();
+      if (llvm::StructType *st = llvm::dyn_cast<llvm::StructType>(itype)) {
         const llvm::StructLayout *sl = targetData->getStructLayout(st);
         const llvm::ConstantInt *ci = cast<llvm::ConstantInt>(ii.getOperand());
 
         addend = ConstantExpr::alloc(
             sl->getElementOffset((unsigned)ci->getZExtValue()),
             Context::get().getPointerWidth());
-      } else if (llvm::ArrayType *set = llvm::dyn_cast<llvm::ArrayType>(ii.getIndexedType())) {
+      } else if (llvm::ArrayType *set = llvm::dyn_cast<llvm::ArrayType>(itype)) {
         ref<ConstantExpr> index = cast<ConstantExpr>(
             evalConstant(cast<llvm::Constant>(ii.getOperand()), callHistory)
                 ->getExpression());
