@@ -1438,16 +1438,16 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
       ref<ConstantExpr> addend =
           ConstantExpr::alloc(0, Context::get().getPointerWidth());
 
-      if (llvm::StructType *st =
-              llvm::dyn_cast<llvm::StructType>(*ii)) {
+      if (ii.isStruct()) {
+        llvm::StructType *st = ii.getStructType();
         const llvm::StructLayout *sl = targetData->getStructLayout(st);
         const llvm::ConstantInt *ci = cast<llvm::ConstantInt>(ii.getOperand());
 
         addend = ConstantExpr::alloc(
             sl->getElementOffset((unsigned)ci->getZExtValue()),
             Context::get().getPointerWidth());
-      } else if (llvm::ArrayType *set =
-                     llvm::dyn_cast<llvm::ArrayType>(*ii)) {
+      } else if (ii.isSequential()) {
+        llvm::ArrayType *set = llvm::dyn_cast<llvm::ArrayType>(ii.getIndexedType());
         ref<ConstantExpr> index = cast<ConstantExpr>(
             evalConstant(cast<llvm::Constant>(ii.getOperand()), callHistory)
                 ->getExpression());
@@ -1468,12 +1468,6 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
         index = index->ZExt(Context::get().getPointerWidth());
         addend = index->Mul(
             ConstantExpr::alloc(elementSize, Context::get().getPointerWidth()));
-      } else if (llvm::IntegerType *vec =
-                     llvm::dyn_cast<llvm::IntegerType>(*ii)) {
-
-      } else if (llvm::FunctionType *vec =
-                     llvm::dyn_cast<llvm::FunctionType>(*ii)) {
-
       } else if (llvm::PointerType *ptr =
                      llvm::dyn_cast<llvm::PointerType>(*ii)) {
 
