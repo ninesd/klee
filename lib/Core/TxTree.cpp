@@ -2086,7 +2086,6 @@ void
 TxSubsumptionTable::insert(uintptr_t id,
                            const std::vector<llvm::Instruction *> &callHistory,
                            TxSubsumptionTableEntry *entry) {
-  llvm::errs() << "TxSubsumptionTable INSERT!\n";
   CallHistoryIndexedTable *subTable = 0;
 
   TxTree::entryNumber++; // Count of entries in the table
@@ -2325,7 +2324,6 @@ bool TxTree::subsumptionCheck(TimingSolver *solver, ExecutionState &state,
     klee_message("Subsumption check for Node #%lu, Program Point %lu",
                  state.txTreeNode->getNodeSequenceNumber(),
                  state.txTreeNode->getProgramPoint());
-    TxSubsumptionTable::print(llvm::errs());
   } else if (debugSubsumptionLevel >= 1) {
     klee_message("Subsumption check for Node #%lu",
                  state.txTreeNode->getNodeSequenceNumber());
@@ -2365,7 +2363,6 @@ void TxTree::removeSpeculationFailedNodes(TxTreeNode *node) {
 }
 
 void TxTree::remove(ExecutionState *state, TimingSolver *solver, bool dumping) {
-  llvm::errs() << "TxTree REMOVE!\n";
   TxTreeNode *node = state->txTreeNode;
   TimerStatIncrementer t(removeTime);
   assert(!node->left && !node->right);
@@ -2379,9 +2376,6 @@ void TxTree::remove(ExecutionState *state, TimingSolver *solver, bool dumping) {
       llvm::BasicBlock *pbb = p->getBasicBlock();
       StatsTracker::increaseEle(pbb, 2, false);
     }
-
-    if (node->storable) llvm::errs() << "TxTree storable!\n";
-    if (!node->genericEarlyTermination) llvm::errs() << "TxTree !genericEarlyTermination!\n";
 
     // As the node is about to be deleted, it must have been completely
     // traversed, hence the correct time to table the interpolant.
