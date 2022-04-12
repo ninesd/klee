@@ -1468,8 +1468,11 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
         index = index->ZExt(Context::get().getPointerWidth());
         addend = index->Mul(
             ConstantExpr::alloc(elementSize, Context::get().getPointerWidth()));
+      } else if (llvm::IntegerType *vec =
+                     llvm::dyn_cast<llvm::IntegerType>(*ii)) {
+
       } else {
-        llvm::errs() << "ERROR imcomplete typt!\n";
+        llvm::errs() << "ERROR imcomplete type!\n";
         const llvm::ArrayType *set = cast<llvm::ArrayType>(*ii);
       }
 
