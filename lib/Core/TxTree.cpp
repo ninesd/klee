@@ -802,6 +802,7 @@ bool TxSubsumptionTableEntry::subsumed(
     TxStore::LowerStateStore &__symbolicallyAddressedHistoricalStore,
     int debugSubsumptionLevel) {
 setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
+llvm::errs() << "prevProgramPoint : " << prevProgramPoint << "\n";
 
   if (MarkGlobal) {
     // Global check
