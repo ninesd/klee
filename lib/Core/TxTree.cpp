@@ -893,10 +893,12 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
     }
   }
 
-  llvm::errs() << "WARNING PhiNode Check : \n";
-  llvm::errs() << "PC : " << reinterpret_cast<uintptr_t>(state.pc->inst) << "\n";
-  llvm::errs() << "prevPC : " << reinterpret_cast<uintptr_t>(state.prevPC->inst) << "\n";
-  llvm::errs() << "prevProgramPoint : " << prevProgramPoint << "\n";
+  if (isa<llvm::PHINode>(state.pc->inst)) {
+    llvm::errs() << "WARNING PhiNode Check : \n";
+    llvm::errs() << "PC : " << reinterpret_cast<uintptr_t>(state.pc->inst) << "\n";
+    llvm::errs() << "prevPC : " << reinterpret_cast<uintptr_t>(state.prevPC->inst) << "\n";
+    llvm::errs() << "prevProgramPoint : " << prevProgramPoint << "\n";
+  }
   // PhiNode Check 1 (checking previous BB is the same at subsumption point)
   if (isa<llvm::PHINode>(state.pc->inst) &&
       prevProgramPoint != reinterpret_cast<uintptr_t>(state.prevPC->inst)) {
