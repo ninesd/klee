@@ -4499,9 +4499,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   case Instruction::Store: {
     ref<Expr> base = eval(ki, 1, state).value;
     ref<Expr> value = eval(ki, 0, state).value;
-    // TODO DOUBT???
-//    executeMemoryOperation(state, true, base, value, 0);
-    executeMemoryOperation(state, true, base, value, ki);
+    executeMemoryOperation(state, true, base, value, 0);
     break;
   }
 

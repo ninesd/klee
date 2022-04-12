@@ -893,6 +893,10 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
     }
   }
 
+  llvm::errs() << "WARNING PhiNode Check : \n";
+  llvm::errs() << "PC : " << reinterpret_cast<uintptr_t>(state.pc->inst) << "\n";
+  llvm::errs() << "prevPC : " << reinterpret_cast<uintptr_t>(state.prevPC->inst) << "\n";
+  llvm::errs() << "prevProgramPoint : " << prevProgramPoint << "\n";
   // PhiNode Check 1 (checking previous BB is the same at subsumption point)
   if (isa<llvm::PHINode>(state.pc->inst) &&
       prevProgramPoint != reinterpret_cast<uintptr_t>(state.prevPC->inst)) {
@@ -2309,7 +2313,7 @@ bool TxTree::subsumptionCheck(TimingSolver *solver, ExecutionState &state,
   assert(state.txTreeNode == currentTxTreeNode);
 
   // Immediately return if the state's instruction is not the
-  // the interpolation node id. The interpolation node id is the
+  // interpolation node id. The interpolation node id is the
   // first instruction executed of the sequence executed for a state
   // node, typically this the first instruction of a basic block.
   // Subsumption check only matches against this first instruction.
