@@ -802,7 +802,6 @@ bool TxSubsumptionTableEntry::subsumed(
     TxStore::LowerStateStore &__symbolicallyAddressedHistoricalStore,
     int debugSubsumptionLevel) {
 setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
-llvm::errs() << "prevProgramPoint : " << prevProgramPoint << "\n";
 
   if (MarkGlobal) {
     // Global check
@@ -2161,6 +2160,7 @@ bool TxSubsumptionTable::check(TimingSolver *solver, ExecutionState &state,
     // the successful subsumption mostly happen in the newest entry.
     for (EntryIterator it = iterPair.first, ie = iterPair.second; it != ie;
          ++it) {
+      llvm::errs() << "WARNING : before subsumed prevProgramPoint : " << prevProgramPoint << "\n";
       if ((*it)->subsumed(solver, state, timeout, leftRetrieval,
                           __internalStore, __concretelyAddressedHistoricalStore,
                           __symbolicallyAddressedHistoricalStore,
@@ -2342,6 +2342,7 @@ bool TxTree::subsumptionCheck(TimingSolver *solver, ExecutionState &state,
 
   TimerStatIncrementer t(subsumptionCheckTime);
 
+  llvm::errs() << "WARNING : before TxSubsumptionTable::check prevProgramPoint : " << prevProgramPoint << "\n";
   return TxSubsumptionTable::check(solver, state, timeout,
                                    debugSubsumptionLevel);
   return false;
