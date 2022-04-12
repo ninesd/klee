@@ -2133,6 +2133,7 @@ bool TxSubsumptionTable::check(TimingSolver *solver, ExecutionState &state,
   bool found;
   std::pair<EntryIterator, EntryIterator> iterPair =
       subTable->find(txTreeNode->entryCallHistory, found);
+  TxSubsumptionTableEntry txSubsumptionTableEntry(txTreeNode, txTreeNode->entryCallHistory);
   if (!found) {
     if (debugSubsumptionLevel >= 1) {
       klee_message("#%lu: Check failure due to entry not found",
@@ -2163,7 +2164,8 @@ bool TxSubsumptionTable::check(TimingSolver *solver, ExecutionState &state,
     for (EntryIterator it = iterPair.first, ie = iterPair.second; it != ie;
          ++it) {
       llvm::errs() << "WARNING : before subsumed prevProgramPoint : " << (*it)->prevProgramPoint << "\n";
-      if ((*it)->subsumed(solver, state, timeout, leftRetrieval,
+      if (txSubsumptionTableEntry->subsumed(solver, state, timeout, leftRetrieval,
+//      if ((*it)->subsumed(solver, state, timeout, leftRetrieval,
                           __internalStore, __concretelyAddressedHistoricalStore,
                           __symbolicallyAddressedHistoricalStore,
                           debugSubsumptionLevel)) {
