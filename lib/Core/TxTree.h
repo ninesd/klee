@@ -121,6 +121,7 @@ public:
   static void clear();
 
   static void print(llvm::raw_ostream &stream) {
+    stream << "PRINT START!\n";
     for (std::map<uintptr_t, CallHistoryIndexedTable *>::const_iterator
              it = instance.begin(),
              ie = instance.end();
