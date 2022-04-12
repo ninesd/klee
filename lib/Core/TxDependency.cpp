@@ -1474,6 +1474,9 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
       } else if (llvm::FunctionType *vec =
                      llvm::dyn_cast<llvm::FunctionType>(*ii)) {
 
+      } else if (llvm::PointerType *ptr =
+                     llvm::dyn_cast<llvm::PointerType>(*ii)) {
+
       } else {
         llvm::errs() << "ERROR imcomplete type!\n";
         const llvm::ArrayType *set = cast<llvm::ArrayType>(*ii);
