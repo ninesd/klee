@@ -2086,6 +2086,7 @@ void
 TxSubsumptionTable::insert(uintptr_t id,
                            const std::vector<llvm::Instruction *> &callHistory,
                            TxSubsumptionTableEntry *entry) {
+  llvm::errs() << "TxSubsumptionTable INSERT!\n";
   CallHistoryIndexedTable *subTable = 0;
 
   TxTree::entryNumber++; // Count of entries in the table
@@ -2364,6 +2365,7 @@ void TxTree::removeSpeculationFailedNodes(TxTreeNode *node) {
 }
 
 void TxTree::remove(ExecutionState *state, TimingSolver *solver, bool dumping) {
+  llvm::errs() << "TxTree REMOVE!\n";
   TxTreeNode *node = state->txTreeNode;
   TimerStatIncrementer t(removeTime);
   assert(!node->left && !node->right);
