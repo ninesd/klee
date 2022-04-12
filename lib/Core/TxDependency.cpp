@@ -1447,7 +1447,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
             sl->getElementOffset((unsigned)ci->getZExtValue()),
             Context::get().getPointerWidth());
       } else {
-        const llvm::SequentialType *set = cast<llvm::SequentialType>(*ii);
+        const llvm::ArrayType *set = cast<llvm::ArrayType>(*ii);
         ref<ConstantExpr> index = cast<ConstantExpr>(
             evalConstant(cast<llvm::Constant>(ii.getOperand()), callHistory)
                 ->getExpression());
@@ -1540,6 +1540,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
     addDependency(op1, ret);
     return ret;
   }
+  // TODO COMPLETE???
   case llvm::Instruction::FAdd:
   case llvm::Instruction::FSub:
   case llvm::Instruction::FMul:
