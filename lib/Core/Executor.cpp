@@ -956,6 +956,7 @@ void Executor::branch(ExecutionState &state,
       ExecutionState *ns = es->branch();
       addedStates.push_back(ns);
       result.push_back(ns);
+      // TODO DOUBT???
       std::pair<PTreeNode*, PTreeNode*> res =
           processTree->attach(es->ptreeNode, ns, es);
       ns->ptreeNode = res.first;
@@ -1251,7 +1252,9 @@ Executor::fork(ExecutionState &current, ref<Expr> condition, bool isInternal) {
       }
     }
 
-    processTree->attach(current.ptreeNode, falseState, trueState);
+    std::pair<PTreeNode *, PTreeNode *> res = processTree->attach(current.ptreeNode, falseState, trueState);
+    falseState->ptreeNode = res.first;
+    trueState->ptreeNode = res.second;
 
     if (pathWriter) {
       // Need to update the pathOS.id field of falseState, otherwise the same id
@@ -1886,7 +1889,9 @@ Executor::StatePair Executor::branchFork(ExecutionState &current,
       }
     }
 
-    processTree->attach(current.ptreeNode, falseState, trueState);
+    std::pair<PTreeNode *, PTreeNode *> res = processTree->attach(current.ptreeNode, falseState, trueState);
+    falseState->ptreeNode = res.first;
+    trueState->ptreeNode = res.second;
 
     if (pathWriter) {
       // Need to update the pathOS.id field of falseState, otherwise the same id
@@ -1945,7 +1950,6 @@ Executor::StatePair Executor::addSpeculationNode(ExecutionState &current,
     trueState = speculationFalseState->branch();
     addedStates.push_back(trueState);
 
-    current.ptreeNode->state = 0;
     std::pair<PTreeNode *, PTreeNode *> res =
         processTree->attach(current.ptreeNode, speculationFalseState, trueState);
     speculationFalseState->ptreeNode = res.first;
@@ -1995,7 +1999,6 @@ Executor::StatePair Executor::addSpeculationNode(ExecutionState &current,
     falseState = speculationTrueState->branch();
     addedStates.push_back(falseState);
 
-    current.ptreeNode->state = 0;
     std::pair<PTreeNode *, PTreeNode *> res =
         processTree->attach(current.ptreeNode, speculationTrueState, falseState);
     speculationTrueState->ptreeNode = res.first;
@@ -2348,7 +2351,6 @@ Executor::StatePair Executor::speculationFork(ExecutionState &current,
     falseState = trueState->branch();
     addedStates.push_back(falseState);
 
-    current.ptreeNode->state = 0;
     std::pair<PTreeNode *, PTreeNode *> resNode =
         processTree->attach(current.ptreeNode, falseState, trueState);
     falseState->ptreeNode = resNode.first;
@@ -4498,7 +4500,8 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> base = eval(ki, 1, state).value;
     ref<Expr> value = eval(ki, 0, state).value;
     // TODO DOUBT???
-    executeMemoryOperation(state, true, base, value, ki);
+    executeMemoryOperation(state, true, base, value, 0);
+//    executeMemoryOperation(state, true, base, value, ki);
     break;
   }
 
