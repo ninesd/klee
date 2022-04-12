@@ -489,9 +489,9 @@ class TxTreeNode {
     llvm::errs() << "WARNING : setProgramPoint\n";
     if (!programPoint) {
       llvm::errs() << "WARNING : !programPoint\n";
-      llvm::errs() << "WARNING : prevProgramPoint" << prevProgramPoint << "\n";
       programPoint = reinterpret_cast<uintptr_t>(instr);
       prevProgramPoint = reinterpret_cast<uintptr_t>(prevInstr);
+      llvm::errs() << "WARNING : prevProgramPoint : " << prevProgramPoint << "\n";
       basicBlock = instr->getParent();
     }
 
