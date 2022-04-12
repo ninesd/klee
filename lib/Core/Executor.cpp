@@ -6057,7 +6057,7 @@ void Executor::terminateStateOnError(ExecutionState &state,
     interpreterHandler->incInstructionsDepthOnErrorTermination(
         state.txTreeNode->getInstructionsDepth());
 
-    if (termReason == Executor::Assert) {
+    if (termReason == Executor::Assert || termReason == Executor::Trigger) {
       TxTreeGraph::setError(state, TxTreeGraph::ASSERTION);
     } else if (termReason == Executor::Ptr &&
                messaget.str() == "memory error: out of bound pointer") {
