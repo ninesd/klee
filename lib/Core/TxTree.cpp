@@ -55,6 +55,7 @@ TxSubsumptionTableEntry::TxSubsumptionTableEntry(
     TxTreeNode *node, const std::vector<llvm::Instruction *> &callHistory)
     : programPoint(node->getProgramPoint()),
       nodeSequenceNumber(node->getNodeSequenceNumber()) {
+  llvm::errs() << "WARNING set prevProgramPoint\n";
   std::map<ref<Expr>, ref<Expr> > substitution;
   existentials.clear();
   interpolant = node->getInterpolant(existentials, substitution);
@@ -893,7 +894,7 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
     }
   }
 
-  prevProgramPoint = state.txTreeNode->getPrevProgramPoint();
+//  prevProgramPoint = state.txTreeNode->getPrevProgramPoint();
   if (debugSubsumptionLevel >= 1 && isa<llvm::PHINode>(state.pc->inst)) {
     llvm::errs() << "WARNING PhiNode Check : \n";
     llvm::errs() << "PC : " << reinterpret_cast<uintptr_t>(state.pc->inst) << "\n";
@@ -2113,6 +2114,7 @@ TxSubsumptionTable::insert(uintptr_t id,
 
 bool TxSubsumptionTable::check(TimingSolver *solver, ExecutionState &state,
                                time::Span timeout, int debugSubsumptionLevel) {
+  llvm::errs() << "WARNING check begin\n";
   CallHistoryIndexedTable *subTable = 0;
   TxTreeNode *txTreeNode = state.txTreeNode;
 
