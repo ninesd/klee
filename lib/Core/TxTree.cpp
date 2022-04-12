@@ -894,12 +894,11 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
   }
 
   prevProgramPoint = state.txTreeNode->getPrevProgramPoint();
-  llvm::errs() << "WARNING before PHICheck prevPC: " << reinterpret_cast<uintptr_t>(state.prevPC->inst) << "\n";
-  llvm::errs() << "WARNING before PHICheck prevProgramPoint: " << state.txTreeNode->getPrevProgramPoint() << "\n";
   if (debugSubsumptionLevel >= 1 && isa<llvm::PHINode>(state.pc->inst)) {
     llvm::errs() << "WARNING PhiNode Check : \n";
     llvm::errs() << "PC : " << reinterpret_cast<uintptr_t>(state.pc->inst) << "\n";
     llvm::errs() << "prevPC : " << reinterpret_cast<uintptr_t>(state.prevPC->inst) << "\n";
+    llvm::errs() << "txTreeNode->prevProgramPoint: " << state.txTreeNode->getPrevProgramPoint() << "\n";
     llvm::errs() << "prevProgramPoint : " << prevProgramPoint << "\n";
   }
   // PhiNode Check 1 (checking previous BB is the same at subsumption point)
@@ -2161,8 +2160,6 @@ bool TxSubsumptionTable::check(TimingSolver *solver, ExecutionState &state,
     // the successful subsumption mostly happen in the newest entry.
     for (EntryIterator it = iterPair.first, ie = iterPair.second; it != ie;
          ++it) {
-      llvm::errs() << "WARNING before subsumed prevPC: " << reinterpret_cast<uintptr_t>(state.prevPC->inst) << "\n";
-      llvm::errs() << "WARNING before subsumed prevProgramPoint: " << state.txTreeNode->getPrevProgramPoint() << "\n";
       if ((*it)->subsumed(solver, state, timeout, leftRetrieval,
                           __internalStore, __concretelyAddressedHistoricalStore,
                           __symbolicallyAddressedHistoricalStore,
@@ -2344,8 +2341,6 @@ bool TxTree::subsumptionCheck(TimingSolver *solver, ExecutionState &state,
 
   TimerStatIncrementer t(subsumptionCheckTime);
 
-  llvm::errs() << "WARNING before TxSubsumptionTable::check prevPC: " << reinterpret_cast<uintptr_t>(state.prevPC->inst) << "\n";
-  llvm::errs() << "WARNING before TxSubsumptionTable::check prevProgramPoint: " << state.txTreeNode->getPrevProgramPoint() << "\n";
   return TxSubsumptionTable::check(solver, state, timeout,
                                    debugSubsumptionLevel);
   return false;
