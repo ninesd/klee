@@ -2164,8 +2164,8 @@ bool TxSubsumptionTable::check(TimingSolver *solver, ExecutionState &state,
     for (EntryIterator it = iterPair.first, ie = iterPair.second; it != ie;
          ++it) {
       llvm::errs() << "WARNING : before subsumed prevProgramPoint : " << (*it)->prevProgramPoint << "\n";
-      if (txSubsumptionTableEntry.subsumed(solver, state, timeout, leftRetrieval,
-//      if ((*it)->subsumed(solver, state, timeout, leftRetrieval,
+//      if (txSubsumptionTableEntry.subsumed(solver, state, timeout, leftRetrieval,
+      if ((*it)->subsumed(solver, state, timeout, leftRetrieval,
                           __internalStore, __concretelyAddressedHistoricalStore,
                           __symbolicallyAddressedHistoricalStore,
                           debugSubsumptionLevel)) {
