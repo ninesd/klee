@@ -5805,7 +5805,7 @@ void Executor::run(ExecutionState &initialState) {
     }
 
     llvm::errs() << "WARNING before subsumptionCheck prevPC: " << state.prevPC->inst << "\n";
-    llvm::errs() << "WARNING before subsumptionCheck prevProgramPoint: " << state.txTreeNode.getPrevProgramPoint() << "\n";
+    llvm::errs() << "WARNING before subsumptionCheck prevProgramPoint: " << state.txTreeNode->getPrevProgramPoint() << "\n";
     if (INTERPOLATION_ENABLED && txTree->subsumptionCheck(solver, state, coreSolverTimeout)) {
       terminateStateOnSubsumption(state);
     }
