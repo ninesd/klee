@@ -1446,8 +1446,8 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
         addend = ConstantExpr::alloc(
             sl->getElementOffset((unsigned)ci->getZExtValue()),
             Context::get().getPointerWidth());
-      } else {
-        const llvm::ArrayType *set = cast<llvm::ArrayType>(*ii);
+      } else if (llvm::ArrayType *set =
+                     llvm::dyn_cast<llvm::ArrayType>(*ii)) {
         ref<ConstantExpr> index = cast<ConstantExpr>(
             evalConstant(cast<llvm::Constant>(ii.getOperand()), callHistory)
                 ->getExpression());
@@ -1457,6 +1457,9 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
         index = index->ZExt(Context::get().getPointerWidth());
         addend = index->Mul(
             ConstantExpr::alloc(elementSize, Context::get().getPointerWidth()));
+      } else {
+        llvm::errs() << "ERROR incomplete type!\n";
+        const llvm::ArrayType *set = cast<llvm::ArrayType>(*ii);
       }
 
       offset = offset->Add(addend);
