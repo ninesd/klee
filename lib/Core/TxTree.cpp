@@ -2324,6 +2324,7 @@ bool TxTree::subsumptionCheck(TimingSolver *solver, ExecutionState &state,
     klee_message("Subsumption check for Node #%lu, Program Point %lu",
                  state.txTreeNode->getNodeSequenceNumber(),
                  state.txTreeNode->getProgramPoint());
+    TxSubsumptionTable::print(llvm::errs());
   } else if (debugSubsumptionLevel >= 1) {
     klee_message("Subsumption check for Node #%lu",
                  state.txTreeNode->getNodeSequenceNumber());
