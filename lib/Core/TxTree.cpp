@@ -2158,6 +2158,8 @@ bool TxSubsumptionTable::check(TimingSolver *solver, ExecutionState &state,
     // the successful subsumption mostly happen in the newest entry.
     for (EntryIterator it = iterPair.first, ie = iterPair.second; it != ie;
          ++it) {
+      llvm::errs() << "WARNING before subsumed prevPC: " << reinterpret_cast<uintptr_t>(state.prevPC->inst) << "\n";
+      llvm::errs() << "WARNING before subsumed prevProgramPoint: " << state.txTreeNode->getPrevProgramPoint() << "\n";
       if ((*it)->subsumed(solver, state, timeout, leftRetrieval,
                           __internalStore, __concretelyAddressedHistoricalStore,
                           __symbolicallyAddressedHistoricalStore,
