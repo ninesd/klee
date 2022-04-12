@@ -192,7 +192,7 @@ class TxSubsumptionTableEntry {
 
   // Used to ensure at subsumption the value of the phiNodes in the subsumed
   // tree remain the same
-  uintptr_t prevProgramPoint;
+//  uintptr_t prevProgramPoint;
   std::map<llvm::Value *, std::vector<ref<Expr> > > phiValues;
 
   /// \brief A procedure for building subsumption check constraints using
@@ -307,6 +307,7 @@ class TxSubsumptionTableEntry {
   static void printStat(std::stringstream &stream);
 
 public:
+  uintptr_t prevProgramPoint;
   const uintptr_t programPoint;
 
   const uint64_t nodeSequenceNumber;
