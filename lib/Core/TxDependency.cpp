@@ -1451,10 +1451,14 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
           ConstantExpr::alloc(0, Context::get().getPointerWidth());
 
       // TODO DOUBT???
+      ref<ConstantExpr> indexOp =
+          evalConstant(cast<Constant>(ii.getOperand()), rm, ki);
+      if (indexOp->isZero())
+        continue;
       if (auto STy = ii.getStructTypeOrNull()) {
           unsigned ElementIdx = indexOp->getZExtValue();
-          const StructLayout *SL = kmodule->targetData->getStructLayout(STy);
-          addend = ConstantExpr::alloc(APInt(Context::get().getPointerWidth(),
+          const llvm::StructLayout *SL = kmodule->targetData->getStructLayout(STy);
+          addend = ConstantExpr::alloc(llvm::APInt(Context::get().getPointerWidth(),
                                         SL->getElementOffset(ElementIdx)));
 //      if (ii.isStruct()) {
 //        llvm::StructType *st = ii.getStructType();
@@ -1477,7 +1481,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
 //            ConstantExpr::alloc(elementSize, Context::get().getPointerWidth()));
           addend = indexOp->SExt(Context::get().getPointerWidth())
              ->Mul(ConstantExpr::alloc(
-                 APInt(Context::get().getPointerWidth(),
+                 llvm::APInt(Context::get().getPointerWidth(),
                        kmodule->targetData->getTypeAllocSize(
                            ii.getIndexedType()))));
       }
