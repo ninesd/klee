@@ -1636,31 +1636,31 @@ ref<klee::Expr> TxDependency::evaluateFCmp(unsigned int predicate,
                                        ref<klee::Expr> left, ref<klee::Expr> right) const {
   ref<klee::Expr> result = 0;
   switch (predicate) {
-  case FCmpInst::FCMP_FALSE: {
+  case llvm::FCmpInst::FCMP_FALSE: {
     result = ConstantExpr::alloc(0, klee::Expr::Bool);
     break;
   }
-  case FCmpInst::FCMP_OEQ: {
+  case llvm::FCmpInst::FCMP_OEQ: {
     result = FOEqExpr::create(left, right);
     break;
   }
-  case FCmpInst::FCMP_OGT: {
+  case llvm::FCmpInst::FCMP_OGT: {
     result = FOGtExpr::create(left, right);
     break;
   }
-  case FCmpInst::FCMP_OGE: {
+  case llvm::FCmpInst::FCMP_OGE: {
     result = FOGeExpr::create(left, right);
     break;
   }
-  case FCmpInst::FCMP_OLT: {
+  case llvm::FCmpInst::FCMP_OLT: {
     result = FOLtExpr::create(left, right);
     break;
   }
-  case FCmpInst::FCMP_OLE: {
+  case llvm::FCmpInst::FCMP_OLE: {
     result = FOLeExpr::create(left, right);
     break;
   }
-  case FCmpInst::FCMP_ONE: {
+  case llvm::FCmpInst::FCMP_ONE: {
     // This isn't NotExpr(FOEqExpr(arg))
     // because it is an ordered comparision and
     // should return false if either operand is NaN.
@@ -1674,40 +1674,40 @@ ref<klee::Expr> TxDependency::evaluateFCmp(unsigned int predicate,
                                             FOEqExpr::create(left, right)));
     break;
   }
-  case FCmpInst::FCMP_ORD: {
+  case llvm::FCmpInst::FCMP_ORD: {
     result = NotExpr::create(IsNaNExpr::either(left, right));
     break;
   }
-  case FCmpInst::FCMP_UNO: {
+  case llvm::FCmpInst::FCMP_UNO: {
     result = IsNaNExpr::either(left, right);
     break;
   }
-  case FCmpInst::FCMP_UEQ: {
+  case llvm::FCmpInst::FCMP_UEQ: {
     result = OrExpr::create(IsNaNExpr::either(left, right),
                             FOEqExpr::create(left, right));
     break;
   }
-  case FCmpInst::FCMP_UGT: {
+  case llvm::FCmpInst::FCMP_UGT: {
     result = OrExpr::create(IsNaNExpr::either(left, right),
                             FOGtExpr::create(left, right));
     break;
   }
-  case FCmpInst::FCMP_UGE: {
+  case llvm::FCmpInst::FCMP_UGE: {
     result = OrExpr::create(IsNaNExpr::either(left, right),
                             FOGeExpr::create(left, right));
     break;
   }
-  case FCmpInst::FCMP_ULT: {
+  case llvm::FCmpInst::FCMP_ULT: {
     result = OrExpr::create(IsNaNExpr::either(left, right),
                             FOLtExpr::create(left, right));
     break;
   }
-  case FCmpInst::FCMP_ULE: {
+  case llvm::FCmpInst::FCMP_ULE: {
     result = OrExpr::create(IsNaNExpr::either(left, right),
                             FOLeExpr::create(left, right));
     break;
   }
-  case FCmpInst::FCMP_UNE: {
+  case llvm::FCmpInst::FCMP_UNE: {
     // Unordered comparision so should
     // return true if either arg is NaN.
     // If either arg to ``FOEqExpr::create()``
@@ -1717,7 +1717,7 @@ ref<klee::Expr> TxDependency::evaluateFCmp(unsigned int predicate,
     result = NotExpr::create(FOEqExpr::create(left, right));
     break;
   }
-  case FCmpInst::FCMP_TRUE: {
+  case llvm::FCmpInst::FCMP_TRUE: {
     result = ConstantExpr::alloc(1, Expr::Bool);
     break;
   }
