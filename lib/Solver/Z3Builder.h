@@ -103,6 +103,28 @@ public:
 };
 
 class Z3Builder {
+
+  struct QuantificationContext {
+
+    std::map<std::string, Z3ASTHandle> existentials;
+    std::vector<Z3_app> boundVariables;
+    Z3_context ctx;
+
+    QuantificationContext *parent;
+
+    QuantificationContext(Z3Builder *builder, Z3_context _ctx,
+                          std::set<const Array *> _existentials,
+                          QuantificationContext *_parent);
+
+    ~QuantificationContext() {}
+
+    unsigned size() { return boundVariables.size(); }
+
+    Z3_app *getBoundVariables() { return &boundVariables[0]; }
+
+    QuantificationContext *getParent() { return parent; }
+  };
+
 protected:
   Z3ASTHandle bvOne(unsigned width);
   Z3ASTHandle bvZero(unsigned width);
@@ -172,6 +194,17 @@ protected:
   Z3ArrayExprHash _arr_hash;
   bool autoClearConstructCache;
   std::string z3LogInteractionFile;
+
+  // Handling of quantification contexts
+  QuantificationContext *quantificationContext;
+
+  void pushQuantificationContext(std::set<const Array *> existentials);
+  void popQuantificationContext();
+  unsigned getQuantificationSize() { return quantificationContext->size(); }
+
+  Z3_app *getBoundVariables() {
+    return quantificationContext->getBoundVariables();
+  }
 
 public:
   Z3_context ctx;

@@ -301,5 +301,37 @@ Z3ASTHandle Z3Builder::construct(ref<Expr> e, int *width_out) {
     }
   }
 }
+
+Z3Builder::QuantificationContext::QuantificationContext(
+    Z3Builder *builder, Z3_context _ctx, std::set<const Array *> _existentials,
+    QuantificationContext *_parent)
+    : ctx(_ctx), parent(_parent) {
+  unsigned index = _existentials.size();
+  for (std::set<const Array *>::iterator it = _existentials.begin(),
+                                         itEnd = _existentials.end();
+       it != itEnd; ++it) {
+    --index;
+
+    Z3SortHandle domainSort = builder->getBvSort((*it)->domain);
+    Z3SortHandle rangeSort = builder->getBvSort((*it)->range);
+    Z3SortHandle t = builder->getArraySort(domainSort, rangeSort);
+    Z3_symbol s =
+        Z3_mk_string_symbol(ctx, const_cast<char *>((*it)->name.c_str()));
+    Z3_ast bound = Z3_mk_const(ctx, s, t);
+    existentials[(*it)->name] = Z3ASTHandle(bound, ctx);
+    boundVariables.push_back((Z3_app)bound);
+  }
+}
+
+void Z3Builder::pushQuantificationContext(std::set<const Array *> existentials) {
+  quantificationContext =
+      new QuantificationContext(this, ctx, existentials, quantificationContext);
+}
+
+void Z3Builder::popQuantificationContext() {
+  QuantificationContext *tmp = quantificationContext;
+  quantificationContext = tmp->getParent();
+  delete tmp;
+}
 } // namespace klee
 #endif // ENABLE_Z3
