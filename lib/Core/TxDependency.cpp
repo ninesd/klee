@@ -1449,6 +1449,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
       ref<ConstantExpr> addend =
           ConstantExpr::alloc(0, Context::get().getPointerWidth());
 
+      // TODO DOUBT???
       if (ii.isStruct()) {
         llvm::StructType *st = ii.getStructType();
         const llvm::StructLayout *sl = targetData->getStructLayout(st);
@@ -1551,7 +1552,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
     addDependency(op1, ret);
     return ret;
   }
-  // TODO COMPLETE???
+  // TODO DOUBT???
   case llvm::Instruction::FAdd: {
     ref<Expr> expr = op1Expr->FAdd(op2Expr, rm);
     ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
@@ -1582,15 +1583,51 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
     addDependency(op1, ret);
     return ret;
   }
-  case llvm::Instruction::FPTrunc:
-  case llvm::Instruction::FPExt:
-  case llvm::Instruction::UIToFP:
-  case llvm::Instruction::SIToFP:
-  case llvm::Instruction::FPToUI:
-  case llvm::Instruction::FPToSI:
-  case llvm::Instruction::FCmp: {
-    assert(0 && "floating point ConstantExprs unsupported");
+  case llvm::Instruction::FPTrunc: {
+    ref<Expr> expr = op1Expr->FPTrunc(targetData->getTypeSizeInBits(type), rm);
+    ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
+    addDependency(op1, ret);
+    return ret;
   }
+  case llvm::Instruction::FPExt: {
+    ref<Expr> expr = op1Expr->FPExt(targetData->getTypeSizeInBits(type), rm);
+    ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
+    addDependency(op1, ret);
+    return ret;
+  }
+  case llvm::Instruction::UIToFP: {
+    ref<Expr> expr = op1Expr->UIToFP(targetData->getTypeSizeInBits(type), rm);
+    ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
+    addDependency(op1, ret);
+    return ret;
+  }
+  case llvm::Instruction::SIToFP: {
+    ref<Expr> expr = op1Expr->SIToFP(targetData->getTypeSizeInBits(type), rm);
+    ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
+    addDependency(op1, ret);
+    return ret;
+  }
+  case llvm::Instruction::FPToUI: {
+    ref<Expr> expr = op1Expr->FPToUI(targetData->getTypeSizeInBits(type), rm);
+    ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
+    addDependency(op1, ret);
+    return ret;
+  }
+  case llvm::Instruction::FPToSI: {
+    ref<Expr> expr = op1Expr->FPToSI(targetData->getTypeSizeInBits(type), rm);
+    ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
+    addDependency(op1, ret);
+    return ret;
+  }
+  case llvm::Instruction::FCmp: {
+    ref<Expr> result = evaluateFCmp(ce->getPredicate(), op1Expr, op2Expr);
+    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(result)) {
+      ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, result);
+      addDependency(op1, ret);
+      return ret;
+    }
+  }
+    assert(0 && "Uncovered ConstantExprs");
   }
 }
 
