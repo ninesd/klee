@@ -164,7 +164,7 @@ void ExecutionState::popFrame(KInstruction *ki, ref<Expr> returnValue) {
   stack.pop_back();
 
   if (INTERPOLATION_ENABLED && site && ki)
-    txTreeNode->bindReturnValue(site, ki->inst, returnValue);
+    txTreeNode->bindReturnValue(site, ki->inst, returnValue, roundingMode);
 }
 
 void ExecutionState::addSymbolic(const MemoryObject *mo, const Array *array) {
