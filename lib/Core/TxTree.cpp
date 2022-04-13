@@ -3009,10 +3009,11 @@ void TxTreeNode::setWPatSubsumption(ref<Expr> _wpInterpolant) {
   }
 }
 
-void TxTreeNode::addConstraint(ref<Expr> &constraint, llvm::Value *condition) {
+void TxTreeNode::addConstraint(ref<Expr> &constraint, llvm::Value *condition,
+                               llvm::APFloat::roundingMode rm) {
   TimerStatIncrementer t(addConstraintTime);
   ref<TxPCConstraint> pcConstraint =
-      dependency->addConstraint(constraint, condition, callHistory);
+      dependency->addConstraint(constraint, condition, callHistory, rm);
   graph->addPathCondition(this, pcConstraint.get(), constraint);
 }
 

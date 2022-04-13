@@ -664,7 +664,8 @@ public:
   ///
   /// \param constraint The constraint to extend the current path condition with
   /// \param value The LLVM value that corresponds to the constraint
-  void addConstraint(ref<Expr> &constraint, llvm::Value *value);
+  void addConstraint(ref<Expr> &constraint, llvm::Value *value,
+                     llvm::APFloat::roundingMode rm);
 
   /// \brief Creates fresh interpolation data holder for the two given KLEE
   /// execution states.
