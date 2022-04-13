@@ -2634,7 +2634,7 @@ void Executor::executeGetValue(ExecutionState &state,
         bindLocal(target, *es, *vit);
 
       if (INTERPOLATION_ENABLED)
-        TxTree::executeOnNode(es->txTreeNode, target->inst, e, *vit);
+        TxTree::executeOnNode(es->txTreeNode, target->inst, e, *vit, state.roundingMode);
 
       ++bit;
     }
@@ -6648,7 +6648,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
           // Update dependency
           if (INTERPOLATION_ENABLED && target)
             TxTree::executeOnNode(bound->txTreeNode, target->inst, value,
-                                  address);
+                                  address, state.roundingMode);
 
         }
       } else {
@@ -6658,7 +6658,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
         // Update dependency
         if (INTERPOLATION_ENABLED && target)
           TxTree::executeOnNode(bound->txTreeNode, target->inst, result,
-                                address);
+                                address, state.roundingMode);
 
       }
     }

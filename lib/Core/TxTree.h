@@ -985,40 +985,46 @@ public:
 
   /// \brief Execute an instruction of no argument for building dependency
   /// information.
-  void execute(llvm::Instruction *instr) {
-    executeOnNode(currentTxTreeNode, instr);
+  void execute(llvm::Instruction *instr,
+               llvm::APFloat::roundingMode rm) {
+    executeOnNode(currentTxTreeNode, instr, rm);
   }
 
   /// \brief Execute an instruction of one argument for building dependency
   /// information.
-  void execute(llvm::Instruction *instr, ref<Expr> arg1) {
-    executeOnNode(currentTxTreeNode, instr, arg1);
+  void execute(llvm::Instruction *instr, ref<Expr> arg1,
+               llvm::APFloat::roundingMode rm) {
+    executeOnNode(currentTxTreeNode, instr, arg1, rm);
   }
 
   /// \brief Execute an instruction of two arguments for building dependency
   /// information.
-  void execute(llvm::Instruction *instr, ref<Expr> arg1, ref<Expr> arg2) {
-    executeOnNode(currentTxTreeNode, instr, arg1, arg2);
+  void execute(llvm::Instruction *instr, ref<Expr> arg1, ref<Expr> arg2,
+               llvm::APFloat::roundingMode rm) {
+    executeOnNode(currentTxTreeNode, instr, arg1, arg2, rm);
   }
 
   /// \brief Execute an instruction of three arguments for building dependency
   /// information.
   void execute(llvm::Instruction *instr, ref<Expr> arg1, ref<Expr> arg2,
-               ref<Expr> arg3) {
-    executeOnNode(currentTxTreeNode, instr, arg1, arg2, arg3);
+               ref<Expr> arg3,
+               llvm::APFloat::roundingMode rm) {
+    executeOnNode(currentTxTreeNode, instr, arg1, arg2, arg3, rm);
   }
 
   /// \brief Execute an instruction of four arguments for building dependency
   /// information.
   void execute(llvm::Instruction *instr, ref<Expr> arg1, ref<Expr> arg2,
-               ref<Expr> arg3, ref<Expr> arg4) {
-    executeOnNode(currentTxTreeNode, instr, arg1, arg2, arg3, arg4);
+               ref<Expr> arg3, ref<Expr> arg4,
+               llvm::APFloat::roundingMode rm) {
+    executeOnNode(currentTxTreeNode, instr, arg1, arg2, arg3, arg4, rm);
   }
 
   /// \brief Execute an instruction of a number of arguments for building
   /// dependency information.
-  void execute(llvm::Instruction *instr, std::vector<ref<Expr> > &args) {
-    executeOnNode(currentTxTreeNode, instr, args);
+  void execute(llvm::Instruction *instr, std::vector<ref<Expr> > &args,
+               llvm::APFloat::roundingMode rm) {
+    executeOnNode(currentTxTreeNode, instr, args, rm);
   }
 
   /// \brief Execution of klee_make_symbolic
@@ -1064,57 +1070,63 @@ public:
 
   /// \brief Execute an instruction of no argument for building dependency
   /// information, given a particular interpolation tree node.
-  static void executeOnNode(TxTreeNode *node, llvm::Instruction *instr) {
+  static void executeOnNode(TxTreeNode *node, llvm::Instruction *instr,
+                            llvm::APFloat::roundingMode rm) {
     std::vector<ref<Expr> > dummyArgs;
-    executeOnNode(node, instr, dummyArgs);
+    executeOnNode(node, instr, dummyArgs, rm);
   }
 
   /// \brief Execute an instruction of one argument for building dependency
   /// information, given a particular interpolation tree node.
   static void executeOnNode(TxTreeNode *node, llvm::Instruction *instr,
-                            ref<Expr> arg1) {
+                            ref<Expr> arg1,
+                            llvm::APFloat::roundingMode rm) {
     std::vector<ref<Expr> > args;
     args.push_back(arg1);
-    executeOnNode(node, instr, args);
+    executeOnNode(node, instr, args, rm);
   }
 
   /// \brief Execute an instruction of two arguments for building dependency
   /// information, given a particular interpolation tree node.
   static void executeOnNode(TxTreeNode *node, llvm::Instruction *instr,
-                            ref<Expr> arg1, ref<Expr> arg2) {
+                            ref<Expr> arg1, ref<Expr> arg2,
+                            llvm::APFloat::roundingMode rm) {
     std::vector<ref<Expr> > args;
     args.push_back(arg1);
     args.push_back(arg2);
-    executeOnNode(node, instr, args);
+    executeOnNode(node, instr, args, rm);
   }
 
   /// \brief Execute an instruction of three arguments for building dependency
   /// information, given a particular interpolation tree node.
   static void executeOnNode(TxTreeNode *node, llvm::Instruction *instr,
-                            ref<Expr> arg1, ref<Expr> arg2, ref<Expr> arg3) {
+                            ref<Expr> arg1, ref<Expr> arg2, ref<Expr> arg3,
+                            llvm::APFloat::roundingMode rm) {
     std::vector<ref<Expr> > args;
     args.push_back(arg1);
     args.push_back(arg2);
     args.push_back(arg3);
-    executeOnNode(node, instr, args);
+    executeOnNode(node, instr, args, rm);
   }
 
   /// \brief Execute an instruction of three arguments for building dependency
   /// information, given a particular interpolation four node.
   static void executeOnNode(TxTreeNode *node, llvm::Instruction *instr,
-                            ref<Expr> arg1, ref<Expr> arg2, ref<Expr> arg3, ref<Expr> arg4) {
+                            ref<Expr> arg1, ref<Expr> arg2, ref<Expr> arg3, ref<Expr> arg4,
+                            llvm::APFloat::roundingMode rm) {
     std::vector<ref<Expr> > args;
     args.push_back(arg1);
     args.push_back(arg2);
     args.push_back(arg3);
     args.push_back(arg4);
-    executeOnNode(node, instr, args);
+    executeOnNode(node, instr, args, rm);
   }
 
   /// \brief General member function for executing an instruction for building
   /// dependency information, given a particular interpolation tree node.
   static void executeOnNode(TxTreeNode *node, llvm::Instruction *instr,
-                            std::vector<ref<Expr> > &args);
+                            std::vector<ref<Expr> > &args,
+                            llvm::APFloat::roundingMode rm);
 
   /// \brief Check if the current node is a speculation node
   bool isSpeculationNode();

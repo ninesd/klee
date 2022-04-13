@@ -2510,9 +2510,10 @@ void TxTree::executePHI(llvm::Instruction *instr, unsigned incomingBlock,
 }
 
 void TxTree::executeOnNode(TxTreeNode *node, llvm::Instruction *instr,
-                           std::vector<ref<Expr> > &args) {
+                           std::vector<ref<Expr> > &args,
+                           llvm::APFloat::roundingMode rm) {
   TimerStatIncrementer t(executeOnNodeTime);
-  node->execute(instr, args, symbolicExecutionError);
+  node->execute(instr, args, symbolicExecutionError, rm);
   symbolicExecutionError = false;
 }
 
