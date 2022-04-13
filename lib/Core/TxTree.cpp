@@ -2163,7 +2163,7 @@ bool TxSubsumptionTable::check(TimingSolver *solver, ExecutionState &state,
     // the successful subsumption mostly happen in the newest entry.
 //    for (EntryIterator it = iterPair.first, ie = iterPair.second; it != ie;
 //         ++it) {
-      llvm::errs() << "WARNING : before subsumed prevProgramPoint : " << (*it)->prevProgramPoint << "\n";
+//      llvm::errs() << "WARNING : before subsumed prevProgramPoint : " << (*it)->prevProgramPoint << "\n";
       llvm::errs() << "WARNING : before subsumed txTreeNode->prevProgramPoint: " << state.txTreeNode->getPrevProgramPoint() << "\n";
       if (txSubsumptionTableEntry.subsumed(solver, state, timeout, leftRetrieval,
 //      if ((*it)->subsumed(solver, state, timeout, leftRetrieval,
@@ -2176,7 +2176,7 @@ bool TxSubsumptionTable::check(TimingSolver *solver, ExecutionState &state,
         txTreeNode->isSubsumed = true;
 
         // Mark the node as subsumed, and create a subsumption edge
-        TxTreeGraph::markAsSubsumed(txTreeNode, (*it));
+        TxTreeGraph::markAsSubsumed(txTreeNode, txSubsumptionTableEntry);
         return true;
       }
 //    }
