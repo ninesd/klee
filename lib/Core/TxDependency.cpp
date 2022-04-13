@@ -31,6 +31,7 @@
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/Metadata.h>
 #include <llvm/IR/DebugInfoMetadata.h>
+#include <llvm/IR/GetElementPtrTypeIterator.h>
 
 using namespace klee;
 
