@@ -135,7 +135,7 @@ namespace klee {
     }
   }
 
-    ref<klee::Expr> Executor::evaluateFCmp(unsigned int predicate,
+    ref<klee::Expr> static Executor::evaluateFCmp(unsigned int predicate,
                                      ref<klee::Expr> left, ref<klee::Expr> right) const {
         ref<klee::Expr> result = 0;
         switch (predicate) {

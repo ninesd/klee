@@ -635,7 +635,7 @@ public:
 
   /// Evaluates an LLVM float comparison. the operands are two float
   /// expressions.
-  ref<klee::Expr> evaluateFCmp(unsigned int predicate, ref<klee::Expr> left,
+  ref<klee::Expr> static evaluateFCmp(unsigned int predicate, ref<klee::Expr> left,
                                ref<klee::Expr> right) const;
 };
   
