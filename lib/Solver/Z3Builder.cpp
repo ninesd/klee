@@ -217,6 +217,12 @@ unsigned Z3Builder::getBVLength(Z3ASTHandle expr) {
   return Z3_get_bv_sort_size(ctx, Z3SortHandle(Z3_get_sort(ctx, expr), ctx));
 }
 
+Z3ASTHandle Z3Builder::existsExpr(Z3ASTHandle body) {
+  return Z3ASTHandle(Z3_mk_exists_const(ctx, 0, getQuantificationSize(),
+                                        getBoundVariables(), 0, 0, body),
+                     ctx);
+}
+
 Z3ASTHandle Z3Builder::getInitialArray(const Array *root) {
 
   assert(root);
