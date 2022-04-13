@@ -134,9 +134,9 @@ void ExecutionState::addTxTreeConstraint(ref<Expr> e, llvm::Instruction *instr) 
   llvm::BranchInst *binstr = llvm::dyn_cast<llvm::BranchInst>(instr);
 
   if (txTreeNode && binstr && binstr->isConditional()) {
-    txTreeNode->addConstraint(e, binstr->getCondition());
+    txTreeNode->addConstraint(e, binstr->getCondition(), roundingMode);
   } else if (txTreeNode && !binstr) {
-    txTreeNode->addConstraint(e, instr->getOperand(0));
+    txTreeNode->addConstraint(e, instr->getOperand(0), roundingMode);
   }
 }
 
