@@ -1438,15 +1438,16 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
       ref<ConstantExpr> addend =
           ConstantExpr::alloc(0, Context::get().getPointerWidth());
 
-      llvm::Type * itype = ii.getIndexedType();
-      if (llvm::StructType *st = llvm::dyn_cast<llvm::StructType>(itype)) {
+      if (ii->isStruct()) {
+        llvm::StructType *st = ii->getStructType();
         const llvm::StructLayout *sl = targetData->getStructLayout(st);
         const llvm::ConstantInt *ci = cast<llvm::ConstantInt>(ii.getOperand());
 
         addend = ConstantExpr::alloc(
             sl->getElementOffset((unsigned)ci->getZExtValue()),
             Context::get().getPointerWidth());
-      } else if (llvm::ArrayType *set = llvm::dyn_cast<llvm::ArrayType>(itype)) {
+      } else if (ii->isSequential()) {
+        llvm::ArrayType *set = llvm::dyn_cast<llvm::ArrayType>(ii->getIndexedType());
         ref<ConstantExpr> index = cast<ConstantExpr>(
             evalConstant(cast<llvm::Constant>(ii.getOperand()), callHistory)
                 ->getExpression());
@@ -1458,7 +1459,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
             ConstantExpr::alloc(elementSize, Context::get().getPointerWidth()));
       } else {
         llvm::errs() << "ERROR imcomplete type!\n";
-        const llvm::ArrayType *sset = cast<llvm::ArrayType>(*ii);
+        const llvm::ArrayType *aset = cast<llvm::ArrayType>(*ii);
       }
 
       offset = offset->Add(addend);
