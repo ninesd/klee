@@ -3372,7 +3372,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
 
     if (INTERPOLATION_ENABLED)
       // We bind the abstract dependency call arguments
-      state.txTreeNode->bindCallArguments(state.prevPC->inst, arguments);
+      state.txTreeNode->bindCallArguments(state.prevPC->inst, arguments, state.roundingMode);
   }
 }
 
@@ -4172,7 +4172,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED) {
-      txTree->executePHI(i, state.incomingBBIndex, result);
+      txTree->executePHI(i, state.incomingBBIndex, result, state.roundingMode);
       if (txTree->getPhiValuesFlag())
         txTree->setPhiValue(i, result);
     }
@@ -6711,7 +6711,7 @@ void Executor::executeMakeSymbolic(ExecutionState &state,
       const Array *shadow = arrayCache.CreateArray(
           TxShadowArray::getShadowName(uniqueName), mo->size);
       TxShadowArray::addShadowArrayMap(array, shadow);
-      txTree->executeMakeSymbolic(state.prevPC->inst, mo->getBaseExpr(), array);
+      txTree->executeMakeSymbolic(state.prevPC->inst, mo->getBaseExpr(), array, state.roundingMode);
     }
 
     bindObjectInState(state, mo, false, array);

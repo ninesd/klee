@@ -57,13 +57,14 @@ TxDependency::registerNewTxStateValue(llvm::Value *value,
 
 ref<TxStateValue> TxDependency::getLatestValue(
     llvm::Value *value, const std::vector<llvm::Instruction *> &callHistory,
+    llvm::APFloat::roundingMode rm,
     ref<Expr> valueExpr, bool allowInconsistency) {
   assert(value && !valueExpr.isNull() && "value cannot be null");
 
   ref<TxStateValue> ret;
 
   if (llvm::Constant *c = llvm::dyn_cast<llvm::Constant>(value)) {
-    ret = evalConstant(c, callHistory);
+    ret = evalConstant(c, callHistory, rm);
   } else {
     ret = getLatestValueNoConstantCheck(value, valueExpr, allowInconsistency);
   }
@@ -272,13 +273,14 @@ void TxDependency::addDependencyToNonPointer(ref<TxStateValue> source,
 
 void TxDependency::populateArgumentValuesList(
     llvm::CallInst *site, const std::vector<llvm::Instruction *> &callHistory,
+    llvm::APFloat::roundingMode rm,
     std::vector<ref<Expr> > &arguments,
     std::vector<ref<TxStateValue> > &argumentValuesList) {
   unsigned numArgs = site->getCalledFunction()->arg_size();
   for (unsigned i = numArgs; i > 0;) {
     llvm::Value *argOperand = site->getArgOperand(--i);
     ref<TxStateValue> latestValue =
-        getLatestValue(argOperand, callHistory, arguments.at(i));
+        getLatestValue(argOperand, callHistory, rm, arguments.at(i));
 
     if (!latestValue.isNull())
       argumentValuesList.push_back(latestValue);
@@ -330,6 +332,7 @@ TxDependency *TxDependency::cdr() const { return parent; }
 
 void TxDependency::execute(llvm::Instruction *instr,
                            const std::vector<llvm::Instruction *> &callHistory,
+                           llvm::APFloat::roundingMode rm,
                            std::vector<ref<Expr> > &args,
                            bool symbolicExecutionError) {
   // The basic design principle that we need to be careful here
@@ -377,7 +380,7 @@ void TxDependency::execute(llvm::Instruction *instr,
         for (unsigned i = 0; i < 3; ++i) {
           addDependencyViaExternalFunction(
               callHistory,
-              getLatestValue(instr->getOperand(i), callHistory, args.at(i + 1)),
+              getLatestValue(instr->getOperand(i), callHistory, rm, args.at(i + 1)),
               returnValue);
         }
       } else if (calleeName.equals(
@@ -385,12 +388,12 @@ void TxDependency::execute(llvm::Instruction *instr,
                  args.size() == 2) {
         addDependencyViaExternalFunction(
             callHistory,
-            getLatestValue(instr->getOperand(0), callHistory, args.at(1)),
+            getLatestValue(instr->getOperand(0), callHistory, rm, args.at(1)),
             getNewTxStateValue(instr, callHistory, args.at(0)));
       } else if (calleeName.equals("_ZNSi5tellgEv") && args.size() == 2) {
         addDependencyViaExternalFunction(
             callHistory,
-            getLatestValue(instr->getOperand(0), callHistory, args.at(1)),
+            getLatestValue(instr->getOperand(0), callHistory, rm, args.at(1)),
             getNewTxStateValue(instr, callHistory, args.at(0)));
       } else if ((calleeName.equals("powl") && args.size() == 3) ||
                  (calleeName.equals("gettimeofday") && args.size() == 3)) {
@@ -399,7 +402,7 @@ void TxDependency::execute(llvm::Instruction *instr,
         for (unsigned i = 0; i < 2; ++i) {
           addDependencyViaExternalFunction(
               callHistory,
-              getLatestValue(instr->getOperand(i), callHistory, args.at(i + 1)),
+              getLatestValue(instr->getOperand(i), callHistory, rm, args.at(i + 1)),
               returnValue);
         }
       } else if (calleeName.equals("malloc") && args.size() == 1) {
@@ -419,7 +422,7 @@ void TxDependency::execute(llvm::Instruction *instr,
         // realloc is an location-type instruction: its single argument is the
         // return address.
         addDependency(
-            getLatestValue(instr->getOperand(0), callHistory, args.at(0)),
+            getLatestValue(instr->getOperand(0), callHistory, rm, args.at(0)),
             getNewTxStateValue(instr, callHistory, args.at(0)));
       } else if (calleeName.equals("calloc") && args.size() == 1) {
         // calloc is a location-type instruction: its single argument is the
@@ -431,7 +434,7 @@ void TxDependency::execute(llvm::Instruction *instr,
         for (unsigned i = 0; i + 1 < args.size(); ++i) {
           addDependencyViaExternalFunction(
               callHistory,
-              getLatestValue(instr->getOperand(i), callHistory, args.at(i + 1)),
+              getLatestValue(instr->getOperand(i), callHistory, rm, args.at(i + 1)),
               returnValue);
         }
       } else if (std::mismatch(getValuePrefix.begin(), getValuePrefix.end(),
@@ -440,7 +443,7 @@ void TxDependency::execute(llvm::Instruction *instr,
                  args.size() == 2) {
         addDependencyViaExternalFunction(
             callHistory,
-            getLatestValue(instr->getOperand(0), callHistory, args.at(1)),
+            getLatestValue(instr->getOperand(0), callHistory, rm, args.at(1)),
             getNewTxStateValue(instr, callHistory, args.at(0)));
       } else if (calleeName.equals("getenv") && args.size() == 2) {
         // We assume getenv has unknown allocation size
@@ -450,12 +453,12 @@ void TxDependency::execute(llvm::Instruction *instr,
             getNewTxStateValue(instr, callHistory, args.at(0));
         addDependencyViaExternalFunction(
             callHistory,
-            getLatestValue(instr->getOperand(0), callHistory, args.at(1)),
+            getLatestValue(instr->getOperand(0), callHistory, rm, args.at(1)),
             returnValue);
         for (unsigned i = 2, argsNum = args.size(); i < argsNum; ++i) {
           addDependencyViaExternalFunction(
               callHistory,
-              getLatestValue(instr->getOperand(i - 1), callHistory, args.at(i)),
+              getLatestValue(instr->getOperand(i - 1), callHistory, rm, args.at(i)),
               returnValue);
         }
       } else if (calleeName.equals("vprintf") && args.size() == 3) {
@@ -463,11 +466,11 @@ void TxDependency::execute(llvm::Instruction *instr,
             getNewTxStateValue(instr, callHistory, args.at(0));
         addDependencyViaExternalFunction(
             callHistory,
-            getLatestValue(instr->getOperand(0), callHistory, args.at(1)),
+            getLatestValue(instr->getOperand(0), callHistory, rm, args.at(1)),
             returnValue);
         addDependencyViaExternalFunction(
             callHistory,
-            getLatestValue(instr->getOperand(1), callHistory, args.at(2)),
+            getLatestValue(instr->getOperand(1), callHistory, rm, args.at(2)),
             returnValue);
       } else if (((calleeName.equals("fchmodat") && args.size() == 5)) ||
                  (calleeName.equals("fchownat") && args.size() == 6)) {
@@ -476,7 +479,7 @@ void TxDependency::execute(llvm::Instruction *instr,
         for (unsigned i = 0; i < 2; ++i) {
           addDependencyViaExternalFunction(
               callHistory,
-              getLatestValue(instr->getOperand(i), callHistory, args.at(i + 1)),
+              getLatestValue(instr->getOperand(i), callHistory, rm, args.at(i + 1)),
               returnValue);
         }
       } else {
@@ -532,7 +535,7 @@ void TxDependency::execute(llvm::Instruction *instr,
     switch (instr->getOpcode()) {
     case llvm::Instruction::BitCast: {
       ref<TxStateValue> val =
-          getLatestValue(instr->getOperand(0), callHistory, argExpr);
+          getLatestValue(instr->getOperand(0), callHistory, rm, argExpr);
 
       if (!val.isNull()) {
         addDependency(val, getNewTxStateValue(instr, callHistory, argExpr));
@@ -599,7 +602,7 @@ void TxDependency::execute(llvm::Instruction *instr,
     }
     case llvm::Instruction::Load: {
       ref<TxStateValue> addressValue =
-          getLatestValue(instr->getOperand(0), callHistory, address);
+          getLatestValue(instr->getOperand(0), callHistory, rm, address);
       llvm::Type *loadedType =
           instr->getOperand(0)->getType()->getPointerElementType();
 
@@ -717,9 +720,9 @@ void TxDependency::execute(llvm::Instruction *instr,
     }
     case llvm::Instruction::Store: {
       ref<TxStateValue> storedValue =
-          getLatestValue(instr->getOperand(0), callHistory, valueExpr);
+          getLatestValue(instr->getOperand(0), callHistory, rm, valueExpr);
       ref<TxStateValue> addressValue =
-          getLatestValue(instr->getOperand(1), callHistory, address);
+          getLatestValue(instr->getOperand(1), callHistory, rm, address);
 
       // If there was no dependency found, we should create
       // a new value
@@ -760,7 +763,7 @@ void TxDependency::execute(llvm::Instruction *instr,
       ref<Expr> argExpr = args.at(1);
 
       ref<TxStateValue> val =
-          getLatestValue(instr->getOperand(0), callHistory, argExpr);
+          getLatestValue(instr->getOperand(0), callHistory, rm, argExpr);
 
       if (!val.isNull()) {
         if (llvm::isa<llvm::IntToPtrInst>(instr)) {
@@ -820,9 +823,9 @@ void TxDependency::execute(llvm::Instruction *instr,
     switch (instr->getOpcode()) {
     case llvm::Instruction::Select: {
       ref<TxStateValue> op1 =
-          getLatestValue(instr->getOperand(1), callHistory, op1Expr);
+          getLatestValue(instr->getOperand(1), callHistory, rm, op1Expr);
       ref<TxStateValue> op2 =
-          getLatestValue(instr->getOperand(2), callHistory, op2Expr);
+          getLatestValue(instr->getOperand(2), callHistory, rm, op2Expr);
       ref<TxStateValue> newValue =
           getNewTxStateValue(instr, callHistory, result);
 
@@ -858,9 +861,9 @@ void TxDependency::execute(llvm::Instruction *instr,
     case llvm::Instruction::FCmp:
     case llvm::Instruction::InsertValue: {
       ref<TxStateValue> op1 =
-          getLatestValue(instr->getOperand(0), callHistory, op1Expr);
+          getLatestValue(instr->getOperand(0), callHistory, rm, op1Expr);
       ref<TxStateValue> op2 =
-          getLatestValue(instr->getOperand(1), callHistory, op2Expr);
+          getLatestValue(instr->getOperand(1), callHistory, rm, op2Expr);
       ref<TxStateValue> newValue;
 
       if (op1.isNull() &&
@@ -886,7 +889,7 @@ void TxDependency::execute(llvm::Instruction *instr,
       ref<Expr> inputOffset = args.at(2);
 
       ref<TxStateValue> addressValue =
-          getLatestValue(instr->getOperand(0), callHistory, inputAddress);
+          getLatestValue(instr->getOperand(0), callHistory, rm, inputAddress);
       if (addressValue.isNull()) {
         // assert(!"null address");
         addressValue = getNewPointerValue(instr->getOperand(0), callHistory,
@@ -916,13 +919,14 @@ void TxDependency::execute(llvm::Instruction *instr,
 void TxDependency::executeMakeSymbolic(
     llvm::Instruction *instr,
     const std::vector<llvm::Instruction *> &callHistory, ref<Expr> address,
-    const Array *array) {
+    const Array *array,
+    llvm::APFloat::roundingMode rm) {
   llvm::Value *pointer = instr->getOperand(0);
 
   ref<TxStateValue> storedValue = getNewTxStateValue(
       instr, callHistory, ConstantExpr::create(0, Expr::Bool));
   ref<TxStateValue> addressValue =
-      getLatestValue(pointer, callHistory, address);
+      getLatestValue(pointer, callHistory, rm, address);
 
   if (addressValue.isNull()) {
     // assert(!"null address");
@@ -943,10 +947,11 @@ void TxDependency::executeMakeSymbolic(
 void
 TxDependency::executePHI(llvm::Instruction *instr, unsigned int incomingBlock,
                          const std::vector<llvm::Instruction *> &callHistory,
-                         ref<Expr> valueExpr, bool symbolicExecutionError) {
+                         ref<Expr> valueExpr, bool symbolicExecutionError,
+                         llvm::APFloat::roundingMode rm) {
   llvm::PHINode *node = llvm::dyn_cast<llvm::PHINode>(instr);
   llvm::Value *llvmArgValue = node->getIncomingValue(incomingBlock);
-  ref<TxStateValue> val = getLatestValue(llvmArgValue, callHistory, valueExpr);
+  ref<TxStateValue> val = getLatestValue(llvmArgValue, callHistory, rm, valueExpr);
   if (!val.isNull()) {
     addDependency(val, getNewTxStateValue(instr, callHistory, valueExpr));
   } else if (llvm::isa<llvm::Constant>(llvmArgValue) ||
@@ -1016,7 +1021,8 @@ bool TxDependency::executeMemoryOperation(
 void
 TxDependency::bindCallArguments(llvm::Instruction *i,
                                 std::vector<llvm::Instruction *> &callHistory,
-                                std::vector<ref<Expr> > &arguments) {
+                                std::vector<ref<Expr> > &arguments,
+                                llvm::APFloat::roundingMode rm) {
   llvm::CallInst *site = llvm::dyn_cast<llvm::CallInst>(i);
 
   if (!site)
@@ -1030,7 +1036,7 @@ TxDependency::bindCallArguments(llvm::Instruction *i,
     return;
 
   argumentValuesList.clear();
-  populateArgumentValuesList(site, callHistory, arguments, argumentValuesList);
+  populateArgumentValuesList(site, callHistory, rm, arguments, argumentValuesList);
 
   unsigned index = 0;
   callHistory.push_back(i);
@@ -1053,13 +1059,14 @@ TxDependency::bindCallArguments(llvm::Instruction *i,
 void
 TxDependency::bindReturnValue(llvm::CallInst *site,
                               std::vector<llvm::Instruction *> &callHistory,
-                              llvm::Instruction *i, ref<Expr> returnValue) {
+                              llvm::Instruction *i, ref<Expr> returnValue,
+                              llvm::APFloat::roundingMode rm) {
   llvm::ReturnInst *retInst = llvm::dyn_cast<llvm::ReturnInst>(i);
   if (site && retInst &&
       retInst->getReturnValue() // For functions returning void
       ) {
     ref<TxStateValue> value =
-        getLatestValue(retInst->getReturnValue(), callHistory, returnValue);
+        getLatestValue(retInst->getReturnValue(), callHistory, rm, returnValue);
     if (!callHistory.empty()) {
       callHistory.pop_back();
     }
@@ -1202,9 +1209,10 @@ inline ref<TxStateValue> TxDependency::createConstantValue(
 }
 
 ref<TxStateValue> TxDependency::evalConstant(
-    llvm::Constant *c, const std::vector<llvm::Instruction *> &callHistory) {
+    llvm::Constant *c, const std::vector<llvm::Instruction *> &callHistory,
+    llvm::APFloat::roundingMode rm) {
   if (llvm::ConstantExpr *ce = llvm::dyn_cast<llvm::ConstantExpr>(c)) {
-    return evalConstantExpr(ce, callHistory);
+    return evalConstantExpr(ce, callHistory, rm);
   } else {
     // We use empty call history for constants, since they are in a sense global
     const std::vector<llvm::Instruction *> emptyCallHistory;
@@ -1234,7 +1242,7 @@ ref<TxStateValue> TxDependency::evalConstant(
       std::vector<ref<Expr> > kids;
       for (unsigned i = 0, e = cds->getNumElements(); i != e; ++i) {
         ref<Expr> kid = evalConstant(cds->getElementAsConstant(i),
-                                     emptyCallHistory)->getExpression();
+                                     emptyCallHistory, rm)->getExpression();
         kids.push_back(kid);
       }
       return createConstantValue(
@@ -1248,7 +1256,7 @@ ref<TxStateValue> TxDependency::evalConstant(
       for (unsigned i = cs->getNumOperands(); i != 0; --i) {
         unsigned op = i - 1;
         ref<Expr> kid =
-            evalConstant(cs->getOperand(op), emptyCallHistory)->getExpression();
+            evalConstant(cs->getOperand(op), emptyCallHistory, rm)->getExpression();
 
         uint64_t thisOffset = sl->getElementOffsetInBits(op),
                  nextOffset = (op == cs->getNumOperands() - 1)
@@ -1270,7 +1278,7 @@ ref<TxStateValue> TxDependency::evalConstant(
       for (unsigned i = ca->getNumOperands(); i != 0; --i) {
         unsigned op = i - 1;
         ref<Expr> kid =
-            evalConstant(ca->getOperand(op), emptyCallHistory)->getExpression();
+            evalConstant(ca->getOperand(op), emptyCallHistory, rm)->getExpression();
         kids.push_back(kid);
       }
       return createConstantValue(
@@ -1285,7 +1293,8 @@ ref<TxStateValue> TxDependency::evalConstant(
 
 ref<TxStateValue> TxDependency::evalConstantExpr(
     llvm::ConstantExpr *ce,
-    const std::vector<llvm::Instruction *> &callHistory) {
+    const std::vector<llvm::Instruction *> &callHistory,
+    llvm::APFloat::roundingMode rm) {
   llvm::Type *type = ce->getType();
 
   ref<TxStateValue> op1(0), op2(0), op3(0);
@@ -1294,15 +1303,15 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
   int numOperands = ce->getNumOperands();
 
   if (numOperands > 0) {
-    op1 = evalConstant(ce->getOperand(0), callHistory);
+    op1 = evalConstant(ce->getOperand(0), callHistory, rm);
     op1Expr = cast<ConstantExpr>(op1->getExpression());
   }
   if (numOperands > 1) {
-    op2 = evalConstant(ce->getOperand(1), callHistory);
+    op2 = evalConstant(ce->getOperand(1), callHistory, rm);
     op2Expr = cast<ConstantExpr>(op2->getExpression());
   }
   if (numOperands > 2) {
-    op3 = evalConstant(ce->getOperand(2), callHistory);
+    op3 = evalConstant(ce->getOperand(2), callHistory, rm);
     op3Expr = cast<ConstantExpr>(op3->getExpression());
   }
 
@@ -1450,7 +1459,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
       } else {
         llvm::ArrayType *set = llvm::cast<llvm::ArrayType>(ii.getIndexedType());
         ref<ConstantExpr> index = cast<ConstantExpr>(
-            evalConstant(cast<llvm::Constant>(ii.getOperand()), callHistory)
+            evalConstant(cast<llvm::Constant>(ii.getOperand()), callHistory, rm)
                 ->getExpression());
         unsigned elementSize =
             targetData->getTypeStoreSize(set->getElementType());
@@ -1542,12 +1551,42 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
     return ret;
   }
   // TODO COMPLETE???
-  case llvm::Instruction::FAdd:
-  case llvm::Instruction::FSub:
-  case llvm::Instruction::FMul:
-  case llvm::Instruction::FDiv:
-  case llvm::Instruction::FRem:
-  case llvm::Instruction::FPTrunc:
+  case llvm::Instruction::FAdd: {
+    ref<Expr> expr = op1Expr->FAdd(op2Expr);
+    ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
+    addDependency(op1, ret);
+    return ret;
+  }
+  case llvm::Instruction::FSub: {
+    ref<Expr> expr = op1Expr->FSub(op2Expr);
+    ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
+    addDependency(op1, ret);
+    return ret;
+  }
+  case llvm::Instruction::FMul: {
+    ref<Expr> expr = op1Expr->FMul(op2Expr);
+    ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
+    addDependency(op1, ret);
+    return ret;
+  }
+  case llvm::Instruction::FDiv: {
+    ref<Expr> expr = op1Expr->FDiv(op2Expr);
+    ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
+    addDependency(op1, ret);
+    return ret;
+  }
+  case llvm::Instruction::FRem: {
+    ref<Expr> expr = op1Expr->FRem(op2Expr);
+    ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
+    addDependency(op1, ret);
+    return ret;
+  }
+  case llvm::Instruction::FPTrunc: {
+    ref<Expr> expr = op1Expr->Extract(0, targetData->getTypeSizeInBits(type));
+    ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
+    addDependency(op1, ret);
+    return ret;
+  }
   case llvm::Instruction::FPExt:
   case llvm::Instruction::UIToFP:
   case llvm::Instruction::SIToFP:

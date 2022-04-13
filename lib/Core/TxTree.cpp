@@ -2501,10 +2501,11 @@ void TxTree::markPathCondition(ExecutionState &state,
 }
 
 void TxTree::executePHI(llvm::Instruction *instr, unsigned incomingBlock,
-                        ref<Expr> valueExpr) {
+                        ref<Expr> valueExpr,
+                        llvm::APFloat::roundingMode rm) {
   currentTxTreeNode->dependency->executePHI(instr, incomingBlock,
                                             currentTxTreeNode->callHistory,
-                                            valueExpr, symbolicExecutionError);
+                                            valueExpr, symbolicExecutionError, rm);
   symbolicExecutionError = false;
 }
 
@@ -3032,23 +3033,26 @@ void TxTreeNode::split(ExecutionState *leftData, ExecutionState *rightData) {
 
 void TxTreeNode::execute(llvm::Instruction *instr,
                          std::vector<ref<Expr> > &args,
-                         bool symbolicExecutionError) {
+                         bool symbolicExecutionError,
+                         llvm::APFloat::roundingMode rm) {
   TimerStatIncrementer t(executeTime);
-  dependency->execute(instr, callHistory, args, symbolicExecutionError);
+  dependency->execute(instr, callHistory, rm, args, symbolicExecutionError);
 }
 
 void TxTreeNode::bindCallArguments(llvm::Instruction *site,
-                                   std::vector<ref<Expr> > &arguments) {
+                                   std::vector<ref<Expr> > &arguments,
+                                   llvm::APFloat::roundingMode rm) {
   TimerStatIncrementer t(bindCallArgumentsTime);
-  dependency->bindCallArguments(site, callHistory, arguments);
+  dependency->bindCallArguments(site, callHistory, arguments, rm);
 }
 
 void TxTreeNode::bindReturnValue(llvm::CallInst *site, llvm::Instruction *inst,
-                                 ref<Expr> returnValue) {
+                                 ref<Expr> returnValue,
+                                 llvm::APFloat::roundingMode rm) {
   // TODO: This is probably where we should simplify
   // the dependency graph by removing callee values.
   TimerStatIncrementer t(bindReturnValueTime);
-  dependency->bindReturnValue(site, callHistory, inst, returnValue);
+  dependency->bindReturnValue(site, callHistory, inst, returnValue, rm);
 }
 
 void TxTreeNode::getStoredExpressions(

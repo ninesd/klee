@@ -224,13 +224,15 @@ class TxDependency {
   /// copied from Executor::evalConstant.
   ref<TxStateValue>
   evalConstant(llvm::Constant *c,
-               const std::vector<llvm::Instruction *> &callHistory);
+               const std::vector<llvm::Instruction *> &callHistory,
+               llvm::APFloat::roundingMode rm);
 
   /// \brief Get a KLEE expression from a constant expression. This was
   /// shamelessly copied from Executor::evalConstantExpr.
   ref<TxStateValue>
   evalConstantExpr(llvm::ConstantExpr *ce,
-                   const std::vector<llvm::Instruction *> &callHistory);
+                   const std::vector<llvm::Instruction *> &callHistory,
+                   llvm::APFloat::roundingMode rm);
 
   /// \brief Gets the latest version of the location, but without checking
   /// for whether the value is constant or not.
@@ -281,6 +283,7 @@ class TxDependency {
   /// \brief Record the expressions of a call's arguments
   void populateArgumentValuesList(
       llvm::CallInst *site, const std::vector<llvm::Instruction *> &callHistory,
+      llvm::APFloat::roundingMode rm,
       std::vector<ref<Expr> > &arguments,
       std::vector<ref<TxStateValue> > &argumentValuesList);
 
@@ -449,22 +452,26 @@ public:
   ref<TxStateValue>
   getLatestValue(llvm::Value *value,
                  const std::vector<llvm::Instruction *> &callHistory,
+                 llvm::APFloat::roundingMode rm,
                  ref<Expr> valueExpr, bool allowInconsistency = false);
 
   /// \brief Abstract dependency state transition with argument(s)
   void execute(llvm::Instruction *instr,
                const std::vector<llvm::Instruction *> &callHistory,
+               llvm::APFloat::roundingMode rm,
                std::vector<ref<Expr> > &args, bool symbolicExecutionError);
 
   /// \brief Execution of klee_make_symbolic
   void executeMakeSymbolic(llvm::Instruction *instr,
                            const std::vector<llvm::Instruction *> &callHistory,
-                           ref<Expr> address, const Array *array);
+                           ref<Expr> address, const Array *array,
+                           llvm::APFloat::roundingMode rm);
 
   /// \brief Build dependencies from PHI node
   void executePHI(llvm::Instruction *instr, unsigned int incomingBlock,
                   const std::vector<llvm::Instruction *> &callHistory,
-                  ref<Expr> valueExpr, bool symbolicExecutionError);
+                  ref<Expr> valueExpr, bool symbolicExecutionError,
+                  llvm::APFloat::roundingMode rm);
 
   /// \brief Execute memory operation (load/store). Returns true if memory
   /// bounds violation was detected, false otherwise.
@@ -481,12 +488,14 @@ public:
   /// \brief Record call arguments in a function call
   void bindCallArguments(llvm::Instruction *instr,
                          std::vector<llvm::Instruction *> &callHistory,
-                         std::vector<ref<Expr> > &arguments);
+                         std::vector<ref<Expr> > &arguments,
+                         llvm::APFloat::roundingMode rm);
 
   /// \brief This propagates the dependency due to the return value of a call
   void bindReturnValue(llvm::CallInst *site,
                        std::vector<llvm::Instruction *> &callHistory,
-                       llvm::Instruction *inst, ref<Expr> returnValue);
+                       llvm::Instruction *inst, ref<Expr> returnValue,
+                       llvm::APFloat::roundingMode rm);
 
   /// \brief Given an LLVM value and the expression it is associated with,
   /// retrieve all the sources and mark them as in the core
@@ -559,7 +568,8 @@ public:
 
   /// \brief Interpolation for memory bound violation
   void memoryBoundViolationInterpolation(llvm::Instruction *inst,
-                                         ref<Expr> address);
+                                         ref<Expr> address,
+                                         llvm::APFloat::roundingMode rm);
 
   TxStore *getStore() const { return store; }
 

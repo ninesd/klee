@@ -507,7 +507,8 @@ class TxTreeNode {
   static void printTimeStat(std::stringstream &stream);
 
   void execute(llvm::Instruction *instr, std::vector<ref<Expr> > &args,
-               bool symbolicExecutionError);
+               bool symbolicExecutionError,
+               llvm::APFloat::roundingMode rm);
 
   void print(llvm::raw_ostream &stream, const unsigned paddingAmount, int debugSubsumptionLevel) const;
 
@@ -676,11 +677,13 @@ public:
 
   /// \brief Record call arguments in a function call
   void bindCallArguments(llvm::Instruction *site,
-                         std::vector<ref<Expr> > &arguments);
+                         std::vector<ref<Expr> > &arguments,
+                         llvm::APFloat::roundingMode rm);
 
   /// \brief This propagates the dependency due to the return value of a call
   void bindReturnValue(llvm::CallInst *site, llvm::Instruction *inst,
-                       ref<Expr> returnValue);
+                       ref<Expr> returnValue,
+                       llvm::APFloat::roundingMode rm);
 
   /// \brief This retrieves the allocations known at this state, and the
   /// expressions stored in the allocations. This returns as the two last
@@ -1028,7 +1031,8 @@ public:
   /// \brief Abstractly execute a PHI instruction for building dependency
   /// information.
   void executePHI(llvm::Instruction *instr, unsigned incomingBlock,
-                  ref<Expr> valueExpr);
+                  ref<Expr> valueExpr,
+                  llvm::APFloat::roundingMode rm);
 
   /// \brief For executing memory operations, called by
   /// Executor::executeMemoryOperation. Returns true if memory bounds violation
