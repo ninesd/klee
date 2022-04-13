@@ -470,11 +470,6 @@ private:
                        llvm::APFloat::roundingMode rm,
 					   const KInstruction *ki = NULL);
 
-  /// Evaluates an LLVM float comparison. the operands are two float
-  /// expressions.
-  ref<klee::Expr> evaluateFCmp(unsigned int predicate, ref<klee::Expr> left,
-                       ref<klee::Expr> right) const;
-
   /// Evaluates an LLVM constant.  The optional argument ki is the
   /// instruction where this constant was encountered, or NULL if
   /// not applicable/unavailable.
@@ -637,6 +632,11 @@ public:
 
   MergingSearcher *getMergingSearcher() const { return mergingSearcher; };
   void setMergingSearcher(MergingSearcher *ms) { mergingSearcher = ms; };
+
+  /// Evaluates an LLVM float comparison. the operands are two float
+  /// expressions.
+  ref<klee::Expr> evaluateFCmp(unsigned int predicate, ref<klee::Expr> left,
+                               ref<klee::Expr> right) const;
 };
   
 } // End klee namespace

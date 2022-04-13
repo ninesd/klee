@@ -23,6 +23,7 @@
 #include "GetElementPtrTypeIterator.h"
 #include "klee/util/TxPrintUtil.h"
 #include "TxShadowArray.h"
+#include "Executor.h"
 
 #include <llvm/IR/DebugInfo.h>
 
@@ -1620,7 +1621,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
     return ret;
   }
   case llvm::Instruction::FCmp: {
-    ref<Expr> result = TxDependency::evaluateFCmp(ce->getPredicate(), op1Expr, op2Expr);
+    ref<Expr> result = Executor::evaluateFCmp(ce->getPredicate(), op1Expr, op2Expr);
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(result)) {
       ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, result);
       addDependency(op1, ret);
@@ -1629,101 +1630,6 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
   }
     assert(0 && "Uncovered ConstantExprs");
   }
-}
-
-ref<klee::Expr> TxDependency::evaluateFCmp(unsigned int predicate,
-                                       ref<klee::Expr> left, ref<klee::Expr> right) const {
-  ref<klee::Expr> result = 0;
-  switch (predicate) {
-  case FCmpInst::FCMP_FALSE: {
-    result = ConstantExpr::alloc(0, klee::Expr::Bool);
-    break;
-  }
-  case FCmpInst::FCMP_OEQ: {
-    result = FOEqExpr::create(left, right);
-    break;
-  }
-  case FCmpInst::FCMP_OGT: {
-    result = FOGtExpr::create(left, right);
-    break;
-  }
-  case FCmpInst::FCMP_OGE: {
-    result = FOGeExpr::create(left, right);
-    break;
-  }
-  case FCmpInst::FCMP_OLT: {
-    result = FOLtExpr::create(left, right);
-    break;
-  }
-  case FCmpInst::FCMP_OLE: {
-    result = FOLeExpr::create(left, right);
-    break;
-  }
-  case FCmpInst::FCMP_ONE: {
-    // This isn't NotExpr(FOEqExpr(arg))
-    // because it is an ordered comparision and
-    // should return false if either operand is NaN.
-    //
-    // ¬(isnan(l) ∨ isnan(r)) ∧ ¬(foeq(l, r))
-    //
-    //  ===
-    //
-    // ¬( (isnan(l) ∨ isnan(r)) ∨ foeq(l,r))
-    result = NotExpr::create(OrExpr::create(IsNaNExpr::either(left, right),
-                                            FOEqExpr::create(left, right)));
-    break;
-  }
-  case FCmpInst::FCMP_ORD: {
-    result = NotExpr::create(IsNaNExpr::either(left, right));
-    break;
-  }
-  case FCmpInst::FCMP_UNO: {
-    result = IsNaNExpr::either(left, right);
-    break;
-  }
-  case FCmpInst::FCMP_UEQ: {
-    result = OrExpr::create(IsNaNExpr::either(left, right),
-                            FOEqExpr::create(left, right));
-    break;
-  }
-  case FCmpInst::FCMP_UGT: {
-    result = OrExpr::create(IsNaNExpr::either(left, right),
-                            FOGtExpr::create(left, right));
-    break;
-  }
-  case FCmpInst::FCMP_UGE: {
-    result = OrExpr::create(IsNaNExpr::either(left, right),
-                            FOGeExpr::create(left, right));
-    break;
-  }
-  case FCmpInst::FCMP_ULT: {
-    result = OrExpr::create(IsNaNExpr::either(left, right),
-                            FOLtExpr::create(left, right));
-    break;
-  }
-  case FCmpInst::FCMP_ULE: {
-    result = OrExpr::create(IsNaNExpr::either(left, right),
-                            FOLeExpr::create(left, right));
-    break;
-  }
-  case FCmpInst::FCMP_UNE: {
-    // Unordered comparision so should
-    // return true if either arg is NaN.
-    // If either arg to ``FOEqExpr::create()``
-    // is a NaN then the result is false which gets
-    // negated giving us true when either arg to the instruction
-    // is a NaN.
-    result = NotExpr::create(FOEqExpr::create(left, right));
-    break;
-  }
-  case FCmpInst::FCMP_TRUE: {
-    result = ConstantExpr::alloc(1, Expr::Bool);
-    break;
-  }
-  default:
-    llvm_unreachable("Unhandled FCmp predicate");
-  }
-  return result;
 }
 
 /// \brief Print the content of the object to the LLVM error stream
