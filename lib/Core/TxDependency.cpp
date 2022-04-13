@@ -1447,8 +1447,8 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
         addend = ConstantExpr::alloc(
             sl->getElementOffset((unsigned)ci->getZExtValue()),
             Context::get().getPointerWidth());
-      } else if (ii.isSequential()) {
-        llvm::ArrayType *set = llvm::dyn_cast<llvm::ArrayType>(ii.getIndexedType());
+      } else {
+        llvm::ArrayType *set = llvm::cast<llvm::ArrayType>(ii.getIndexedType());
         ref<ConstantExpr> index = cast<ConstantExpr>(
             evalConstant(cast<llvm::Constant>(ii.getOperand()), callHistory)
                 ->getExpression());
@@ -1458,9 +1458,6 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
         index = index->ZExt(Context::get().getPointerWidth());
         addend = index->Mul(
             ConstantExpr::alloc(elementSize, Context::get().getPointerWidth()));
-      } else {
-        llvm::errs() << "ERROR imcomplete type!\n";
-        const llvm::ArrayType *aset = cast<llvm::ArrayType>(*ii);
       }
 
       offset = offset->Add(addend);
