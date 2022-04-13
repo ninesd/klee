@@ -175,7 +175,7 @@ protected:
   virtual Z3ASTHandle sbvLtExpr(Z3ASTHandle lhs, Z3ASTHandle rhs) = 0;
   virtual Z3ASTHandle sbvLeExpr(Z3ASTHandle lhs, Z3ASTHandle rhs) = 0;
 
-  virtual Z3ASTHandle existsExpr(Z3ASTHandle body);
+  Z3ASTHandle existsExpr(Z3ASTHandle body);
 
   virtual Z3ASTHandle constructAShrByConstant(Z3ASTHandle expr, unsigned shift,
                                               Z3ASTHandle isSigned) = 0;
