@@ -569,8 +569,7 @@ public:
 
   /// \brief Interpolation for memory bound violation
   void memoryBoundViolationInterpolation(llvm::Instruction *inst,
-                                         ref<Expr> address,
-                                         llvm::APFloat::roundingMode rm);
+                                         ref<Expr> address);
 
   TxStore *getStore() const { return store; }
 
