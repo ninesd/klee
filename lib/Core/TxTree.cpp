@@ -2179,7 +2179,7 @@ bool TxSubsumptionTable::check(TimingSolver *solver, ExecutionState &state,
         TxTreeGraph::markAsSubsumed(txTreeNode, (*it));
         return true;
       }
-    }
+//    }
   }
   return false;
 }
