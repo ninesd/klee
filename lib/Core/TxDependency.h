@@ -580,6 +580,9 @@ public:
     llvm::errs() << "\n";
   }
 
+  ref<klee::Expr> evaluateFCmp(unsigned int predicate,
+                                             ref<klee::Expr> left, ref<klee::Expr> right) const;
+
   /// \brief Print the content of the object into a stream.
   ///
   /// \param stream The stream to print the data to.
