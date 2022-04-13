@@ -12,6 +12,7 @@
 
 #include "Z3Builder.h"
 #include "klee/ADT/Bits.h"
+#include "klee/CommandLine.h"
 
 #include "klee/Expr/Expr.h"
 #include "klee/Solver/Solver.h"

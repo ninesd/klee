@@ -235,7 +235,7 @@ Z3ASTHandle Z3BitvectorBuilder::sbvLeExpr(Z3ASTHandle lhs, Z3ASTHandle rhs) {
       Z3_mk_bvsle(ctx, castToBitVector(lhs), castToBitVector(rhs)), ctx);
 }
 
-Z3ASTHandle Z3Builder::existsExpr(Z3ASTHandle body) {
+Z3ASTHandle Z3BitvectorBuilder::existsExpr(Z3ASTHandle body) {
   return Z3ASTHandle(Z3_mk_exists_const(ctx, 0, getQuantificationSize(),
                                         getBoundVariables(), 0, 0, body),
                      ctx);
