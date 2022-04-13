@@ -1620,7 +1620,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
     return ret;
   }
   case llvm::Instruction::FCmp: {
-    ref<Expr> result = evaluateFCmp(ce->getPredicate(), op1Expr, op2Expr);
+    ref<Expr> result = TxDependency::evaluateFCmp(ce->getPredicate(), op1Expr, op2Expr);
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(result)) {
       ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, result);
       addDependency(op1, ret);
