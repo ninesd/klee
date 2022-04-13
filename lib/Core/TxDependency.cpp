@@ -1622,10 +1622,13 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
   }
   case llvm::Instruction::FCmp: {
     ref<Expr> result = evaluateFCmp(ce->getPredicate(), op1Expr, op2Expr);
-    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(result)) {
+    if (isa<ConstantExpr>(result)) {
       ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, result);
       addDependency(op1, ret);
       return ret;
+    }
+    else {
+      assert(0 && "floating point ConstantExprs unsupported");
     }
   }
     assert(0 && "Uncovered ConstantExprs");
