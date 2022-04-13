@@ -1432,7 +1432,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
     ref<ConstantExpr> offset =
         ConstantExpr::alloc(0, Context::get().getPointerWidth());
 
-    for (gep_type_iterator ii = gep_type_begin(ce), ie = gep_type_end(ce);
+    for (llvm::gep_type_iterator ii = llvm::gep_type_begin(ce), ie = llvm::gep_type_end(ce);
          ii != ie; ++ii) {
       ;
       ref<ConstantExpr> addend =
