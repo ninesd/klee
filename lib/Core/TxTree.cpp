@@ -2161,8 +2161,8 @@ bool TxSubsumptionTable::check(TimingSolver *solver, ExecutionState &state,
 
     // Iterate the subsumption table entry with reverse iterator because
     // the successful subsumption mostly happen in the newest entry.
-    for (EntryIterator it = iterPair.first, ie = iterPair.second; it != ie;
-         ++it) {
+//    for (EntryIterator it = iterPair.first, ie = iterPair.second; it != ie;
+//         ++it) {
       llvm::errs() << "WARNING : before subsumed prevProgramPoint : " << (*it)->prevProgramPoint << "\n";
       llvm::errs() << "WARNING : before subsumed txTreeNode->prevProgramPoint: " << state.txTreeNode->getPrevProgramPoint() << "\n";
       if (txSubsumptionTableEntry.subsumed(solver, state, timeout, leftRetrieval,
