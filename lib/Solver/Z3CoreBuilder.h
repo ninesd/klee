@@ -49,7 +49,6 @@ protected:
   Z3ASTHandle bvLeExpr(Z3ASTHandle lhs, Z3ASTHandle rhs) override;
   Z3ASTHandle sbvLtExpr(Z3ASTHandle lhs, Z3ASTHandle rhs) override;
   Z3ASTHandle sbvLeExpr(Z3ASTHandle lhs, Z3ASTHandle rhs) override;
-  Z3ASTHandle sbvLeExpr(Z3ASTHandle lhs, Z3ASTHandle rhs) override;
 
   Z3ASTHandle constructAShrByConstant(Z3ASTHandle expr, unsigned shift,
                                       Z3ASTHandle isSigned) override;
