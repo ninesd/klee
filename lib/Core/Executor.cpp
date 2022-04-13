@@ -6583,7 +6583,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
           // Update dependency
           if (INTERPOLATION_ENABLED && target &&
               txTree->executeMemoryOperation(target->inst, value, address,
-                                             inBounds)) {
+                                             inBounds, state.roundingMode)) {
             // Memory error according to Tracer-X
             terminateStateOnError(state, "memory error: out of bound pointer",
                                   Ptr, NULL, getAddressInfo(state, address));
@@ -6601,7 +6601,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
         // Update dependency
         if (INTERPOLATION_ENABLED && target &&
             txTree->executeMemoryOperation(target->inst, result, address,
-                                           inBounds)) {
+                                           inBounds, state.roundingMode)) {
           // Memory error according to Tracer-X
           terminateStateOnError(state, "memory error: out of bound pointer",
                                 Ptr, NULL, getAddressInfo(state, address));

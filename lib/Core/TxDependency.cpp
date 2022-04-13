@@ -966,10 +966,11 @@ TxDependency::executePHI(llvm::Instruction *instr, unsigned int incomingBlock,
 bool TxDependency::executeMemoryOperation(
     llvm::Instruction *instr,
     const std::vector<llvm::Instruction *> &callHistory,
-    std::vector<ref<Expr> > &args, bool inBounds, bool symbolicExecutionError) {
+    std::vector<ref<Expr> > &args, bool inBounds, bool symbolicExecutionError,
+    llvm::APFloat::roundingMode rm) {
   bool ret = false;
   if (inBounds)
-    execute(instr, callHistory, args, symbolicExecutionError);
+    execute(instr, callHistory, rm, args, symbolicExecutionError);
   if (boundInterpolation(instr) && inBounds) {
     // The bounds check has been proven valid, we keep the dependency on the
     // address.
@@ -1552,41 +1553,36 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
   }
   // TODO COMPLETE???
   case llvm::Instruction::FAdd: {
-    ref<Expr> expr = op1Expr->FAdd(op2Expr);
+    ref<Expr> expr = op1Expr->FAdd(op2Expr, rm);
     ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
     addDependency(op1, ret);
     return ret;
   }
   case llvm::Instruction::FSub: {
-    ref<Expr> expr = op1Expr->FSub(op2Expr);
+    ref<Expr> expr = op1Expr->FSub(op2Expr, rm);
     ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
     addDependency(op1, ret);
     return ret;
   }
   case llvm::Instruction::FMul: {
-    ref<Expr> expr = op1Expr->FMul(op2Expr);
+    ref<Expr> expr = op1Expr->FMul(op2Expr, rm);
     ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
     addDependency(op1, ret);
     return ret;
   }
   case llvm::Instruction::FDiv: {
-    ref<Expr> expr = op1Expr->FDiv(op2Expr);
+    ref<Expr> expr = op1Expr->FDiv(op2Expr, rm);
     ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
     addDependency(op1, ret);
     return ret;
   }
   case llvm::Instruction::FRem: {
-    ref<Expr> expr = op1Expr->FRem(op2Expr);
+    ref<Expr> expr = op1Expr->FRem(op2Expr, rm);
     ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
     addDependency(op1, ret);
     return ret;
   }
-  case llvm::Instruction::FPTrunc: {
-    ref<Expr> expr = op1Expr->Extract(0, targetData->getTypeSizeInBits(type));
-    ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);
-    addDependency(op1, ret);
-    return ret;
-  }
+  case llvm::Instruction::FPTrunc:
   case llvm::Instruction::FPExt:
   case llvm::Instruction::UIToFP:
   case llvm::Instruction::SIToFP:

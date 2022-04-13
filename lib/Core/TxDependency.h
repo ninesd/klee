@@ -483,7 +483,8 @@ public:
   executeMemoryOperation(llvm::Instruction *instr,
                          const std::vector<llvm::Instruction *> &callHistory,
                          std::vector<ref<Expr> > &args, bool inBounds,
-                         bool symbolicExecutionError);
+                         bool symbolicExecutionError,
+                         llvm::APFloat::roundingMode rm);
 
   /// \brief Record call arguments in a function call
   void bindCallArguments(llvm::Instruction *instr,

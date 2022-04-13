@@ -1039,9 +1039,10 @@ public:
   /// Executor::executeMemoryOperation. Returns true if memory bounds violation
   /// was detected; false otherwise.
   bool executeMemoryOperation(llvm::Instruction *instr, ref<Expr> value,
-                              ref<Expr> address, bool inBounds) {
+                              ref<Expr> address, bool inBounds,
+                              llvm::APFloat::roundingMode rm) {
     return executeMemoryOperationOnNode(currentTxTreeNode, instr, value,
-                                        address, inBounds);
+                                        address, inBounds, rm);
   }
 
   /// \brief Internal method for executing memory operations. Returns true if
@@ -1049,13 +1050,14 @@ public:
   static bool executeMemoryOperationOnNode(TxTreeNode *node,
                                            llvm::Instruction *instr,
                                            ref<Expr> value, ref<Expr> address,
-                                           bool inBounds) {
+                                           bool inBounds,
+                                           llvm::APFloat::roundingMode rm) {
     TimerStatIncrementer t(executeMemoryOperationTime);
     std::vector<ref<Expr> > args;
     args.push_back(value);
     args.push_back(address);
     bool ret = node->dependency->executeMemoryOperation(
-        instr, node->callHistory, args, inBounds, symbolicExecutionError);
+        instr, node->callHistory, args, inBounds, symbolicExecutionError, rm);
     symbolicExecutionError = false;
     return ret;
   }
