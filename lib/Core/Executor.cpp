@@ -3016,7 +3016,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
 
         // Update dependency
         if (INTERPOLATION_ENABLED)
-          txTree->execute(i, result, op);
+          txTree->execute(i, result, op, state.roundingMode);
 
 #endif
         break;
