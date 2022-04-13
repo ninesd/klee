@@ -2602,7 +2602,7 @@ void Executor::executeGetValue(ExecutionState &state,
     bindLocal(target, state, value);
 
     if (INTERPOLATION_ENABLED) {
-      txTree->execute(target->inst, e, value);
+      txTree->execute(target->inst, e, value, state.roundingMode);
     }
   } else {
     std::set< ref<Expr> > values;
@@ -3007,7 +3007,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
 
       // Update dependency
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i, result, arguments[0]);
+        txTree->execute(i, result, arguments[0], state.roundingMode);
 
 #else
         ref<Expr> op = eval(ki, 1, state).value;
@@ -3028,7 +3028,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
 
         // Update dependency
         if (INTERPOLATION_ENABLED)
-          txTree->execute(i, result, op);
+          txTree->execute(i, result, op, state.roundingMode);
 
         break;
     }
@@ -3048,7 +3048,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
 
         // Update dependency
         if (INTERPOLATION_ENABLED)
-          txTree->execute(i, result, op1, op2);
+          txTree->execute(i, result, op1, op2, state.roundingMode);
 
         break;
     }
@@ -3062,7 +3062,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
 
         // Update dependency
         if (INTERPOLATION_ENABLED)
-          txTree->execute(i, result, op1, op2, op3);
+          txTree->execute(i, result, op1, op2, op3, state.roundingMode);
 
         break;
     }
@@ -3079,7 +3079,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
 
         // Update dependency
         if (INTERPOLATION_ENABLED)
-          txTree->execute(i, result, arg);
+          txTree->execute(i, result, arg, state.roundingMode);
 
         break;
     }
@@ -3090,7 +3090,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
 
         // Update dependency
         if (INTERPOLATION_ENABLED)
-          txTree->execute(i, result, arg);
+          txTree->execute(i, result, arg, state.roundingMode);
 
       break;
     }
@@ -3124,7 +3124,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
 
       // Update dependency
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i, result, op1, op2, op3);
+        txTree->execute(i, result, op1, op2, op3, state.roundingMode);
 
       break;
     }
@@ -3179,7 +3179,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
       // TODO DOUBT?
       // Update dependency
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i, result, arguments.at(0));
+        txTree->execute(i, result, arguments.at(0), state.roundingMode);
 
       break;
     }
@@ -3776,7 +3776,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       transferToBasicBlock(bi->getSuccessor(0), bi->getParent(), state);
 
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i);
+        txTree->execute(i, state.roundingMode);
 
     } else {
       // FIXME: Find a way that we don't have this hidden dependency.
@@ -3810,7 +3810,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       // of the unsatisfiability core.
       if (INTERPOLATION_ENABLED && ((!branches.first && branches.second) ||
                                     (branches.first && !branches.second)))
-        txTree->execute(i);
+        txTree->execute(i, state.roundingMode);
     }
     break;
   }
@@ -3831,7 +3831,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       transferToBasicBlock(bb_address, bi->getParent(), state);
 
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i);
+        txTree->execute(i, state.roundingMode);
 
       break;
     }
@@ -3898,7 +3898,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // TODO DOUBT?
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i);
+      txTree->execute(i, state.roundingMode);
 
     break;
   }
@@ -3924,7 +3924,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       transferToBasicBlock(si->getSuccessor(index), si->getParent(), state);
 
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i, oldCond);
+        txTree->execute(i, oldCond, state.roundingMode);
 
     } else {
       // Handle possible different branch targets
@@ -4191,7 +4191,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, tExpr, fExpr);
+      txTree->execute(i, result, tExpr, fExpr, state.roundingMode);
 
     break;
   }
@@ -4210,7 +4210,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4223,7 +4223,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4236,7 +4236,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4249,7 +4249,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4262,7 +4262,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4275,7 +4275,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4288,7 +4288,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4301,7 +4301,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4314,7 +4314,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4327,7 +4327,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4340,7 +4340,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4353,7 +4353,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4366,7 +4366,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4465,7 +4465,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4538,7 +4538,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, address, base, offset);
+      txTree->execute(i, address, base, offset, state.roundingMode);
 
     break;
   }
@@ -4552,7 +4552,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, arg);
+      txTree->execute(i, result, arg, state.roundingMode);
 
     break;
   }
@@ -4564,7 +4564,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, arg);
+      txTree->execute(i, result, arg, state.roundingMode);
 
     break;
   }
@@ -4576,7 +4576,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, arg);
+      txTree->execute(i, result, arg, state.roundingMode);
 
     break;
   }
@@ -4590,7 +4590,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, arg);
+      txTree->execute(i, result, arg, state.roundingMode);
 
     break;
   }
@@ -4603,7 +4603,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, arg);
+      txTree->execute(i, result, arg, state.roundingMode);
 
     break;
   }
@@ -4614,7 +4614,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result);
+      txTree->execute(i, result, state.roundingMode);
 
     break;
   }
@@ -4635,7 +4635,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, origArg);
+      txTree->execute(i, result, origArg, state.roundingMode);
 
     break;
   }
@@ -4657,7 +4657,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4677,7 +4677,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4698,7 +4698,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4719,7 +4719,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4740,7 +4740,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4763,7 +4763,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, origArg);
+      txTree->execute(i, result, origArg, state.roundingMode);
 
     break;
   }
@@ -4785,7 +4785,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, origArg);
+      txTree->execute(i, result, origArg, state.roundingMode);
 
     break;
   }
@@ -4813,7 +4813,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, origArg);
+      txTree->execute(i, result, origArg, state.roundingMode);
 
     break;
   }
@@ -4841,7 +4841,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, origArg);
+      txTree->execute(i, result, origArg, state.roundingMode);
 
     break;
   }
@@ -4863,7 +4863,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, origArg);
+      txTree->execute(i, result, origArg, state.roundingMode);
 
     break;
   }
@@ -4885,7 +4885,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, origArg);
+      txTree->execute(i, result, origArg, state.roundingMode);
 
     break;
   }
@@ -4975,7 +4975,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -4991,7 +4991,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
       // Update dependency
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i, result, left, right);
+        txTree->execute(i, result, left, right, state.roundingMode);
 
       break;
   }
@@ -5007,7 +5007,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
       // Update dependency
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i, result, left, right);
+        txTree->execute(i, result, left, right, state.roundingMode);
 
       break;
   }
@@ -5023,7 +5023,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
       // Update dependency
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i, result, left, right);
+        txTree->execute(i, result, left, right, state.roundingMode);
 
       break;
   }
@@ -5039,7 +5039,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
       // Update dependency
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i, result, left, right);
+        txTree->execute(i, result, left, right, state.roundingMode);
 
       break;
   }
@@ -5052,7 +5052,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
       // Update dependency
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i, result, arg);
+        txTree->execute(i, result, arg, state.roundingMode);
 
       break;
   }
@@ -5069,7 +5069,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
       // Update dependency
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i, result, left, right);
+        txTree->execute(i, result, left, right, state.roundingMode);
 
       break;
   }
@@ -5087,7 +5087,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
       // Update dependency
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i, result, arg);
+        txTree->execute(i, result, arg, state.roundingMode);
 
       break;
   }
@@ -5105,7 +5105,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
       // Update dependency
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i, result, arg);
+        txTree->execute(i, result, arg, state.roundingMode);
 
       break;
   }
@@ -5123,7 +5123,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
       // Update dependency
       if (INTERPOLATION_ENABLED)
-        txTree->execute(i, result, arg);
+        txTree->execute(i, result, arg, state.roundingMode);
 
       break;
   }
@@ -5141,7 +5141,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, arg);
+      txTree->execute(i, result, arg, state.roundingMode);
 
     break;
   }
@@ -5158,7 +5158,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, arg);
+      txTree->execute(i, result, arg, state.roundingMode);
 
     break;
   }
@@ -5175,7 +5175,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, arg);
+      txTree->execute(i, result, arg, state.roundingMode);
 
     break;
   }
@@ -5192,7 +5192,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, left, right);
+      txTree->execute(i, result, left, right, state.roundingMode);
 
     break;
   }
@@ -5226,7 +5226,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, agg, val);
+      txTree->execute(i, result, agg, val, state.roundingMode);
 
     break;
   }
@@ -5241,7 +5241,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result, agg);
+      txTree->execute(i, result, agg, state.roundingMode);
 
     break;
   }
@@ -5290,7 +5290,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     // TODO DOUBT?
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, Result, vec, newElt, idx);
+      txTree->execute(i, Result, vec, newElt, idx, state.roundingMode);
 
     break;
   }
@@ -5324,7 +5324,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     // TODO DOUBT?
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, Result, vec, idx);
+      txTree->execute(i, Result, vec, idx, state.roundingMode);
 
     break;
   }
@@ -5414,7 +5414,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     // TODO DOUBT?
     // Update dependency
     if (INTERPOLATION_ENABLED)
-      txTree->execute(i, result);
+      txTree->execute(i, result, state.roundingMode);
 
     break;
   }
@@ -6266,7 +6266,7 @@ void Executor::callExternalFunction(ExecutionState &state,
       for (unsigned i = 0; i < arguments.size(); ++i) {
         tmpArgs.push_back(arguments.at(i));
       }
-      txTree->execute(target->inst, tmpArgs);
+      txTree->execute(target->inst, tmpArgs, state.roundingMode);
     }
 
   }
@@ -6358,7 +6358,7 @@ void Executor::executeAlloc(ExecutionState &state,
 
       // Update dependency
       if (INTERPOLATION_ENABLED)
-        txTree->execute(target->inst, mo->getBaseExpr(), size);
+        txTree->execute(target->inst, mo->getBaseExpr(), size, state.roundingMode);
       
       if (reallocFrom) {
         unsigned count = std::min(reallocFrom->size, os->size);
@@ -6434,7 +6434,7 @@ void Executor::executeAlloc(ExecutionState &state,
 
           // Update dependency
           if (INTERPOLATION_ENABLED)
-            txTree->execute(target->inst, result);
+            txTree->execute(target->inst, result, state.roundingMode);
 
         }
         
