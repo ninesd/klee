@@ -548,9 +548,10 @@ public:
   /// \brief Add constraint onto the path condition
   ref<TxPCConstraint>
   addConstraint(ref<Expr> constraint, llvm::Value *condition,
-                std::vector<llvm::Instruction *> &callHistory) {
+                std::vector<llvm::Instruction *> &callHistory,
+                llvm::APFloat::roundingMode rm) {
     return pathCondition->addConstraint(
-        constraint, getLatestValue(condition, callHistory, constraint, true));
+        constraint, getLatestValue(condition, callHistory, rm, constraint, true), rm);
   }
 
   /// \brief Retrieve the path condition interpolant
