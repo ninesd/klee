@@ -573,6 +573,16 @@ Z3ASTHandle Z3CoreBuilder::constructActual(ref<Expr> e, int *width_out) {
         case Expr::Sgt:
         case Expr::Sge:
 #endif
+
+  case Expr::Exists: {
+    ExistsExpr *xe = cast<ExistsExpr>(e);
+    pushQuantificationContext(xe->variables);
+    Z3_ast ret = existsExpr(construct(xe->body, width_out));
+    popQuantificationContext();
+    *width_out = 1;
+    return Z3ASTHandle(ret, ctx);
+  }
+
   default:
     assert(0 && "unhandled Expr type");
     return getTrue();
