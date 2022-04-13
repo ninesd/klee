@@ -1023,9 +1023,10 @@ public:
 
   /// \brief Execution of klee_make_symbolic
   void executeMakeSymbolic(llvm::Instruction *instr, ref<Expr> address,
-                           const Array *array) {
+                           const Array *array,
+                           llvm::APFloat::roundingMode rm) {
     currentTxTreeNode->dependency->executeMakeSymbolic(
-        instr, currentTxTreeNode->callHistory, address, array);
+        instr, currentTxTreeNode->callHistory, address, array, rm);
   }
 
   /// \brief Abstractly execute a PHI instruction for building dependency

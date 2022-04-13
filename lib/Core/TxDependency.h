@@ -551,7 +551,7 @@ public:
                 std::vector<llvm::Instruction *> &callHistory,
                 llvm::APFloat::roundingMode rm) {
     return pathCondition->addConstraint(
-        constraint, getLatestValue(condition, callHistory, rm, constraint, true), rm);
+        constraint, getLatestValue(condition, callHistory, rm, constraint, true));
   }
 
   /// \brief Retrieve the path condition interpolant
