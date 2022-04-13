@@ -235,6 +235,12 @@ Z3ASTHandle Z3BitvectorBuilder::sbvLeExpr(Z3ASTHandle lhs, Z3ASTHandle rhs) {
       Z3_mk_bvsle(ctx, castToBitVector(lhs), castToBitVector(rhs)), ctx);
 }
 
+Z3ASTHandle Z3Builder::existsExpr(Z3ASTHandle body) {
+  return Z3ASTHandle(Z3_mk_exists_const(ctx, 0, getQuantificationSize(),
+                                        getBoundVariables(), 0, 0, body),
+                     ctx);
+}
+
 Z3ASTHandle Z3BitvectorBuilder::constructAShrByConstant(Z3ASTHandle expr,
                                                         unsigned shift,
                                                         Z3ASTHandle isSigned) {
@@ -888,12 +894,21 @@ Z3ASTHandle Z3BitvectorBuilder::constructActual(ref<Expr> e, int *width_out) {
 
 // unused due to canonicalization
 #if 0
-        case Expr::Ne:
-case Expr::Ugt:
-case Expr::Uge:
-case Expr::Sgt:
-case Expr::Sge:
+  case Expr::Ne:
+  case Expr::Ugt:
+  case Expr::Uge:
+  case Expr::Sgt:
+  case Expr::Sge:
 #endif
+
+  case Expr::Exists: {
+    ExistsExpr *xe = cast<ExistsExpr>(e);
+    pushQuantificationContext(xe->variables);
+    Z3_ast ret = existsExpr(construct(xe->body, width_out));
+    popQuantificationContext();
+    *width_out = 1;
+    return Z3ASTHandle(ret, ctx);
+  }
 
   default:
     assert(0 && "unhandled Expr type");
@@ -1164,6 +1179,39 @@ Z3ASTHandle Z3BitvectorBuilder::getx87FP80ExplicitSignificandIntegerBit(
   Z3ASTHandle significandIntegerBitConstrainedValue = Z3ASTHandle(
       Z3_mk_ite(ctx, significandIntegerBitCondition, zeroBvOne, oneBvOne), ctx);
   return significandIntegerBitConstrainedValue;
+}
+
+
+Z3BitvectorBuilder::QuantificationContext::QuantificationContext(
+    Z3Builder *builder, Z3_context _ctx, std::set<const Array *> _existentials,
+    QuantificationContext *_parent)
+    : ctx(_ctx), parent(_parent) {
+  unsigned index = _existentials.size();
+  for (std::set<const Array *>::iterator it = _existentials.begin(),
+                                         itEnd = _existentials.end();
+       it != itEnd; ++it) {
+    --index;
+
+    Z3SortHandle domainSort = builder->getBvSort((*it)->domain);
+    Z3SortHandle rangeSort = builder->getBvSort((*it)->range);
+    Z3SortHandle t = builder->getArraySort(domainSort, rangeSort);
+    Z3_symbol s =
+        Z3_mk_string_symbol(ctx, const_cast<char *>((*it)->name.c_str()));
+    Z3_ast bound = Z3_mk_const(ctx, s, t);
+    existentials[(*it)->name] = Z3ASTHandle(bound, ctx);
+    boundVariables.push_back((Z3_app)bound);
+  }
+}
+
+void Z3BitvectorBuilder::pushQuantificationContext(std::set<const Array *> existentials) {
+  quantificationContext =
+      new QuantificationContext(this, ctx, existentials, quantificationContext);
+}
+
+void Z3BitvectorBuilder::popQuantificationContext() {
+  QuantificationContext *tmp = quantificationContext;
+  quantificationContext = tmp->getParent();
+  delete tmp;
 }
 } // namespace klee
 #endif // ENABLE_Z3

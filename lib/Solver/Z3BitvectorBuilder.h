@@ -66,6 +66,17 @@ protected:
   Z3ASTHandle getRoundingModeSort(llvm::APFloat::roundingMode rm);
   Z3ASTHandle getx87FP80ExplicitSignificandIntegerBit(const Z3ASTHandle &e);
 
+  // Handling of quantification contexts
+  QuantificationContext *quantificationContext;
+
+  void pushQuantificationContext(std::set<const Array *> existentials);
+  void popQuantificationContext();
+  unsigned getQuantificationSize() { return quantificationContext->size(); }
+
+  Z3_app *getBoundVariables() {
+    return quantificationContext->getBoundVariables();
+  }
+
 public:
   Z3BitvectorBuilder(bool autoClearConstructCache,
                      const char *z3LogInteractionFile);
