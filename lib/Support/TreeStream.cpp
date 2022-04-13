@@ -8,9 +8,9 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "TreeStreamWriter"
-#include "klee/ADT/TreeStream.h"
+#include "klee/Internal/ADT/TreeStream.h"
 
-#include "klee/Support/Debug.h"
+#include "klee/Internal/Support/Debug.h"
 
 #include <cassert>
 #include <iomanip>
@@ -40,7 +40,8 @@ TreeStreamWriter::TreeStreamWriter(const std::string &_path)
 
 TreeStreamWriter::~TreeStreamWriter() {
   flush();
-  delete output;
+  if (output)
+    delete output;
 }
 
 bool TreeStreamWriter::good() {
@@ -62,6 +63,7 @@ TreeOStream TreeStreamWriter::open(const TreeOStream &os) {
 }
 
 void TreeStreamWriter::write(TreeOStream &os, const char *s, unsigned size) {
+#if 1
   if (bufferCount && 
       (os.id!=lastID || size+bufferCount>bufferSize))
     flushBuffer();
@@ -75,8 +77,13 @@ void TreeStreamWriter::write(TreeOStream &os, const char *s, unsigned size) {
   } else {
     output->write(reinterpret_cast<const char*>(&os.id), 4);
     output->write(reinterpret_cast<const char*>(&size), 4);
-    output->write(s, size);
+    output->write(buffer, size);
   }
+#else
+  output->write(reinterpret_cast<const char*>(&os.id), 4);
+  output->write(reinterpret_cast<const char*>(&size), 4);
+  output->write(s, size);
+#endif
 }
 
 void TreeStreamWriter::flushBuffer() {

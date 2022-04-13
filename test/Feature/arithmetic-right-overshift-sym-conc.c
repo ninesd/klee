@@ -1,4 +1,4 @@
-// RUN: %clang %s -emit-llvm -g %O0opt -c -o %t.bc
+// RUN: %llvmgcc %s -emit-llvm -g -O0 -c -o %t.bc
 // RUN: rm -rf %t.klee-out
 // RUN: %klee --output-dir=%t.klee-out -use-cex-cache=1 -check-overshift=0 %t.bc
 // RUN: not grep "ASSERTION FAIL" %t.klee-out/messages.txt
@@ -13,8 +13,6 @@ typedef enum
     UNKNOWN
 } overshift_t;
 
-#define INT_31_BITS	(0xffffffff >> 1)
-
 // We're using signed ints so should be doing
 // arithmetic right shift.
 // lhs should be a constant
@@ -22,7 +20,7 @@ int overshift(signed int lhs, volatile unsigned int y, const char * type)
 {
     overshift_t ret;
     volatile signed int x = lhs;
-    unsigned int limit = sizeof(x)*8 - 1;
+    unsigned int limit = sizeof(x)*8;
     assert(!klee_is_symbolic(x));
 
     volatile signed int result;
@@ -49,12 +47,12 @@ int overshift(signed int lhs, volatile unsigned int y, const char * type)
 
 int main(int argc, char** argv)
 {
-    volatile unsigned int y = sizeof(unsigned int)*8 - 1;
+    volatile unsigned int y = sizeof(unsigned int)*8;
     // Try with +ve lhs
     overshift_t conc = overshift(15, y, "Concrete");
     assert(conc == TO_ZERO);
     // Try with -ve lhs
-    conc = overshift(INT_31_BITS, y, "Concrete");
+    conc = overshift(-1, y, "Concrete");
     assert(conc == TO_ZERO);
 
     // Symbolic overshift
@@ -67,7 +65,7 @@ int main(int argc, char** argv)
     overshift_t sym = overshift(15, y2, "Symbolic");
     assert(sym == TO_ZERO);
     // Try with -ve lhs
-    sym = overshift(INT_31_BITS, y2, "Symbolic");
+    sym = overshift(-1, y2, "Symbolic");
     assert(sym == TO_ZERO);
 
     // Concrete and symbolic behaviour should be the same

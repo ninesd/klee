@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===*/
 
-#ifndef KLEE_H
-#define KLEE_H
+#ifndef __KLEE_H__
+#define __KLEE_H__
 
 #include "stdint.h"
 #include "stddef.h"
@@ -16,7 +16,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+  
   /* Add an accesible memory object at a user specified location. It
    * is the users responsibility to make sure that these memory
    * objects do not overlap. These memory objects will also
@@ -31,16 +31,16 @@ extern "C" {
    * \arg addr - The start of the object.
    * \arg nbytes - The number of bytes to make symbolic; currently this *must*
    * be the entire contents of the object.
-   * \arg name - A name used for identifying the object in messages, output
-   * files, etc. If NULL, object is called "unnamed".
+   * \arg name - An optional name, used for identifying the object in messages,
+   * output files, etc.
    */
   void klee_make_symbolic(void *addr, size_t nbytes, const char *name);
 
   /* klee_range - Construct a symbolic value in the signed interval
    * [begin,end).
    *
-   * \arg name - A name used for identifying the object in messages, output
-   * files, etc. If NULL, object is called "unnamed".
+   * \arg name - An optional name, used for identifying the object in messages,
+   * output files, etc.
    */
   int klee_range(int begin, int end, const char *name);
 
@@ -74,18 +74,18 @@ extern "C" {
 			 int line, 
 			 const char *message, 
 			 const char *suffix);
-
+  
   /* called by checking code to get size of memory. */
   size_t klee_get_obj_size(void *ptr);
-
+  
   /* print the tree associated w/ a given expression. */
   void klee_print_expr(const char *msg, ...);
-
+  
   /* NB: this *does not* fork n times and return [0,n) in children.
    * It makes n be symbolic and returns: caller must compare N times.
    */
   uintptr_t klee_choose(uintptr_t n);
-
+  
   /* special klee assert macro. this assert should be used when path consistency
    * across platforms is desired (e.g., in tests).
    * NB: __assert_fail is a klee "special" function
@@ -95,36 +95,12 @@ extern "C" {
    ? (void) (0)                                                         \
    : __assert_fail (#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__))    \
 
-  /* special klee trigger if false macro. this trigger should be used when
-   * path consistency across platforms is desired (e.g., in tests).
-   * NB: __klee_trigger is a klee "special" function
-   */
-# define klee_trigger_if_false(expr)                                             \
-  ((expr)                                                               \
-   ? (void) (0)                                                         \
-   : __klee_trigger (#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__)) \
-
-  /* special klee trigger if true macro. this trigger should be used when
-   * path consistency across platforms is desired (e.g., in tests).
-   * NB: __klee_trigger is a klee "special" function
-   */
-# define klee_trigger_if_true(expr)                                             \
-  ((expr)                                                               \
-   ? __klee_trigger (#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__)) \
-   : (void) (0)                                                         \
-
   /* Return true if the given value is symbolic (represented by an
    * expression) in the current state. This is primarily for debugging
    * and writing tests but can also be used to enable prints in replay
    * mode.
    */
   unsigned klee_is_symbolic(uintptr_t n);
-
-
-  /* Return true if replaying a concrete test case using the libkleeRuntime library
-   * Return false if executing symbolically in KLEE.
-   */
-  unsigned klee_is_replay(void);
 
 
   /* The following intrinsics are primarily intended for internal use
@@ -154,7 +130,7 @@ extern "C" {
      accessible to the program. If some byte in the range is not
      accessible an error will be generated and the state
      terminated. 
-
+  
      The current implementation requires both address and size to be
      constants and that the range lie within a single object. */
   void klee_check_memory_access(const void *address, size_t size);
@@ -162,69 +138,51 @@ extern "C" {
   /* Enable/disable forking. */
   void klee_set_forking(unsigned enable);
 
+  /* klee_alias_function("foo", "bar") will replace, at runtime (on
+     the current path and all paths spawned on the current path), all
+     calls to foo() by calls to bar().  foo() and bar() have to exist
+     and have identical types.  Use klee_alias_function("foo", "foo")
+     to undo.  Be aware that some special functions, such as exit(),
+     may not always work. */
+  void klee_alias_function(const char* fn_name, const char* new_fn_name);
+
   /* Print stack trace. */
   void klee_stack_trace(void);
 
   /* Print range for given argument and tagged with name */
   void klee_print_range(const char * name, int arg );
 
-  /* Open a merge */
-  void klee_open_merge(void);
+  /* Merge current states together if possible */
+  void klee_merge();
 
-  /* Merge all paths of the state that went through klee_open_merge */
-  void klee_close_merge(void);
+  /* Set dynamic level of subsumption-related debugging information. This
+   * corresponds to -debug-subsumption command-line option, but this API allows
+   * users to specify where in the code to start to output debug information. */
+  void tracerx_debug_subsumption(uint64_t level);
 
-  /* Get errno value of the current state */
-  int klee_get_errno(void);
+  /* Reset dynamic level of subsumption-related debugging information to
+   * previous value. This resets the debug level to the value specified via
+   * -debug-subsumption command-line option if exists, otherwise this switches
+   * off subsumption-related debugging. */
+  void tracerx_debug_subsumption_off();
 
-/* KLEE float intrinsics */
-#ifdef __cplusplus
-#define KLEE_BOOL_TYPE bool
-#else
-#define KLEE_BOOL_TYPE _Bool
-#endif
-KLEE_BOOL_TYPE klee_is_nan_float(float f);
-KLEE_BOOL_TYPE klee_is_nan_double(double d);
-KLEE_BOOL_TYPE klee_is_infinite_float(float f);
-KLEE_BOOL_TYPE klee_is_infinite_double(double d);
-KLEE_BOOL_TYPE klee_is_normal_float(float f);
-KLEE_BOOL_TYPE klee_is_normal_double(double d);
-KLEE_BOOL_TYPE klee_is_subnormal_float(float f);
-KLEE_BOOL_TYPE klee_is_subnormal_double(double d);
-#if defined(__x86_64__) || defined(__i386__)
-KLEE_BOOL_TYPE klee_is_nan_long_double(long double f);
-KLEE_BOOL_TYPE klee_is_infinite_long_double(long double d);
-KLEE_BOOL_TYPE klee_is_normal_long_double(long double d);
-KLEE_BOOL_TYPE klee_is_subnormal_long_double(long double f);
-#endif
+  /* Set dynamic level of state-related debugging information. This corresponds
+   * to -debug-state command-line option. */
+  void tracerx_debug_state();
 
-#undef KLEE_BOOL_TYPE
+  /* Reset dynamic level of state-related debugging information. This resets the
+   * state debug flag to the value specified via -debug-state command-line
+   * option, otherwise, it switches off state debugging. */
+  void tracerx_debug_state_off();
 
-enum KleeRoundingMode {
-    KLEE_FP_RNE = 0, // Round to nearest ties to even.
-    KLEE_FP_RNA,
-    KLEE_FP_RU,
-    KLEE_FP_RD,
-    KLEE_FP_RZ,
-    KLEE_FP_UNKNOWN
-};
+  /* Store a vector of integers persistently. */
+  void tracerx_memo();
 
-void klee_set_rounding_mode(enum KleeRoundingMode rm);
-enum KleeRoundingMode klee_get_rounding_mode();
+  /* Check if a vector of integers is stored previously. */
+  void tracerx_memo_check();
 
-float klee_rintf(float f);
-double klee_rint(double d);
-float klee_sqrt_float(float f);
-double klee_sqrt_double(double d);
-float klee_abs_float(float);
-double klee_abs_double(double);
-#if defined(__x86_64__) || defined(__i386__)
-long double klee_sqrt_long_double(long double d);
-long double klee_abs_long_double(long double);
-long double klee_rintl(long double d);
-#endif
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* KLEE_H */
+#endif /* __KLEE_H__ */

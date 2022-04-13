@@ -1,4 +1,4 @@
-// RUN: %clang %s -emit-llvm %O0opt -c -o %t1.bc
+// RUN: %llvmgcc %s -emit-llvm -O0 -c -o %t1.bc
 // RUN: rm -rf %t.klee-out
 // RUN: %klee --output-dir=%t.klee-out %t1.bc
 
@@ -7,7 +7,7 @@
 int main(void) {
   char c[2];
 
-  klee_make_symbolic(&c, sizeof(c), "c");
+  klee_make_symbolic(&c, sizeof(c));
 
   if (c[0] > 10) {
     int x;

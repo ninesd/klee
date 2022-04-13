@@ -7,56 +7,49 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MemoryManager.h"
-
 #include "CoreStats.h"
 #include "Memory.h"
+#include "MemoryManager.h"
 
-#include "klee/Expr/Expr.h"
-#include "klee/Support/ErrorHandling.h"
+#include "klee/Expr.h"
+#include "klee/Internal/Support/ErrorHandling.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MathExtras.h"
 
-#include <inttypes.h>
 #include <sys/mman.h>
-
 using namespace klee;
 
 namespace {
-
-llvm::cl::OptionCategory MemoryCat("Memory management options",
-                                   "These options control memory management.");
-
 llvm::cl::opt<bool> DeterministicAllocation(
     "allocate-determ",
-    llvm::cl::desc("Allocate memory deterministically (default=false)"),
-    llvm::cl::init(false), llvm::cl::cat(MemoryCat));
+    llvm::cl::desc("Allocate memory deterministically(default=off)"),
+    llvm::cl::init(false));
 
 llvm::cl::opt<unsigned> DeterministicAllocationSize(
     "allocate-determ-size",
     llvm::cl::desc(
         "Preallocated memory for deterministic allocation in MB (default=100)"),
-    llvm::cl::init(100), llvm::cl::cat(MemoryCat));
+    llvm::cl::init(100));
 
-llvm::cl::opt<bool> NullOnZeroMalloc(
-    "return-null-on-zero-malloc",
-    llvm::cl::desc("Returns NULL if malloc(0) is called (default=false)"),
-    llvm::cl::init(false), llvm::cl::cat(MemoryCat));
+llvm::cl::opt<bool>
+NullOnZeroMalloc("return-null-on-zero-malloc",
+                 llvm::cl::desc("Returns NULL in case malloc(size) was "
+                                "called with size 0 (default=off)."),
+                 llvm::cl::init(false));
 
-llvm::cl::opt<unsigned> RedzoneSize(
-    "redzone-size",
-    llvm::cl::desc("Set the size of the redzones to be added after each "
-                   "allocation (in bytes). This is important to detect "
-                   "out-of-bounds accesses (default=10)"),
-    llvm::cl::init(10), llvm::cl::cat(MemoryCat));
+llvm::cl::opt<unsigned> RedZoneSpace(
+    "red-zone-space",
+    llvm::cl::desc("Set the amount of free space between allocations. This is "
+                   "important to detect out-of-bound accesses (default=10)."),
+    llvm::cl::init(10));
 
 llvm::cl::opt<unsigned long long> DeterministicStartAddress(
     "allocate-determ-start-address",
     llvm::cl::desc("Start address for deterministic allocation. Has to be page "
-                   "aligned (default=0x7ff30000000)"),
-    llvm::cl::init(0x7ff30000000), llvm::cl::cat(MemoryCat));
-} // namespace
+                   "aligned (default=0x7ff30000000)."),
+    llvm::cl::init(0x7ff30000000));
+}
 
 /***/
 MemoryManager::MemoryManager(ArrayCache *_arrayCache)
@@ -101,8 +94,7 @@ MemoryObject *MemoryManager::allocate(uint64_t size, bool isLocal,
                                       const llvm::Value *allocSite,
                                       size_t alignment) {
   if (size > 10 * 1024 * 1024)
-    klee_warning_once(0, "Large alloc: %" PRIu64
-                         " bytes.  KLEE may run out of memory.",
+    klee_warning_once(0, "Large alloc: %lu bytes.  KLEE may run out of memory.",
                       size);
 
   // Return NULL if size is zero, this is equal to error during allocation
@@ -116,22 +108,20 @@ MemoryObject *MemoryManager::allocate(uint64_t size, bool isLocal,
 
   uint64_t address = 0;
   if (DeterministicAllocation) {
-#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 9)
-    address = llvm::alignTo((uint64_t)nextFreeSlot + alignment - 1, alignment);
-#else
+
     address = llvm::RoundUpToAlignment((uint64_t)nextFreeSlot + alignment - 1,
                                        alignment);
-#endif
 
     // Handle the case of 0-sized allocations as 1-byte allocations.
     // This way, we make sure we have this allocation between its own red zones
     size_t alloc_size = std::max(size, (uint64_t)1);
     if ((char *)address + alloc_size < deterministicSpace + spaceSize) {
-      nextFreeSlot = (char *)address + alloc_size + RedzoneSize;
+      nextFreeSlot = (char *)address + alloc_size + RedZoneSpace;
     } else {
-      klee_warning_once(0, "Couldn't allocate %" PRIu64
-                           " bytes. Not enough deterministic space left.",
-                        size);
+      klee_warning_once(
+          0,
+          "Couldn't allocate %lu bytes. Not enough deterministic space left.",
+          size);
       address = 0;
     }
   } else {

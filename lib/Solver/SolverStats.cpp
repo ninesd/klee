@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "klee/Solver/SolverStats.h"
+#include "klee/SolverStats.h"
 
 using namespace klee;
 
@@ -19,10 +19,15 @@ Statistic stats::queryCacheHits("QueryCacheHits", "QChits") ;
 Statistic stats::queryCacheMisses("QueryCacheMisses", "QCmisses");
 Statistic stats::queryCexCacheHits("QueryCexCacheHits", "QCexHits") ;
 Statistic stats::queryCexCacheMisses("QueryCexCacheMisses", "QCexMisses");
-Statistic stats::queryConstructs("QueryConstructs", "QB");
+Statistic stats::queryConstructTime("QueryConstructTime", "QBtime") ;
+Statistic stats::queryConstructs("QueriesConstructs", "QB");
 Statistic stats::queryCounterexamples("QueriesCEX", "Qcex");
 Statistic stats::queryTime("QueryTime", "Qtime");
+Statistic stats::subsumptionQueryTime("SubsumptionQueryTime", "SQtime");
+Statistic stats::subsumptionQueryCount("SubsumptionQueryCount", "SCcount");
+Statistic stats::subsumptionQueryFailureCount("SubsumptionQueryFailureCount",
+                                              "SFcount");
 
-#ifdef KLEE_ARRAY_DEBUG
+#ifdef DEBUG
 Statistic stats::arrayHashTime("ArrayHashTime", "AHtime");
 #endif

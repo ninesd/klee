@@ -7,16 +7,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef KLEE_METASMTBUILDER_H
-#define KLEE_METASMTBUILDER_H
+/*
+ * MetaSMTBuilder.h
+ *
+ *  Created on: 8 Aug 2012
+ *      Author: hpalikar
+ */
 
-#include "ConstantDivision.h"
+#ifndef METASMTBUILDER_H_
+#define METASMTBUILDER_H_
 
 #include "klee/Config/config.h"
-#include "klee/Expr/ArrayExprHash.h"
-#include "klee/Expr/Expr.h"
-#include "klee/Expr/ExprHashMap.h"
-#include "klee/Expr/ExprPPrinter.h"
+#include "klee/Expr.h"
+#include "klee/util/ExprPPrinter.h"
+#include "klee/util/ArrayExprHash.h"
+#include "klee/util/ExprHashMap.h"
+#include "ConstantDivision.h"
 
 #ifdef ENABLE_METASMT
 
@@ -55,15 +61,15 @@ class MetaSMTArrayExprHash
   friend class MetaSMTBuilder<SolverContext>;
 
 public:
-  MetaSMTArrayExprHash(){};
-  virtual ~MetaSMTArrayExprHash(){};
+  MetaSMTArrayExprHash() {};
+  virtual ~MetaSMTArrayExprHash() {};
 };
 
 template <typename SolverContext> class MetaSMTBuilder {
 public:
   MetaSMTBuilder(SolverContext &solver, bool optimizeDivides)
-      : _solver(solver), _optimizeDivides(optimizeDivides){};
-  virtual ~MetaSMTBuilder(){};
+      : _solver(solver), _optimizeDivides(optimizeDivides) {};
+  virtual ~MetaSMTBuilder() {};
 
   typename SolverContext::result_type construct(ref<Expr> e);
 
@@ -87,7 +93,7 @@ public:
   }
 
   typename SolverContext::result_type bvMinusOne(unsigned width) {
-    return bvSExtConst(width, (int64_t)-1);
+    return bvSExtConst(width, (int64_t) - 1);
   }
 
   typename SolverContext::result_type bvConst32(unsigned width,
@@ -130,10 +136,10 @@ public:
 
 private:
   typedef ExprHashMap<std::pair<typename SolverContext::result_type, unsigned> >
-      MetaSMTExprHashMap;
+  MetaSMTExprHashMap;
   typedef typename MetaSMTExprHashMap::iterator MetaSMTExprHashMapIter;
   typedef typename MetaSMTExprHashMap::const_iterator
-      MetaSMTExprHashMapConstIter;
+  MetaSMTExprHashMapConstIter;
 
   SolverContext &_solver;
   bool _optimizeDivides;
@@ -182,7 +188,7 @@ MetaSMTBuilder<SolverContext>::getArrayForUpdate(const Array *root,
     if (!hashed) {
       un_expr = evaluate(_solver,
                          metaSMT::logic::Array::store(
-                             getArrayForUpdate(root, un->next.get()),
+                             getArrayForUpdate(root, un->next),
                              construct(un->index, 0), construct(un->value, 0)));
       _arr_hash.hashUpdateNodeExpr(un, un_expr);
     }
@@ -680,10 +686,10 @@ MetaSMTBuilder<SolverContext>::constructActual(ref<Expr> e, int *width_out) {
     assert(re && re->updates.root);
     *width_out = re->updates.root->getRange();
     // FixMe call method of Array
-    res = evaluate(_solver, metaSMT::logic::Array::select(
-                                getArrayForUpdate(re->updates.root,
-                                                  re->updates.head.get()),
-                                construct(re->index, 0)));
+    res = evaluate(_solver,
+                   metaSMT::logic::Array::select(
+                       getArrayForUpdate(re->updates.root, re->updates.head),
+                       construct(re->index, 0)));
     break;
   }
 
@@ -1194,4 +1200,4 @@ MetaSMTBuilder<SolverContext>::constructActual(ref<Expr> e, int *width_out) {
 
 #endif /* ENABLE_METASMT */
 
-#endif /* KLEE_METASMTBUILDER_H */
+#endif /* METASMTBUILDER_H_ */

@@ -7,37 +7,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef KLEE_FD_H
-#define KLEE_FD_H
-
-#include "klee/Config/config.h"
+#ifndef __EXE_FD__
+#define __EXE_FD__
 
 #ifndef _LARGEFILE64_SOURCE
 #error "_LARGEFILE64_SOURCE should be defined"
 #endif
-
-#include <dirent.h>
 #include <sys/types.h>
-
-#ifdef HAVE_SYSSTATFS_H
 #include <sys/statfs.h>
-#endif
+#include <dirent.h>
 
-#ifdef __APPLE__
-#include <sys/dtrace.h>
-#endif
-#ifdef __FreeBSD__
-#include "FreeBSD.h"
-#endif
-#if defined(__APPLE__) || defined(__FreeBSD__)
-#include <sys/mount.h>
-#include <sys/param.h>
-#if !defined(dirent64)
-#define dirent64 dirent
-#endif
-#endif
-
-typedef struct {
+typedef struct {  
   unsigned size;  /* in bytes */
   char* contents;
   struct stat64* stat;
@@ -108,4 +88,4 @@ int __fd_ftruncate(int fd, off64_t length);
 int __fd_statfs(const char *path, struct statfs *buf);
 int __fd_getdents(unsigned int fd, struct dirent64 *dirp, unsigned int count);
 
-#endif /* KLEE_FD_H */
+#endif /* __EXE_FD__ */

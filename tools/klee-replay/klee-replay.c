@@ -9,33 +9,21 @@
 
 #include "klee-replay.h"
 
-#include "klee/ADT/KTest.h"
+#include "klee/Internal/ADT/KTest.h"
+#include "klee/Config/config.h"
 
 #include <assert.h>
-#include <errno.h>
-#include <getopt.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/wait.h>
+#include <stdint.h>
+#include <getopt.h>
+
+#include <errno.h>
 #include <time.h>
 #include <unistd.h>
-
-#if defined(__APPLE__) || defined(__FreeBSD__)
-#include <signal.h>
-
-#ifndef fgetc_unlocked
-#define fgetc_unlocked(x) fgetc (x)
-#endif
-
-#ifndef fputc_unlocked
-#define fputc_unlocked(x,y) fputc (x,y)
-#endif
-
-#else
 #include <sys/signal.h>
-#endif
+#include <sys/wait.h>
 
 #ifdef HAVE_SYS_CAPABILITY_H
 #include <sys/capability.h>
@@ -47,7 +35,7 @@ static KTest* input;
 static unsigned obj_index;
 
 static const char *progname = 0;
-static unsigned monitored_pid = 0;
+static unsigned monitored_pid = 0;    
 static unsigned monitored_timeout;
 
 static char *rootdir = NULL;
@@ -55,15 +43,14 @@ static struct option long_options[] = {
   {"create-files-only", required_argument, 0, 'f'},
   {"chroot-to-dir", required_argument, 0, 'r'},
   {"help", no_argument, 0, 'h'},
-  {"keep-replay-dir", no_argument, 0, 'k'},
   {0, 0, 0, 0},
 };
 
 static void stop_monitored(int process) {
-  fputs("KLEE-REPLAY: NOTE: TIMEOUT: ATTEMPTING GDB EXIT\n", stderr);
+  fprintf(stderr, "TIMEOUT: ATTEMPTING GDB EXIT\n");
   int pid = fork();
   if (pid < 0) {
-    fputs("KLEE-REPLAY: ERROR: gdb_exit: fork failed\n", stderr);
+    fprintf(stderr, "ERROR: gdb_exit: fork failed\n");
   } else if (pid == 0) {
     /* Run gdb in a child process. */
     const char *gdbargs[] = {
@@ -76,17 +63,17 @@ static void stop_monitored(int process) {
       0
     };
     char pids[64];
-    snprintf(pids, sizeof(pids), "%d", process);
+    sprintf(pids, "%d", process);
 
     gdbargs[2] = pids;
     /* Make sure gdb doesn't talk to the user */
     close(0);
 
-    fputs("KLEE-REPLAY: NOTE: RUNNING GDB: ", stderr);
+    fprintf(stderr, "RUNNING GDB: ");
     unsigned i;
     for (i = 0; i != 5; ++i)
       fprintf(stderr, "%s ", gdbargs[i]);
-    fputc('\n', stderr);
+    fprintf(stderr, "\n");
 
     execvp(gdbargs[0], (char * const *) gdbargs);
     perror("execvp");
@@ -106,7 +93,7 @@ static void stop_monitored(int process) {
 }
 
 static void int_handler(int signal) {
-  fprintf(stderr, "KLEE-REPLAY: NOTE: %s: Received signal %d.  Killing monitored process(es)\n",
+  fprintf(stderr, "%s: Received signal %d.  Killing monitored process(es)\n", 
           progname, signal);
   if (monitored_pid) {
     stop_monitored(monitored_pid);
@@ -118,9 +105,8 @@ static void int_handler(int signal) {
     _exit(99);
   }
 }
-
 static void timeout_handler(int signal) {
-  fprintf(stderr, "KLEE-REPLAY: NOTE: EXIT STATUS: TIMED OUT (%d seconds)\n",
+  fprintf(stderr, "%s: EXIT STATUS: TIMED OUT (%d seconds)\n", progname, 
           monitored_timeout);
   if (monitored_pid) {
     stop_monitored(monitored_pid);
@@ -134,10 +120,11 @@ static void timeout_handler(int signal) {
 }
 
 void process_status(int status, time_t elapsed, const char *pfx) {
+  fprintf(stderr, "%s: ", progname);
   if (pfx)
-    fprintf(stderr, "KLEE-REPLAY: NOTE: %s: ", pfx);
+    fprintf(stderr, "%s: ", pfx);
   if (WIFSIGNALED(status)) {
-    fprintf(stderr, "KLEE-REPLAY: NOTE: EXIT STATUS: CRASHED signal %d (%d seconds)\n",
+    fprintf(stderr, "EXIT STATUS: CRASHED signal %d (%d seconds)\n",
             WTERMSIG(status), (int) elapsed);
     _exit(77);
   } else if (WIFEXITED(status)) {
@@ -147,12 +134,12 @@ void process_status(int status, time_t elapsed, const char *pfx) {
     if (rc == 0) {
       strcpy(msg, "NORMAL");
     } else {
-      snprintf(msg, sizeof(msg), "ABNORMAL %d", rc);
+      sprintf(msg, "ABNORMAL %d", rc);
     }
-    fprintf(stderr, "KLEE-REPLAY: NOTE: EXIT STATUS: %s (%d seconds)\n", msg, (int) elapsed);
+    fprintf(stderr, "EXIT STATUS: %s (%d seconds)\n", msg, (int) elapsed);
     _exit(rc);
   } else {
-    fprintf(stderr, "KLEE-REPLAY: NOTE: EXIT STATUS: NONE (%d seconds)\n", (int) elapsed);
+    fprintf(stderr, "EXIT STATUS: NONE (%d seconds)\n", (int) elapsed);
     _exit(0);
   }
 }
@@ -166,20 +153,20 @@ static inline char *strip_root_dir(char *executable, char *rootdir) {
 
 static void run_monitored(char *executable, int argc, char **argv) {
   int pid;
-  const char *t = getenv("KLEE_REPLAY_TIMEOUT");
+  const char *t = getenv("KLEE_REPLAY_TIMEOUT");  
   if (!t)
-    t = "10000000";
+    t = "10000000";  
   monitored_timeout = atoi(t);
-
+  
   if (monitored_timeout==0) {
-    fprintf(stderr, "KLEE-REPLAY: ERROR: invalid timeout (%s)\n", t);
+    fprintf(stderr, "ERROR: invalid timeout (%s)\n", t);
     _exit(1);
   }
 
   /* Kill monitored process(es) on SIGINT and SIGTERM */
   signal(SIGINT, int_handler);
   signal(SIGTERM, int_handler);
-
+  
   signal(SIGALRM, timeout_handler);
   pid = fork();
   if (pid < 0) {
@@ -187,29 +174,20 @@ static void run_monitored(char *executable, int argc, char **argv) {
     _exit(66);
   } else if (pid == 0) {
     /* This process actually executes the target program.
-     *
+     *  
      * Create a new process group for pid, and the process tree it may spawn. We
      * do this, because later on we might want to kill pid _and_ all processes
      * spawned by it and its descendants.
      */
-#ifndef __FreeBSD__
     setpgrp();
-#else
-    setpgrp(0, 0);
-#endif
 
     if (!rootdir) {
-      if (chdir(replay_dir) != 0) {
-        perror("chdir");
-        _exit(66);
-      }
-
       execv(executable, argv);
       perror("execv");
       _exit(66);
     }
 
-    fprintf(stderr, "KLEE-REPLAY: NOTE: rootdir: %s\n", rootdir);
+    fprintf(stderr, "rootdir: %s\n", rootdir);
     const char *msg;
     if ((msg = "chdir", chdir(rootdir) == 0) &&
       (msg = "chroot", chroot(rootdir) == 0)) {
@@ -239,7 +217,7 @@ static void run_monitored(char *executable, int argc, char **argv) {
       perror("waitpid");
       _exit(66);
     }
-
+    
     /* Just in case, kill the process group of pid.  Since we called setpgrp()
        for pid, this will not kill us, or any of our ancestors */
     kill(-pid, SIGKILL);
@@ -259,7 +237,7 @@ void ensure_capsyschroot(const char *executable) {
   cap_get_flag(caps, CAP_SYS_CHROOT, CAP_PERMITTED, &chroot_permitted);
   cap_get_flag(caps, CAP_SYS_CHROOT, CAP_EFFECTIVE, &chroot_effective);
   if (chroot_permitted != CAP_SET || chroot_effective != CAP_SET) {
-    fputs("KLEE-REPLAY: ERROR: chroot: No CAP_SYS_CHROOT capability.\n", stderr);
+    fprintf(stderr, "Error: chroot: No CAP_SYS_CHROOT capability.\n");
     exit(1);
   }
   cap_free(caps);
@@ -267,25 +245,19 @@ void ensure_capsyschroot(const char *executable) {
 #endif
 
 static void usage(void) {
-  fprintf(stderr,
-    "Usage: %s [option]... <executable> <ktest-file>...\n"
-    "   or: %s --create-files-only <ktest-file>\n"
-    "\n"
-    "-r, --chroot-to-dir=DIR  use chroot jail, requires CAP_SYS_CHROOT\n"
-    "-k, --keep-replay-dir    do not delete replay directory\n"
-    "-h, --help               display this help and exit\n"
-    "\n"
-    "Use KLEE_REPLAY_TIMEOUT environment variable to set a timeout (in seconds).\n",
-    progname, progname);
+  fprintf(stderr, "Usage: %s [option]... <executable> <ktest-file>...\n", progname);
+  fprintf(stderr, "   or: %s --create-files-only <ktest-file>\n", progname);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "-r, --chroot-to-dir=DIR  use chroot jail, requires CAP_SYS_CHROOT\n");
+  fprintf(stderr, "-h, --help               display this help and exit\n");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Use KLEE_REPLAY_TIMEOUT environment variable to set a timeout (in seconds).\n");
   exit(1);
 }
 
-
-int keep_temps = 0;
-
 int main(int argc, char** argv) {
   int prg_argc;
-  char ** prg_argv;
+  char ** prg_argv;  
 
   progname = argv[0];
 
@@ -293,94 +265,90 @@ int main(int argc, char** argv) {
     usage();
 
   int c, opt_index;
-  while ((c = getopt_long(argc, argv, "f:r:k", long_options, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "f:r:", long_options, &opt_index)) != -1) {
     switch (c) {
-    case 'f': {
-      /* Special case hack for only creating files and not actually executing
-       * the program. */
-      if (argc != 3)
-        usage();
+      case 'f': {
+        /* Special case hack for only creating files and not actually executing
+        * the program.
+         */
+        if (argc != 3)
+          usage();
+    
+        char* input_fname = optarg;
+    
+        input = kTest_fromFile(input_fname);
+        if (!input) {
+          fprintf(stderr, "%s: error: input file %s not valid.\n", progname,
+                  input_fname);
+          exit(1);
+        }
 
-      char *input_fname = optarg;
+        prg_argc = input->numArgs;
+        prg_argv = input->args;
+        prg_argv[0] = argv[1];
+        klee_init_env(&prg_argc, &prg_argv);
 
-      input = kTest_fromFile(input_fname);
-      if (!input) {
-        fprintf(stderr, "KLEE-REPLAY: ERROR: input file %s not valid.\n", input_fname);
-        exit(1);
+        replay_create_files(&__exe_fs);
+        return 0;
       }
-
-      prg_argc = input->numArgs;
-      prg_argv = input->args;
-      prg_argv[0] = argv[1];
-      klee_init_env(&prg_argc, &prg_argv);
-
-      replay_create_files(&__exe_fs);
-      return 0;
-    }
-
-    case 'r':
-      rootdir = optarg;
-      break;
-
-    case 'k':
-      keep_temps = 1;
-      break;
+      case 'r':
+        rootdir = optarg;
+        break;
     }
   }
 
-  // Executable needs to be converted to an absolute path, as klee-replay calls
-  // chdir just before executing it
-  char executable[PATH_MAX];
-  if (!realpath(argv[optind], executable)) {
-    snprintf(executable, PATH_MAX, "KLEE-REPLAY: ERROR: executable %s:",
-             argv[optind]);
-    perror(executable);
-    exit(1);
-  }
   /* Normal execution path ... */
+
+  char* executable = argv[optind];
 
   /* make sure this process has the CAP_SYS_CHROOT capability, if possible. */
 #ifdef HAVE_SYS_CAPABILITY_H
   if (rootdir)
     ensure_capsyschroot(progname);
 #endif
-
+  
   /* rootdir should be a prefix of executable's path. */
   if (rootdir && strstr(executable, rootdir) != executable) {
-    fputs("KLEE-REPLAY: ERROR: chroot: root dir should be a parent dir of executable.\n", stderr);
+    fprintf(stderr, "Error: chroot: root dir should be a parent dir of executable.\n");
     exit(1);
   }
+
+  /* Verify the executable exists. */
+  FILE *f = fopen(executable, "r");
+  if (!f) {
+    fprintf(stderr, "Error: executable %s not found.\n", executable);
+    exit(1);
+  }
+  fclose(f);
 
   int idx = 0;
   for (idx = optind + 1; idx != argc; ++idx) {
     char* input_fname = argv[idx];
     unsigned i;
-
+    
     input = kTest_fromFile(input_fname);
     if (!input) {
-      fprintf(stderr, "KLEE-REPLAY: ERROR: input file %s not valid.\n",
+      fprintf(stderr, "%s: error: input file %s not valid.\n", progname, 
               input_fname);
       exit(1);
     }
-
+    
     obj_index = 0;
     prg_argc = input->numArgs;
     prg_argv = input->args;
     prg_argv[0] = argv[optind];
     klee_init_env(&prg_argc, &prg_argv);
+
     if (idx > 2)
-      fputc('\n', stderr);
-    fprintf(stderr, "KLEE-REPLAY: NOTE: Test file: %s\n"
-                    "KLEE-REPLAY: NOTE: Arguments: ", input_fname);
+      fprintf(stderr, "\n");
+    fprintf(stderr, "%s: TEST CASE: %s\n", progname, input_fname);
+    fprintf(stderr, "%s: ARGS: ", progname);
     for (i=0; i != (unsigned) prg_argc; ++i) {
       char *s = prg_argv[i];
       if (s[0]=='A' && s[1] && !s[2]) s[1] = '\0';
-      fprintf(stderr, "\"%s\" ", prg_argv[i]);
+      fprintf(stderr, "\"%s\" ", prg_argv[i]); 
     }
-    fputc('\n', stderr);
-
-    /* Create the input files, pipes, etc. */
-    replay_create_files(&__exe_fs);
+    fprintf(stderr, "\n");
 
     /* Run the test case machinery in a subprocess, eventually this parent
        process should be a script or something which shells out to the actual
@@ -390,20 +358,18 @@ int main(int argc, char** argv) {
       perror("fork");
       _exit(66);
     } else if (pid == 0) {
-      /* Run the executable */
+      /* Create the input files, pipes, etc., and run the process. */
+      replay_create_files(&__exe_fs);
       run_monitored(executable, prg_argc, prg_argv);
       _exit(0);
     } else {
-      /* Wait for the executable to finish. */
+      /* Wait for the test case. */
       int res, status;
 
       do {
         res = waitpid(pid, &status, 0);
       } while (res < 0 && errno == EINTR);
-
-      // Delete all files in the replay directory
-      replay_delete_files();
-
+      
       if (res < 0) {
         perror("waitpid");
         _exit(66);
@@ -415,7 +381,7 @@ int main(int argc, char** argv) {
 }
 
 
-/* KLEE functions */
+/* Klee functions */
 
 int __fputc_unlocked(int c, FILE *f) {
   return fputc_unlocked(c, f);
@@ -430,16 +396,16 @@ int klee_get_errno() {
 }
 
 void klee_warning(char *name) {
-  fprintf(stderr, "KLEE-REPLAY: klee_warning: %s\n", name);
+  fprintf(stderr, "WARNING: %s\n", name);
 }
 
 void klee_warning_once(char *name) {
-  fprintf(stderr, "KLEE-REPLAY: klee_warning_once: %s\n", name);
+  fprintf(stderr, "WARNING: %s\n", name);
 }
 
 unsigned klee_assume(uintptr_t x) {
   if (!x) {
-    fputs("KLEE-REPLAY: klee_assume(0)!\n", stderr);
+    fprintf(stderr, "WARNING: klee_assume(0)!\n");
   }
   return 0;
 }
@@ -474,7 +440,7 @@ void klee_make_symbolic(void *addr, size_t nbytes, const char *name) {
       *((int*) addr) = 0;
     } else {
       if (boo->numBytes != nbytes) {
-        fprintf(stderr, "KLEE-REPLAY: ERROR: make_symbolic mismatch, different sizes: "
+        fprintf(stderr, "make_symbolic mismatch, different sizes: "
            "%d in input file, %lu in code\n", boo->numBytes, (unsigned long)nbytes);
         exit(1);
       } else {
@@ -490,26 +456,26 @@ int klee_range(int start, int end, const char* name) {
   int r;
 
   if (start >= end) {
-    fputs("KLEE-REPLAY: ERROR: klee_range: invalid range\n", stderr);
+    fprintf(stderr, "klee_range: invalid range\n");
     exit(1);
   }
 
   if (start+1 == end)
     return start;
   else {
-    klee_make_symbolic(&r, sizeof r, name);
+    klee_make_symbolic(&r, sizeof r, name); 
 
     if (r < start || r >= end) {
-      fprintf(stderr, "KLEE-REPLAY: ERROR: klee_range(%d, %d, %s) returned invalid result: %d\n",
+      fprintf(stderr, "klee_range(%d, %d, %s) returned invalid result: %d\n", 
         start, end, name, r);
       exit(1);
     }
-
+    
     return r;
   }
 }
 
-void klee_report_error(const char *file, int line,
+void klee_report_error(const char *file, int line, 
                        const char *message, const char *suffix) {
   __emit_error(message);
 }
@@ -518,9 +484,17 @@ void klee_mark_global(void *object) {
   ;
 }
 
+void tracerx_debug_subsumption(uint64_t level) { ; }
+
+void tracerx_debug_subsumption_off() { ; }
+
+void tracerx_debug_state() { ; }
+
+void tracerx_debug_state_off() { ; }
+
 /*** HELPER FUNCTIONS ***/
 
 static void __emit_error(const char *msg) {
-  fprintf(stderr, "KLEE-REPLAY: ERROR: %s\n", msg);
+  fprintf(stderr, "ERROR: %s\n", msg);
   exit(1);
 }

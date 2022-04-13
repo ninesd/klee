@@ -7,10 +7,13 @@
 //
 //===----------------------------------------------------------------------===*/
 
-#undef _GNU_SOURCE
-
-#include <string.h>
+#include <stdlib.h>
 
 void *mempcpy(void *destaddr, void const *srcaddr, size_t len) {
-  return (char *)memcpy(destaddr, srcaddr, len) + len;
+  char *dest = destaddr;
+  char const *src = srcaddr;
+
+  while (len-- > 0)
+    *dest++ = *src++;
+  return dest;
 }

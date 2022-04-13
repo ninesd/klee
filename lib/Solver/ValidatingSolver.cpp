@@ -6,11 +6,9 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-
-#include "klee/Expr/Constraints.h"
-#include "klee/Solver/Solver.h"
-#include "klee/Solver/SolverImpl.h"
-
+#include "klee/Constraints.h"
+#include "klee/Solver.h"
+#include "klee/SolverImpl.h"
 #include <vector>
 
 namespace klee {
@@ -24,24 +22,28 @@ public:
       : solver(_solver), oracle(_oracle) {}
   ~ValidatingSolver() { delete solver; }
 
-  bool computeValidity(const Query &, Solver::Validity &result);
-  bool computeTruth(const Query &, bool &isValid);
+  bool computeValidity(const Query &, Solver::Validity &result,
+                       std::vector<ref<Expr> > &unsatCore);
+  bool computeTruth(const Query &, bool &isValid,
+                    std::vector<ref<Expr> > &unsatCore);
   bool computeValue(const Query &, ref<Expr> &result);
   bool computeInitialValues(const Query &,
                             const std::vector<const Array *> &objects,
                             std::vector<std::vector<unsigned char> > &values,
-                            bool &hasSolution);
+                            bool &hasSolution,
+                            std::vector<ref<Expr> > &unsatCore);
   SolverRunStatus getOperationStatusCode();
   char *getConstraintLog(const Query &);
-  void setCoreSolverTimeout(time::Span timeout);
+  void setCoreSolverTimeout(double timeout);
 };
 
-bool ValidatingSolver::computeTruth(const Query &query, bool &isValid) {
+bool ValidatingSolver::computeTruth(const Query &query, bool &isValid,
+                                    std::vector<ref<Expr> > &unsatCore) {
   bool answer;
 
-  if (!solver->impl->computeTruth(query, isValid))
+  if (!solver->impl->computeTruth(query, isValid, unsatCore))
     return false;
-  if (!oracle->impl->computeTruth(query, answer))
+  if (!oracle->impl->computeTruth(query, answer, unsatCore))
     return false;
 
   if (isValid != answer)
@@ -51,12 +53,13 @@ bool ValidatingSolver::computeTruth(const Query &query, bool &isValid) {
 }
 
 bool ValidatingSolver::computeValidity(const Query &query,
-                                       Solver::Validity &result) {
+                                       Solver::Validity &result,
+                                       std::vector<ref<Expr> > &unsatCore) {
   Solver::Validity answer;
 
-  if (!solver->impl->computeValidity(query, result))
+  if (!solver->impl->computeValidity(query, result, unsatCore))
     return false;
-  if (!oracle->impl->computeValidity(query, answer))
+  if (!oracle->impl->computeValidity(query, answer, unsatCore))
     return false;
 
   if (result != answer)
@@ -72,8 +75,10 @@ bool ValidatingSolver::computeValue(const Query &query, ref<Expr> &result) {
     return false;
   // We don't want to compare, but just make sure this is a legal
   // solution.
+  std::vector<ref<Expr> > unsatCore;
   if (!oracle->impl->computeTruth(
-          query.withExpr(NeExpr::create(query.expr, result)), answer))
+           query.withExpr(NeExpr::create(query.expr, result)), answer,
+           unsatCore))
     return false;
 
   if (answer)
@@ -84,16 +89,18 @@ bool ValidatingSolver::computeValue(const Query &query, ref<Expr> &result) {
 
 bool ValidatingSolver::computeInitialValues(
     const Query &query, const std::vector<const Array *> &objects,
-    std::vector<std::vector<unsigned char> > &values, bool &hasSolution) {
+    std::vector<std::vector<unsigned char> > &values, bool &hasSolution,
+    std::vector<ref<Expr> > &unsatCore) {
   bool answer;
 
-  if (!solver->impl->computeInitialValues(query, objects, values, hasSolution))
+  if (!solver->impl->computeInitialValues(query, objects, values, hasSolution,
+                                          unsatCore))
     return false;
 
   if (hasSolution) {
     // Assert the bindings as constraints, and verify that the
     // conjunction of the actual constraints is satisfiable.
-    ConstraintSet bindings;
+    std::vector<ref<Expr> > bindings;
     for (unsigned i = 0; i != values.size(); ++i) {
       const Array *array = objects[i];
       assert(array);
@@ -107,15 +114,17 @@ bool ValidatingSolver::computeInitialValues(
     }
     ConstraintManager tmp(bindings);
     ref<Expr> constraints = Expr::createIsZero(query.expr);
-    for (auto const &constraint : query.constraints)
-      constraints = AndExpr::create(constraints, constraint);
+    for (ConstraintManager::const_iterator it = query.constraints.begin(),
+                                           ie = query.constraints.end();
+         it != ie; ++it)
+      constraints = AndExpr::create(constraints, *it);
 
-    if (!oracle->impl->computeTruth(Query(bindings, constraints), answer))
+    if (!oracle->impl->computeTruth(Query(tmp, constraints), answer, unsatCore))
       return false;
     if (!answer)
       assert(0 && "invalid solver result (computeInitialValues)");
   } else {
-    if (!oracle->impl->computeTruth(query, answer))
+    if (!oracle->impl->computeTruth(query, answer, unsatCore))
       return false;
     if (!answer)
       assert(0 && "invalid solver result (computeInitialValues)");
@@ -132,7 +141,7 @@ char *ValidatingSolver::getConstraintLog(const Query &query) {
   return solver->impl->getConstraintLog(query);
 }
 
-void ValidatingSolver::setCoreSolverTimeout(time::Span timeout) {
+void ValidatingSolver::setCoreSolverTimeout(double timeout) {
   solver->impl->setCoreSolverTimeout(timeout);
 }
 

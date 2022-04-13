@@ -9,24 +9,25 @@
 
 #include "Passes.h"
 #include "klee/Config/Version.h"
-#include "klee/Support/ErrorHandling.h"
-
-#include "llvm/IR/Function.h"
+#include "klee/Internal/Support/ErrorHandling.h"
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InlineAsm.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/Support/Host.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/raw_ostream.h"
-#if LLVM_VERSION_CODE >= LLVM_VERSION(6, 0)
-#include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/Target/TargetMachine.h"
+#include "llvm/IR/Instructions.h"
 #else
+#include "llvm/InlineAsm.h"
+#include "llvm/LLVMContext.h"
+#include "llvm/Support/IRBuilder.h"
+#endif
+
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Target/TargetLowering.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetSubtargetInfo.h"
+#if LLVM_VERSION_CODE < LLVM_VERSION(3, 0)
+#include "llvm/Target/TargetRegistry.h"
+#else
+#include "llvm/Support/TargetRegistry.h"
 #endif
 
 using namespace llvm;
@@ -34,10 +35,16 @@ using namespace klee;
 
 char RaiseAsmPass::ID = 0;
 
-Function *RaiseAsmPass::getIntrinsic(llvm::Module &M, unsigned IID, Type **Tys,
-                                     unsigned NumTys) {
+Function *RaiseAsmPass::getIntrinsic(llvm::Module &M,
+                                     unsigned IID,
+                                     LLVM_TYPE_Q Type **Tys,
+                                     unsigned NumTys) {  
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 0)
   return Intrinsic::getDeclaration(&M, (llvm::Intrinsic::ID) IID,
                                    llvm::ArrayRef<llvm::Type*>(Tys, NumTys));
+#else
+  return Intrinsic::getDeclaration(&M, (llvm::Intrinsic::ID) IID, Tys, NumTys);
+#endif
 }
 
 // FIXME: This should just be implemented as a patch to
@@ -48,11 +55,7 @@ bool RaiseAsmPass::runOnInstruction(Module &M, Instruction *I) {
   if (!ci)
     return false;
 
-#if LLVM_VERSION_CODE >= LLVM_VERSION(8, 0)
-  InlineAsm *ia = dyn_cast<InlineAsm>(ci->getCalledOperand());
-#else
   InlineAsm *ia = dyn_cast<InlineAsm>(ci->getCalledValue());
-#endif
   if (!ia)
     return false;
 
@@ -64,16 +67,11 @@ bool RaiseAsmPass::runOnInstruction(Module &M, Instruction *I) {
     return true;
 
   if (triple.getArch() == llvm::Triple::x86_64 &&
-      (triple.getOS() == llvm::Triple::Linux ||
-       triple.getOS() == llvm::Triple::Darwin ||
-       triple.getOS() == llvm::Triple::FreeBSD)) {
+      triple.getOS() == llvm::Triple::Linux) {
 
-    if (ia->getAsmString() == "" && ia->hasSideEffects() &&
-        ia->getFunctionType()->getReturnType()->isVoidTy()) {
+    if (ia->getAsmString() == "" && ia->hasSideEffects()) {
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
       IRBuilder<> Builder(I);
-#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 9)
-      Builder.CreateFence(llvm::AtomicOrdering::SequentiallyConsistent);
-#else
       Builder.CreateFence(llvm::SequentiallyConsistent);
 #endif
       I->eraseFromParent();
@@ -88,7 +86,11 @@ bool RaiseAsmPass::runOnModule(Module &M) {
   bool changed = false;
 
   std::string Err;
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 1)
   std::string HostTriple = llvm::sys::getDefaultTargetTriple();
+#else
+  std::string HostTriple = llvm::sys::getHostTriple();
+#endif
   const Target *NativeTarget = TargetRegistry::lookupTarget(HostTriple, Err);
 
   TargetMachine * TM = 0;
@@ -96,14 +98,15 @@ bool RaiseAsmPass::runOnModule(Module &M) {
     klee_warning("Warning: unable to select native target: %s", Err.c_str());
     TLI = 0;
   } else {
-#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 9)
-    TM = NativeTarget->createTargetMachine(HostTriple, "", "", TargetOptions(),
-        None);
-    TLI = TM->getSubtargetImpl(*(M.begin()))->getTargetLowering();
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 1)
+    TM = NativeTarget->createTargetMachine(HostTriple, "", "",
+                                                          TargetOptions());
+#elif LLVM_VERSION_CODE >= LLVM_VERSION(3, 0)
+    TM = NativeTarget->createTargetMachine(HostTriple, "", "");
 #else
-    TM = NativeTarget->createTargetMachine(HostTriple, "", "", TargetOptions());
-    TLI = TM->getSubtargetImpl(*(M.begin()))->getTargetLowering();
+    TM = NativeTarget->createTargetMachine(HostTriple, "");
 #endif
+    TLI = TM->getTargetLowering();
 
     triple = llvm::Triple(HostTriple);
   }
@@ -111,14 +114,15 @@ bool RaiseAsmPass::runOnModule(Module &M) {
   for (Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi) {
     for (Function::iterator bi = fi->begin(), be = fi->end(); bi != be; ++bi) {
       for (BasicBlock::iterator ii = bi->begin(), ie = bi->end(); ii != ie;) {
-        Instruction *i = &*ii;
+        Instruction *i = ii;
         ++ii;  
         changed |= runOnInstruction(M, i);
       }
     }
   }
 
-  delete TM;
+  if (TM)
+    delete TM;
 
   return changed;
 }

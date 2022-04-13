@@ -1,10 +1,9 @@
-// RUN: %clang %s -emit-llvm -g %O0opt -c -o %t.bc
+// RUN: %llvmgcc %s -emit-llvm -g -O0 -c -o %t.bc
 // RUN: rm -rf %t.klee-out
 // RUN: %klee --output-dir=%t.klee-out %t.bc
 // RUN: test -f %t.klee-out/test000001.assert.err
 
-#include "klee/klee.h"
-
+#include <klee/klee.h>
 #include <assert.h>
 
 int main() {

@@ -1,8 +1,6 @@
-// RUN: %clang %s -emit-llvm -g -c -o %t.bc
+// RUN: %llvmgcc %s -emit-llvm -g -c -o %t1.bc
 // RUN: rm -rf %t.klee-out
-// RUN: %klee --output-dir=%t.klee-out --write-no-tests --exit-on-error %t.bc 2>&1 | FileCheck %s
-
-#include "klee/klee.h"
+// RUN: %klee --output-dir=%t.klee-out --no-output --exit-on-error %t1.bc
 
 #include <stdio.h>
 
@@ -17,35 +15,23 @@ int main(int argc, char **argv) {
   void (*fp)(const char *) = foo;
 
   printf("going to call through fp\n");
-  // CHECK: foo: called via fp
   fp("called via fp");
 
   printf("calling via pass through\n");
-  // CHECK: foo: called via bar
   bar(foo);
-
+        
   fp = baz;
-  // CHECK: baz: called via fp
   fp("called via fp");
 
-  // CHECK: foo: called via xx
   xx("called via xx");
 
-  klee_make_symbolic(&fp, sizeof fp, "fp");
+#if 0
+  klee_make_symbolic(&fp, sizeof fp);
   if(fp == baz) {
-    // CHECK: baz: calling via simple symbolic!
     printf("fp = %p, baz = %p\n", fp, baz);
-    fp("calling via simple symbolic!");
-    return 0;
+    fp("calling via symbolic!");
   }
-
-  void (*fp2)(const char *);
-  klee_make_symbolic(&fp2, sizeof fp2, "fp2");
-  if(fp2 == baz || fp2 == foo) {
-    // CHECK-DAG: baz: calling via symbolic!
-    // CHECK-DAG: foo: calling via symbolic!
-    fp2("calling via symbolic!");
-  }
+#endif
 
   return 0;
 }

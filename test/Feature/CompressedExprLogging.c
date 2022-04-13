@@ -1,25 +1,22 @@
-// REQUIRES: not-msan
-// Requires instrumented zlib linked
-// REQUIRES: zlib
-// RUN: %clang %s -emit-llvm -g %O0opt -c -o %t1.bc
+// RUN: %llvmgcc %s -emit-llvm -g -O0 -c -o %t1.bc
 // We disable the cex-cache to eliminate nondeterminism across different
 // solvers, in particular when counting the number of queries in the last two
 // commands
 // RUN: rm -rf %t.klee-out %t.klee-out2
-// RUN: %klee --output-dir=%t.klee-out --use-cex-cache=false --use-query-log=all:kquery %t1.bc
-// RUN: %klee --output-dir=%t.klee-out2 --use-cex-cache=false --compress-query-log --use-query-log=all:kquery %t1.bc
-// RUN: gunzip -d %t.klee-out2/all-queries.kquery.gz
-// RUN: diff %t.klee-out/all-queries.kquery %t.klee-out/all-queries.kquery
+// RUN: %klee --output-dir=%t.klee-out --use-cex-cache=false --use-query-log=all:pc %t1.bc
+// RUN: %klee --output-dir=%t.klee-out2 --use-cex-cache=false --compress-query-log --use-query-log=all:pc %t1.bc
+// RUN: gunzip -d %t.klee-out2/all-queries.pc.gz
+// RUN: diff %t.klee-out/all-queries.pc %t.klee-out/all-queries.pc
 
 #include <assert.h>
 
-int constantArr[16] = {1 << 0,  1 << 1,  1 << 2,  1 << 3, 1 << 4,  1 << 5,
-                       1 << 6,  1 << 7,  1 << 8,  1 << 9, 1 << 10, 1 << 11,
-                       1 << 12, 1 << 13, 1 << 14, 1 << 15};
+int constantArr[16] = { 1 << 0,  1 << 1,  1 << 2,  1 << 3, 1 << 4,  1 << 5,
+                        1 << 6,  1 << 7,  1 << 8,  1 << 9, 1 << 10, 1 << 11,
+                        1 << 12, 1 << 13, 1 << 14, 1 << 15 };
 
 int main() {
   char buf[4];
-  klee_make_symbolic(buf, sizeof buf, "buf");
+  klee_make_symbolic(buf, sizeof buf);
 
   buf[1] = 'a';
 

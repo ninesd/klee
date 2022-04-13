@@ -1,4 +1,5 @@
 //===-- PTree.h -------------------------------------------------*- C++ -*-===//
+//===-- PTree.h -------------------------------------------------*- C++ -*-===//
 //
 //                     The KLEE Symbolic Virtual Machine
 //
@@ -7,59 +8,50 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef KLEE_PTREE_H
-#define KLEE_PTREE_H
+#ifndef __UTIL_PTREE_H__
+#define __UTIL_PTREE_H__
 
-#include "klee/Expr/Expr.h"
-#include "klee/Support/ErrorHandling.h"
-#include "llvm/ADT/PointerIntPair.h"
+#include <klee/Expr.h>
 
 namespace klee {
   class ExecutionState;
   class PTreeNode;
-  /* PTreeNodePtr is used by the Random Path Searcher object to efficiently
-  record which PTreeNode belongs to it. PTree is a global structure that
-  captures all  states, whereas a Random Path Searcher might only care about
-  a subset. The integer part of PTreeNodePtr is a bitmask (a "tag") of which
-  Random Path Searchers PTreeNode belongs to. */
-  constexpr int PtrBitCount = 3;
-  using PTreeNodePtr = llvm::PointerIntPair<PTreeNode *, PtrBitCount, uint8_t>;
 
-  class PTreeNode {
+  class PTree { 
+    typedef ExecutionState* data_type;
+
+    void printNode(llvm::raw_ostream& stream, PTreeNode *n, std::string edges);
+
   public:
-    PTreeNode *parent = nullptr;
+    typedef class PTreeNode Node;
+    Node *root;
 
-    PTreeNodePtr left; 
-    PTreeNodePtr right;
-    ExecutionState *state = nullptr;
+    PTree(const data_type &_root);
+    ~PTree();
+    
+    std::pair<Node*,Node*> split(Node *n,
+                                 const data_type &leftData,
+                                 const data_type &rightData);
+    void remove(Node *n);
 
-    PTreeNode(const PTreeNode&) = delete;
-    PTreeNode(PTreeNode *parent, ExecutionState *state);
-    ~PTreeNode() = default;
+    void dump(llvm::raw_ostream &os);
+
+    void dump();
+
+    void print(llvm::raw_ostream &os);
   };
 
-  class PTree {
-    // Number of registered ID
-    int registeredIds = 0;
-
+  class PTreeNode {
+    friend class PTree;
   public:
-    PTreeNodePtr root;
-    explicit PTree(ExecutionState *initialState);
-    ~PTree() = default;
+    PTreeNode *parent, *left, *right;
+    ExecutionState *data;
+    ref<Expr> condition;
 
-    void attach(PTreeNode *node, ExecutionState *leftState,
-                ExecutionState *rightState);
-    void remove(PTreeNode *node);
-    void dump(llvm::raw_ostream &os);
-    std::uint8_t getNextId() {
-      std::uint8_t id = 1 << registeredIds++;
-      if (registeredIds > PtrBitCount) {
-        klee_error("PTree cannot support more than %d RandomPathSearchers",
-                   PtrBitCount);
-      }
-      return id;
-    }
+  private:
+    PTreeNode(PTreeNode *_parent, ExecutionState *_data);
+    ~PTreeNode();
   };
 }
 
-#endif /* KLEE_PTREE_H */
+#endif

@@ -7,10 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "klee/Solver/Solver.h"
-
-#include "klee/Expr/Constraints.h"
-#include "klee/Solver/SolverImpl.h"
+#include "klee/Solver.h"
+#include "klee/SolverImpl.h"
+#include "klee/Constraints.h"
 
 using namespace klee;
 
@@ -30,11 +29,12 @@ char *Solver::getConstraintLog(const Query& query) {
     return impl->getConstraintLog(query);
 }
 
-void Solver::setCoreSolverTimeout(time::Span timeout) {
+void Solver::setCoreSolverTimeout(double timeout) {
     impl->setCoreSolverTimeout(timeout);
 }
 
-bool Solver::evaluate(const Query& query, Validity &result) {
+bool Solver::evaluate(const Query& query, Validity &result,
+                      std::vector<ref<Expr> > &unsatCore) {
   assert(query.expr->getWidth() == Expr::Bool && "Invalid expression type!");
 
   // Maintain invariants implementations expect.
@@ -43,10 +43,11 @@ bool Solver::evaluate(const Query& query, Validity &result) {
     return true;
   }
 
-  return impl->computeValidity(query, result);
+  return impl->computeValidity(query, result, unsatCore);
 }
 
-bool Solver::mustBeTrue(const Query& query, bool &result) {
+bool Solver::mustBeTrue(const Query &query, bool &result,
+                        std::vector<ref<Expr> > &unsatCore) {
   assert(query.expr->getWidth() == Expr::Bool && "Invalid expression type!");
 
   // Maintain invariants implementations expect.
@@ -55,7 +56,7 @@ bool Solver::mustBeTrue(const Query& query, bool &result) {
     return true;
   }
 
-  return impl->computeTruth(query, result);
+  return impl->computeTruth(query, result, unsatCore);
 }
 
 bool Solver::mustBeFalse(const Query& query, bool &result) {
@@ -94,13 +95,13 @@ bool Solver::getValue(const Query& query, ref<ConstantExpr> &result) {
   return true;
 }
 
-bool 
-Solver::getInitialValues(const Query& query,
-                         const std::vector<const Array*> &objects,
-                         std::vector< std::vector<unsigned char> > &values) {
+bool Solver::getInitialValues(const Query &query,
+                              const std::vector<const Array *> &objects,
+                              std::vector<std::vector<unsigned char> > &values,
+                              std::vector<ref<Expr> > &unsatCore) {
   bool hasSolution;
-  bool success =
-    impl->computeInitialValues(query, objects, values, hasSolution);
+  bool success = impl->computeInitialValues(query, objects, values, hasSolution,
+                                            unsatCore);
   // FIXME: Propogate this out.
   if (!hasSolution)
     return false;
@@ -115,7 +116,8 @@ std::pair< ref<Expr>, ref<Expr> > Solver::getRange(const Query& query) {
 
   if (width==1) {
     Solver::Validity result;
-    if (!evaluate(query, result))
+    std::vector<ref<Expr> > unsatCore;
+    if (!evaluate(query, result, unsatCore))
       assert(0 && "computeValidity failed");
     switch (result) {
     case Solver::True: 
@@ -223,9 +225,10 @@ std::pair< ref<Expr>, ref<Expr> > Solver::getRange(const Query& query) {
 
 void Query::dump() const {
   llvm::errs() << "Constraints [\n";
-  for (const auto &constraint : constraints)
-    constraint->dump();
-
+  for (ConstraintManager::const_iterator i = constraints.begin();
+      i != constraints.end(); i++) {
+    (*i)->dump();
+  }
   llvm::errs() << "]\n";
   llvm::errs() << "Query [\n";
   expr->dump();

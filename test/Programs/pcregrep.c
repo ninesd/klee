@@ -1,4 +1,4 @@
-// RUN: %clang -m32 %s -emit-llvm %O0opt -c -o %t1.bc
+// RUN: %llvmgcc -m32 %s -emit-llvm -O0 -c -o %t1.bc
 // RUN: rm -rf %t.klee-out
 // RUN: %klee --output-dir=%t.klee-out --libc=klee --exit-on-error %t1.bc 2 2
 // XFAIL: x86_64
@@ -486,8 +486,8 @@ llvm_cbe_cond_next69:
   ft_make_symbolic_array(ltmp_1_1, llvm_cbe_tmp22, "pattern");
   ft_make_symbolic_array(ltmp_3_1, llvm_cbe_tmp42, "source");
 #else
-  klee_make_symbolic(ltmp_1_1, llvm_cbe_tmp22, "ltmp_1_1");
-  klee_make_symbolic(ltmp_3_1, llvm_cbe_tmp42, "ltmp_3_1");
+  klee_make_symbolic(ltmp_1_1, llvm_cbe_tmp22);
+  klee_make_symbolic(ltmp_3_1, llvm_cbe_tmp42);
 #endif
   *(&ltmp_1_1[(llvm_cbe_tmp22 + ((unsigned int )-1))]) = ((unsigned char )0);
   *(&ltmp_3_1[(llvm_cbe_tmp42 + ((unsigned int )-1))]) = ((unsigned char )0);

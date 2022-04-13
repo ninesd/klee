@@ -1,68 +1,142 @@
-FROM klee/llvm:90_O_D_A_ubuntu_bionic-20200807 as llvm_base
-FROM klee/gtest:1.7.0_ubuntu_bionic-20200807 as gtest_base
-FROM klee/uclibc:klee_uclibc_v1.2_90_ubuntu_bionic-20200807 as uclibc_base
-FROM klee/tcmalloc:2.7_ubuntu_bionic-20200807 as tcmalloc_base
-FROM klee/stp:2.3.3_ubuntu_bionic-20200807 as stp_base
-FROM klee/z3:4.8.4_ubuntu_bionic-20200807 as z3_base
-FROM klee/libcxx:90_ubuntu_bionic-20200807 as libcxx_base
-FROM llvm_base as intermediate
-COPY --from=gtest_base /tmp /tmp/
-COPY --from=uclibc_base /tmp /tmp/
-COPY --from=tcmalloc_base /tmp /tmp/
-COPY --from=stp_base /tmp /tmp/
-COPY --from=z3_base /tmp /tmp/
-COPY --from=libcxx_base /tmp /tmp/
-ENV COVERAGE=0
-ENV USE_TCMALLOC=1
-ENV BASE=/tmp
-ENV LLVM_VERSION=9.0
-ENV ENABLE_DOXYGEN=1
-ENV ENABLE_OPTIMIZED=1
-ENV ENABLE_DEBUG=1
-ENV DISABLE_ASSERTIONS=0
-ENV REQUIRES_RTTI=0
-ENV SOLVERS=STP:Z3
-ENV GTEST_VERSION=1.7.0
-ENV UCLIBC_VERSION=klee_uclibc_v1.2
-ENV TCMALLOC_VERSION=2.7
-ENV SANITIZER_BUILD=
-ENV STP_VERSION=2.3.3
-ENV MINISAT_VERSION=master
-ENV Z3_VERSION=4.8.4
-ENV USE_LIBCXX=1
-ENV KLEE_RUNTIME_BUILD="Debug+Asserts"
-LABEL maintainer="KLEE Developers"
+FROM ubuntu:14.04
+MAINTAINER Dan Liew <daniel.liew@imperial.ac.uk>
 
+# FIXME: Docker doesn't currently offer a way to
+# squash the layers from within a Dockerfile so
+# the resulting image is unnecessarily large!
 
-# TODO remove adding sudo package
+ENV LLVM_VERSION=3.4 \
+    SOLVERS=STP:Z3 \
+    STP_VERSION=master \
+    DISABLE_ASSERTIONS=0 \
+    ENABLE_OPTIMIZED=1 \
+    KLEE_UCLIBC=klee_uclibc_v1.0.0 \
+    KLEE_SRC=/home/klee/klee_src \
+    COVERAGE=0 \
+    BUILD_DIR=/home/klee/klee_build
+
+RUN apt-get update && \
+    apt-get -y --no-install-recommends install \
+        clang-${LLVM_VERSION} \
+        llvm-${LLVM_VERSION} \
+        llvm-${LLVM_VERSION}-dev \
+        llvm-${LLVM_VERSION}-runtime \
+        llvm \
+        libcap-dev \
+        git \
+        subversion \
+        cmake3 \
+        make \
+        libboost-program-options-dev \
+        python3 \
+        python3-dev \
+        python3-pip \
+        perl \
+        flex \
+        bison \
+        libncurses-dev \
+        zlib1g-dev \
+        patch \
+        wget \
+        unzip \
+        binutils && \
+    pip3 install -U lit tabulate && \
+    update-alternatives --install /usr/bin/python python /usr/bin/python3 50 && \
+    ( wget -O - http://download.opensuse.org/repositories/home:delcypher:z3/xUbuntu_14.04/Release.key | apt-key add - ) && \
+    echo 'deb http://download.opensuse.org/repositories/home:/delcypher:/z3/xUbuntu_14.04/ /' >> /etc/apt/sources.list.d/z3.list && \
+    apt-get update
+
 # Create ``klee`` user for container with password ``klee``.
-# and give it password-less sudo access (temporarily so we can use the CI scripts)
-RUN apt update && DEBIAN_FRONTEND=noninteractive apt -y --no-install-recommends install sudo emacs-nox vim-nox file python3-dateutil doxygen && \
-    rm -rf /var/lib/apt/lists/* && \
-    useradd -m klee && \
+# and give it password-less sudo access (temporarily so we can use the TravisCI scripts)
+RUN useradd -m klee && \
     echo klee:klee | chpasswd && \
     cp /etc/sudoers /etc/sudoers.bak && \
     echo 'klee  ALL=(root) NOPASSWD: ALL' >> /etc/sudoers
-
-# Copy across source files needed for build
-COPY --chown=klee:klee . /tmp/klee_src/
-
-# Build and set klee user to be owner
-RUN /tmp/klee_src/scripts/build/build.sh --debug --install-system-deps klee && chown -R klee:klee /tmp/klee_build* && pip3 install flask wllvm && \
-    rm -rf /var/lib/apt/lists/*
-
-ENV PATH="$PATH:/tmp/llvm-90-install_O_D_A/bin:/home/klee/klee_build/bin"
-ENV BASE=/tmp
-
-# Add KLEE header files to system standard include folder
-RUN /bin/bash -c 'ln -s ${BASE}/klee_src/include/klee /usr/include/'
-
 USER klee
 WORKDIR /home/klee
-ENV LD_LIBRARY_PATH /home/klee/klee_build/lib/
+
+# Copy across source files needed for build
+RUN mkdir ${KLEE_SRC}
+ADD configure \
+    LICENSE.TXT \
+    Makefile \
+    Makefile.* \
+    README.md \
+    MetaSMT.mk \
+    TODO.txt \
+    ${KLEE_SRC}/
+ADD .travis ${KLEE_SRC}/.travis/
+ADD autoconf ${KLEE_SRC}/autoconf/
+ADD docs ${KLEE_SRC}/docs/
+ADD include ${KLEE_SRC}/include/
+ADD lib ${KLEE_SRC}/lib/
+ADD runtime ${KLEE_SRC}/runtime/
+ADD scripts ${KLEE_SRC}/scripts/
+ADD test ${KLEE_SRC}/test/
+ADD tools ${KLEE_SRC}/tools/
+ADD unittests ${KLEE_SRC}/unittests/
+ADD utils ${KLEE_SRC}/utils/
+
+# Set klee user to be owner
+RUN sudo chown --recursive klee: ${KLEE_SRC}
+
+# Create build directory
+RUN mkdir -p ${BUILD_DIR}
+
+# Build/Install SMT solvers (use TravisCI script)
+RUN cd ${BUILD_DIR} && ${KLEE_SRC}/.travis/solvers.sh
+
+# Install testing utils (use TravisCI script)
+RUN cd ${BUILD_DIR} && mkdir testing-utils && cd testing-utils && \
+    ${KLEE_SRC}/.travis/testing-utils.sh
+
+# FIXME: This is a nasty hack so KLEE's configure and build finds
+# LLVM's headers file, libraries and tools
+RUN sudo mkdir -p /usr/lib/llvm-${LLVM_VERSION}/build/Release/bin && \
+    sudo ln -s /usr/bin/llvm-config /usr/lib/llvm-${LLVM_VERSION}/build/Release/bin/llvm-config && \
+    sudo ln -s /usr/bin/llvm-dis /usr/lib/llvm-${LLVM_VERSION}/build/Release/bin/llvm-dis && \
+    sudo ln -s /usr/bin/llvm-as /usr/lib/llvm-${LLVM_VERSION}/build/Release/bin/llvm-as && \
+    sudo ln -s /usr/bin/llvm-link /usr/lib/llvm-${LLVM_VERSION}/build/Release/bin/llvm-link && \
+    sudo ln -s /usr/bin/llvm-ar /usr/lib/llvm-${LLVM_VERSION}/build/Release/bin/llvm-ar && \
+    sudo ln -s /usr/bin/opt /usr/lib/llvm-${LLVM_VERSION}/build/Release/bin/opt && \
+    sudo ln -s /usr/bin/lli /usr/lib/llvm-${LLVM_VERSION}/build/Release/bin/lli && \
+    sudo mkdir -p /usr/lib/llvm-${LLVM_VERSION}/build/include && \
+    sudo ln -s /usr/include/llvm-${LLVM_VERSION}/llvm /usr/lib/llvm-${LLVM_VERSION}/build/include/llvm && \
+    sudo ln -s /usr/include/llvm-c-${LLVM_VERSION}/llvm-c /usr/lib/llvm-${LLVM_VERSION}/build/include/llvm-c && \
+    for static_lib in /usr/lib/llvm-${LLVM_VERSION}/lib/*.a ; do sudo ln -s ${static_lib} /usr/lib/`basename ${static_lib}`; done
+
+# FIXME: This is **really gross**. The Official Ubuntu LLVM packages don't ship
+# with ``FileCheck`` or the ``not`` tools so we have to hack building these
+# into KLEE's build system in order for the tests to pass
+RUN cd ${KLEE_SRC}/tools && \
+    for tool in FileCheck not; do \
+        svn export \
+        http://llvm.org/svn/llvm-project/llvm/branches/release_34/utils/${tool} ${tool} ; \
+        sed -i 's/^USEDLIBS.*$/LINK_COMPONENTS = support/' ${tool}/Makefile; \
+    done && \
+    sed -i '0,/^PARALLEL_DIRS/a PARALLEL_DIRS += FileCheck not' Makefile
+
+# FIXME: The current TravisCI script expects clang-${LLVM_VERSION} to exist
+RUN sudo ln -s /usr/bin/clang /usr/bin/clang-${LLVM_VERSION} && \
+    sudo ln -s /usr/bin/clang++ /usr/bin/clang++-${LLVM_VERSION}
+
+# Build KLEE (use TravisCI script)
+RUN cd ${BUILD_DIR} && ${KLEE_SRC}/.travis/klee.sh
+
+# Revoke password-less sudo and Set up sudo access for the ``klee`` user so it
+# requires a password
+USER root
+RUN mv /etc/sudoers.bak /etc/sudoers && \
+    echo 'klee  ALL=(root) ALL' >> /etc/sudoers
+USER klee
 
 # Add KLEE binary directory to PATH
-RUN /bin/bash -c 'ln -s ${BASE}/klee_src /home/klee/ && ln -s ${BASE}/klee_build* /home/klee/klee_build' 
+RUN echo 'export PATH=$PATH:'${BUILD_DIR}'/klee/Release+Asserts/bin' >> /home/klee/.bashrc
 
-# TODO Remove when STP is fixed
-RUN /bin/bash -c 'echo "export LD_LIBRARY_PATH=$(cd ${BASE}/metaSMT-*-deps/stp-git-basic/lib/ && pwd):$LD_LIBRARY_PATH" >> /home/klee/.bashrc'
+# Link klee to /usr/bin so that it can be used by docker run
+USER root
+RUN for exec in ${BUILD_DIR}/klee/Release+Asserts/bin/* ; do ln -s ${exec} /usr/bin/`basename ${exec}`; done
+
+# Link klee to the libkleeRuntest library needed by docker run
+RUN ln -s ${BUILD_DIR}/klee/Release+Asserts/lib/libkleeRuntest.so /usr/lib/libkleeRuntest.so.1.0
+USER klee

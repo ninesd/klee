@@ -6,7 +6,6 @@
 # The suppressions below are what's needed for ``make unittests`` and ``make check`` to not
 # fail due to leaks.
 
-# Ignore tcmalloc
-leak:src/malloc_extension.cc
-# Memory leak from klee_replay
-leak:klee-replay.c
+# Low priority
+leak:tools/kleaver/main.cpp
+leak:lib/Expr/Parser.cpp

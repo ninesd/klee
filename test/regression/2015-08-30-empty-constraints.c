@@ -1,4 +1,4 @@
-// RUN: %clang %s -emit-llvm -g %O0opt -c -o %t.bc
+// RUN: %llvmgcc %s -emit-llvm -g -O0 -c -o %t.bc
 // RUN: rm -rf %t.klee-out
 // RUN: %klee --output-dir=%t.klee-out %t.bc 2> %t.log
 // RUN: FileCheck -input-file=%t.log %s
@@ -13,7 +13,7 @@
 int main() {
   int d;
 
-  klee_make_symbolic(&d, sizeof(d), "d");
+  klee_make_symbolic( &d, sizeof(d) );
 
   // CHECK-NOT: unable to compute initial values (invalid constraints?)!
   if ((d & 2) / 4)

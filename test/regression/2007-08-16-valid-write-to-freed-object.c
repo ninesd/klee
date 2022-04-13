@@ -1,10 +1,10 @@
-// RUN: %clang %s -emit-llvm %O0opt -c -o %t1.bc
+// RUN: %llvmgcc %s -emit-llvm -O0 -c -o %t1.bc
 // RUN: rm -rf %t.klee-out
 // RUN: %klee --output-dir=%t.klee-out %t1.bc
 
 unsigned sym() {
   unsigned x;
-  klee_make_symbolic(&x, sizeof x, "x");
+  klee_make_symbolic(&x, sizeof x);
   return x;
 }
 

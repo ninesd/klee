@@ -9,86 +9,45 @@
 
 #include "PTree.h"
 
-#include "ExecutionState.h"
+#include <klee/Expr.h>
+#include <klee/util/ExprPPrinter.h>
 
-#include "klee/Expr/Expr.h"
-#include "klee/Expr/ExprPPrinter.h"
-#include "klee/Support/OptionCategories.h"
-
-#include <bitset>
 #include <vector>
 
 using namespace klee;
-using namespace llvm;
 
-namespace {
+  /* *** */
 
-cl::opt<bool>
-    CompressProcessTree("compress-process-tree",
-                        cl::desc("Remove intermediate nodes in the process "
-                                 "tree whenever possible (default=false)"),
-                        cl::init(false), cl::cat(MiscCat));
-
-} // namespace
-
-PTree::PTree(ExecutionState *initialState)
-    : root(PTreeNodePtr(new PTreeNode(nullptr, initialState))) {
-  initialState->ptreeNode = root.getPointer();
+PTree::PTree(const data_type &_root) : root(new Node(0,_root)) {
 }
 
-void PTree::attach(PTreeNode *node, ExecutionState *leftState, ExecutionState *rightState) {
-  assert(node && !node->left.getPointer() && !node->right.getPointer());
-  assert(node == rightState->ptreeNode &&
-         "Attach assumes the right state is the current state");
-  node->state = nullptr;
-  node->left = PTreeNodePtr(new PTreeNode(node, leftState));
-  // The current node inherits the tag
-  uint8_t currentNodeTag = root.getInt();
-  if (node->parent)
-    currentNodeTag = node->parent->left.getPointer() == node
-                         ? node->parent->left.getInt()
-                         : node->parent->right.getInt();
-  node->right = PTreeNodePtr(new PTreeNode(node, rightState), currentNodeTag);
+PTree::~PTree() {}
+
+std::pair<PTreeNode*, PTreeNode*>
+PTree::split(Node *n, 
+             const data_type &leftData, 
+             const data_type &rightData) {
+  assert(n && !n->left && !n->right);
+  n->left = new Node(n, leftData);
+  n->right = new Node(n, rightData);
+  return std::make_pair(n->left, n->right);
 }
 
-void PTree::remove(PTreeNode *n) {
-  assert(!n->left.getPointer() && !n->right.getPointer());
+void PTree::remove(Node *n) {
+  assert(!n->left && !n->right);
   do {
-    PTreeNode *p = n->parent;
+    Node *p = n->parent;
     if (p) {
-      if (n == p->left.getPointer()) {
-        p->left = PTreeNodePtr(nullptr);
+      if (n == p->left) {
+        p->left = 0;
       } else {
-        assert(n == p->right.getPointer());
-        p->right = PTreeNodePtr(nullptr);
+        assert(n == p->right);
+        p->right = 0;
       }
     }
     delete n;
     n = p;
-  } while (n && !n->left.getPointer() && !n->right.getPointer());
-
-  if (n && CompressProcessTree) {
-    // We're now at a node that has exactly one child; we've just deleted the
-    // other one. Eliminate the node and connect its child to the parent
-    // directly (if it's not the root).
-    PTreeNodePtr child = n->left.getPointer() ? n->left : n->right;
-    PTreeNode *parent = n->parent;
-
-    child.getPointer()->parent = parent;
-    if (!parent) {
-      // We're at the root.
-      root = child;
-    } else {
-      if (n == parent->left.getPointer()) {
-        parent->left = child;
-      } else {
-        assert(n == parent->right.getPointer());
-        parent->right = child;
-      }
-    }
-
-    delete n;
-  }
+  } while (n && !n->left && !n->right);
 }
 
 void PTree::dump(llvm::raw_ostream &os) {
@@ -101,34 +60,70 @@ void PTree::dump(llvm::raw_ostream &os) {
   os << "\tcenter = \"true\";\n";
   os << "\tnode [style=\"filled\",width=.1,height=.1,fontname=\"Terminus\"]\n";
   os << "\tedge [arrowsize=.3]\n";
-  std::vector<const PTreeNode*> stack;
-  stack.push_back(root.getPointer());
+  std::vector<PTree::Node*> stack;
+  stack.push_back(root);
   while (!stack.empty()) {
-    const PTreeNode *n = stack.back();
+    PTree::Node *n = stack.back();
     stack.pop_back();
-    os << "\tn" << n << " [shape=diamond";
-    if (n->state)
+    if (n->condition.isNull()) {
+      os << "\tn" << n << " [label=\"\"";
+    } else {
+      os << "\tn" << n << " [label=\"";
+      pp->print(n->condition);
+      os << "\",shape=diamond";
+    }
+    if (n->data)
       os << ",fillcolor=green";
     os << "];\n";
-    if (n->left.getPointer()) {
-      os << "\tn" << n << " -> n" << n->left.getPointer();
-      os << " [label=0b"
-         << std::bitset<PtrBitCount>(n->left.getInt()).to_string() << "];\n";
-      stack.push_back(n->left.getPointer());
+    if (n->left) {
+      os << "\tn" << n << " -> n" << n->left << ";\n";
+      stack.push_back(n->left);
     }
-    if (n->right.getPointer()) {
-      os << "\tn" << n << " -> n" << n->right.getPointer();
-      os << " [label=0b"
-         << std::bitset<PtrBitCount>(n->right.getInt()).to_string() << "];\n";
-      stack.push_back(n->right.getPointer());
+    if (n->right) {
+      os << "\tn" << n << " -> n" << n->right << ";\n";
+      stack.push_back(n->right);
     }
   }
   os << "}\n";
   delete pp;
 }
 
-PTreeNode::PTreeNode(PTreeNode *parent, ExecutionState *state) : parent{parent}, state{state} {
-  state->ptreeNode = this;
-  left = PTreeNodePtr(nullptr);
-  right = PTreeNodePtr(nullptr);
+void PTree::dump() {
+  this->print(llvm::errs());
 }
+
+void PTree::printNode(llvm::raw_ostream& stream, PTreeNode *n, std::string edges) {
+  if (n->left != 0) {
+      stream << edges << "+-- L:" << n->left << "\n";
+      if (n->right != 0) {
+	  printNode(stream, n->left, edges + "|   ");
+      } else {
+	  printNode(stream, n->left, edges + "    ");
+      }
+  }
+  if (n->right != 0) {
+      stream << edges << "+-- R:" << n->right << "\n";
+      printNode(stream, n->right, edges + "    ");
+  }
+}
+
+void PTree::print(llvm::raw_ostream& stream) {
+  llvm::errs() << "------------------------- PTree Structure ---------------------------\n";
+  stream << this->root;
+  stream << "\n";
+  this->printNode(stream, this->root, "");
+}
+
+
+PTreeNode::PTreeNode(PTreeNode *_parent, 
+                     ExecutionState *_data) 
+  : parent(_parent),
+    left(0),
+    right(0),
+    data(_data),
+    condition(0) {
+}
+
+PTreeNode::~PTreeNode() {
+}
+

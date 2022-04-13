@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "klee/Expr/ExprBuilder.h"
+#include "klee/ExprBuilder.h"
 
 using namespace klee;
 
@@ -326,7 +326,7 @@ namespace {
     virtual ref<Expr> Read(const UpdateList &Updates,
                            const ref<Expr> &Index) {
       // Roll back through writes when possible.
-      auto UN = Updates.head;
+      const UpdateNode *UN = Updates.head;
       while (UN && Eq(Index, UN->index)->isFalse())
         UN = UN->next;
 

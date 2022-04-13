@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "klee/Statistics/Statistics.h"
+#include "klee/Statistics.h"
 
 #include <vector>
 
@@ -22,18 +22,18 @@ StatisticManager::StatisticManager()
 }
 
 StatisticManager::~StatisticManager() {
-  delete[] globalStats;
-  delete[] indexedStats;
+  if (globalStats) delete[] globalStats;
+  if (indexedStats) delete[] indexedStats;
 }
 
 void StatisticManager::useIndexedStats(unsigned totalIndices) {  
-  delete[] indexedStats;
+  if (indexedStats) delete[] indexedStats;
   indexedStats = new uint64_t[totalIndices * stats.size()];
   memset(indexedStats, 0, sizeof(*indexedStats) * totalIndices * stats.size());
 }
 
 void StatisticManager::registerStatistic(Statistic &s) {
-  delete[] globalStats;
+  if (globalStats) delete[] globalStats;
   s.id = stats.size();
   stats.push_back(&s);
   globalStats = new uint64_t[stats.size()];
@@ -64,16 +64,21 @@ static StatisticManager &getStatisticManager() {
 
 /* *** */
 
-Statistic::Statistic(const std::string &name, const std::string &shortName)
-  : name{name}, shortName{shortName} {
+Statistic::Statistic(const std::string &_name, 
+                     const std::string &_shortName) 
+  : name(_name), 
+    shortName(_shortName) {
   getStatisticManager().registerStatistic(*this);
 }
 
-Statistic &Statistic::operator+=(std::uint64_t addend) {
+Statistic::~Statistic() {
+}
+
+Statistic &Statistic::operator +=(const uint64_t addend) {
   theStatisticManager->incrementStatistic(*this, addend);
   return *this;
 }
 
-std::uint64_t Statistic::getValue() const {
+uint64_t Statistic::getValue() const {
   return theStatisticManager->getValue(*this);
 }

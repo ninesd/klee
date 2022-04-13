@@ -7,56 +7,34 @@
 //
 //===----------------------------------------------------------------------===//
 #include "klee/Config/config.h"
-
 #ifdef ENABLE_METASMT
-#include "MetaSMTSolver.h"
+
 #include "MetaSMTBuilder.h"
-
-#include "klee/Expr/Assignment.h"
-#include "klee/Expr/Constraints.h"
-#include "klee/Expr/ExprUtil.h"
-#include "klee/Support/ErrorHandling.h"
-#include "klee/Solver/Solver.h"
-#include "klee/Solver/SolverImpl.h"
-
-#include "llvm/Support/ErrorHandling.h"
+#include "klee/Constraints.h"
+#include "klee/Internal/Support/ErrorHandling.h"
+#include "klee/Solver.h"
+#include "klee/SolverImpl.h"
+#include "klee/util/Assignment.h"
+#include "klee/util/ExprUtil.h"
 
 #include <metaSMT/DirectSolver_Context.hpp>
-
-#ifdef METASMT_HAVE_Z3
 #include <metaSMT/backend/Z3_Backend.hpp>
-#endif
-
-#ifdef METASMT_HAVE_BTOR
 #include <metaSMT/backend/Boolector.hpp>
-#endif
 
-#ifdef METASMT_HAVE_CVC4
-#include <metaSMT/backend/CVC4.hpp>
-#endif
-
-#ifdef METASMT_HAVE_YICES2
-#include <metaSMT/backend/Yices2.hpp>
-#endif
-
-#ifdef METASMT_HAVE_STP
 #define Expr VCExpr
 #define Type VCType
 #define STP STP_Backend
-#define type_t STP_type_t
 #include <metaSMT/backend/STP.hpp>
 #undef Expr
 #undef Type
 #undef STP
-#undef type_t
-#endif
 
 #include <errno.h>
+#include <unistd.h>
 #include <signal.h>
+#include <sys/wait.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <sys/wait.h>
-#include <unistd.h>
 
 static unsigned char *shared_memory_ptr;
 static int shared_memory_id = 0;
@@ -78,7 +56,7 @@ private:
   SolverContext _meta_solver;
   MetaSMTSolver<SolverContext> *_solver;
   MetaSMTBuilder<SolverContext> *_builder;
-  time::Span _timeout;
+  double _timeout;
   bool _useForked;
   SolverRunStatus _runStatusCode;
 
@@ -88,7 +66,7 @@ public:
   virtual ~MetaSMTSolverImpl();
 
   char *getConstraintLog(const Query &);
-  void setCoreSolverTimeout(time::Span timeout) { _timeout = timeout; }
+  void setCoreSolverTimeout(double timeout) { _timeout = timeout; }
 
   bool computeTruth(const Query &, bool &isValid);
   bool computeValue(const Query &, ref<Expr> &result);
@@ -99,7 +77,7 @@ public:
                             bool &hasSolution);
 
   SolverImpl::SolverRunStatus
-  runAndGetCex(const Query &query, const std::vector<const Array *> &objects,
+  runAndGetCex(ref<Expr> query_expr, const std::vector<const Array *> &objects,
                std::vector<std::vector<unsigned char> > &values,
                bool &hasSolution);
 
@@ -107,11 +85,13 @@ public:
   runAndGetCexForked(const Query &query,
                      const std::vector<const Array *> &objects,
                      std::vector<std::vector<unsigned char> > &values,
-                     bool &hasSolution, time::Span timeout);
+                     bool &hasSolution, double timeout);
 
   SolverRunStatus getOperationStatusCode();
 
-  SolverContext &get_meta_solver() { return _meta_solver; };
+  SolverContext &get_meta_solver() {
+    return (_meta_solver);
+  };
 };
 
 template <typename SolverContext>
@@ -119,7 +99,7 @@ MetaSMTSolverImpl<SolverContext>::MetaSMTSolverImpl(
     MetaSMTSolver<SolverContext> *solver, bool useForked, bool optimizeDivides)
     : _solver(solver), _builder(new MetaSMTBuilder<SolverContext>(
                            _meta_solver, optimizeDivides)),
-      _useForked(useForked) {
+      _timeout(0.0), _useForked(useForked) {
   assert(_solver && "unable to create MetaSMTSolver");
   assert(_builder && "unable to create MetaSMTBuilder");
 
@@ -141,7 +121,7 @@ char *MetaSMTSolverImpl<SolverContext>::getConstraintLog(const Query &) {
   const char *msg = "Not supported";
   char *buf = new char[strlen(msg) + 1];
   strcpy(buf, msg);
-  return buf;
+  return (buf);
 }
 
 template <typename SolverContext>
@@ -159,7 +139,7 @@ bool MetaSMTSolverImpl<SolverContext>::computeTruth(const Query &query,
     success = true;
   }
 
-  return success;
+  return (success);
 }
 
 template <typename SolverContext>
@@ -181,7 +161,7 @@ bool MetaSMTSolverImpl<SolverContext>::computeValue(const Query &query,
     success = true;
   }
 
-  return success;
+  return (success);
 }
 
 template <typename SolverContext>
@@ -194,6 +174,22 @@ bool MetaSMTSolverImpl<SolverContext>::computeInitialValues(
   TimerStatIncrementer t(stats::queryTime);
   assert(_builder);
 
+  /*
+   * FIXME push() and pop() work for Z3 but not for Boolector.
+   * If using Z3, use push() and pop() and assert constraints.
+   * If using Boolector, assume constrainsts instead of asserting them.
+   */
+  // push(_meta_solver);
+
+  if (!_useForked) {
+    for (ConstraintManager::const_iterator it = query.constraints.begin(),
+                                           ie = query.constraints.end();
+         it != ie; ++it) {
+      // assertion(_meta_solver, _builder->construct(*it));
+      assumption(_meta_solver, _builder->construct(*it));
+    }
+  }
+
   ++stats::queries;
   ++stats::queryCounterexamples;
 
@@ -204,7 +200,7 @@ bool MetaSMTSolverImpl<SolverContext>::computeInitialValues(
     success = ((SOLVER_RUN_STATUS_SUCCESS_SOLVABLE == _runStatusCode) ||
                (SOLVER_RUN_STATUS_SUCCESS_UNSOLVABLE == _runStatusCode));
   } else {
-    _runStatusCode = runAndGetCex(query, objects, values, hasSolution);
+    _runStatusCode = runAndGetCex(query.expr, objects, values, hasSolution);
     success = true;
   }
 
@@ -216,20 +212,18 @@ bool MetaSMTSolverImpl<SolverContext>::computeInitialValues(
     }
   }
 
-  return success;
+  // pop(_meta_solver);
+
+  return (success);
 }
 
 template <typename SolverContext>
 SolverImpl::SolverRunStatus MetaSMTSolverImpl<SolverContext>::runAndGetCex(
-    const Query &query, const std::vector<const Array *> &objects,
+    ref<Expr> query_expr, const std::vector<const Array *> &objects,
     std::vector<std::vector<unsigned char> > &values, bool &hasSolution) {
 
-  // assume the constraints of the query
-  for (auto &constraint : query.constraints)
-    assumption(_meta_solver, _builder->construct(constraint));
-
   // assume the negation of the query
-  assumption(_meta_solver, _builder->construct(Expr::createIsZero(query.expr)));
+  assumption(_meta_solver, _builder->construct(Expr::createIsZero(query_expr)));
   hasSolution = solve(_meta_solver);
 
   if (hasSolution) {
@@ -259,9 +253,9 @@ SolverImpl::SolverRunStatus MetaSMTSolverImpl<SolverContext>::runAndGetCex(
   }
 
   if (true == hasSolution) {
-    return SolverImpl::SOLVER_RUN_STATUS_SUCCESS_SOLVABLE;
+    return (SolverImpl::SOLVER_RUN_STATUS_SUCCESS_SOLVABLE);
   } else {
-    return SolverImpl::SOLVER_RUN_STATUS_SUCCESS_UNSOLVABLE;
+    return (SolverImpl::SOLVER_RUN_STATUS_SUCCESS_UNSOLVABLE);
   }
 }
 
@@ -272,7 +266,7 @@ SolverImpl::SolverRunStatus
 MetaSMTSolverImpl<SolverContext>::runAndGetCexForked(
     const Query &query, const std::vector<const Array *> &objects,
     std::vector<std::vector<unsigned char> > &values, bool &hasSolution,
-    time::Span timeout) {
+    double timeout) {
   unsigned char *pos = shared_memory_ptr;
   unsigned sum = 0;
   for (std::vector<const Array *>::const_iterator it = objects.begin(),
@@ -290,45 +284,96 @@ MetaSMTSolverImpl<SolverContext>::runAndGetCexForked(
   int pid = fork();
   if (pid == -1) {
     klee_warning("fork failed (for metaSMT)");
-    return SolverImpl::SOLVER_RUN_STATUS_FORK_FAILED;
+    return (SolverImpl::SOLVER_RUN_STATUS_FORK_FAILED);
   }
 
   if (pid == 0) {
     if (timeout) {
       ::alarm(0); /* Turn off alarm so we can safely set signal handler */
       ::signal(SIGALRM, metaSMTTimeoutHandler);
-      ::alarm(std::max(1u, static_cast<unsigned>(timeout.toSeconds())));
+      ::alarm(std::max(1, (int)timeout));
     }
 
-    // assert constraints as we are in a child process
-    for (const auto &constraint : query.constraints) {
-      assertion(_meta_solver, _builder->construct(constraint));
+    for (ConstraintManager::const_iterator it = query.constraints.begin(),
+                                           ie = query.constraints.end();
+         it != ie; ++it) {
+      assertion(_meta_solver, _builder->construct(*it));
       // assumption(_meta_solver, _builder->construct(*it));
     }
 
-    // asssert the negation of the query as we are in a child process
-    assertion(_meta_solver,
-              _builder->construct(Expr::createIsZero(query.expr)));
-    unsigned res = solve(_meta_solver);
-
-    if (res) {
+    std::vector<std::vector<typename SolverContext::result_type> >
+    aux_arr_exprs;
+    if (MetaSMTBackend == METASMT_BACKEND_BOOLECTOR) {
       for (std::vector<const Array *>::const_iterator it = objects.begin(),
                                                       ie = objects.end();
            it != ie; ++it) {
 
+        std::vector<typename SolverContext::result_type> aux_arr;
         const Array *array = *it;
         assert(array);
         typename SolverContext::result_type array_exp =
             _builder->getInitialArray(array);
 
         for (unsigned offset = 0; offset < array->size; offset++) {
-
           typename SolverContext::result_type elem_exp = evaluate(
               _meta_solver, metaSMT::logic::Array::select(
                                 array_exp, bvuint(offset, array->getDomain())));
-          unsigned char elem_value =
-              metaSMT::read_value(_meta_solver, elem_exp);
-          *pos++ = elem_value;
+          aux_arr.push_back(elem_exp);
+        }
+        aux_arr_exprs.push_back(aux_arr);
+      }
+      assert(aux_arr_exprs.size() == objects.size());
+    }
+
+    // assume the negation of the query
+    // can be also asserted instead of assumed as we are in a child process
+    assumption(_meta_solver,
+               _builder->construct(Expr::createIsZero(query.expr)));
+    unsigned res = solve(_meta_solver);
+
+    if (res) {
+
+      if (MetaSMTBackend != METASMT_BACKEND_BOOLECTOR) {
+
+        for (std::vector<const Array *>::const_iterator it = objects.begin(),
+                                                        ie = objects.end();
+             it != ie; ++it) {
+
+          const Array *array = *it;
+          assert(array);
+          typename SolverContext::result_type array_exp =
+              _builder->getInitialArray(array);
+
+          for (unsigned offset = 0; offset < array->size; offset++) {
+
+            typename SolverContext::result_type elem_exp =
+                evaluate(_meta_solver,
+                         metaSMT::logic::Array::select(
+                             array_exp, bvuint(offset, array->getDomain())));
+            unsigned char elem_value =
+                metaSMT::read_value(_meta_solver, elem_exp);
+            *pos++ = elem_value;
+          }
+        }
+      } else {
+        typename std::vector<
+            std::vector<typename SolverContext::result_type> >::const_iterator
+        eit = aux_arr_exprs.begin(),
+        eie = aux_arr_exprs.end();
+        for (std::vector<const Array *>::const_iterator it = objects.begin(),
+                                                        ie = objects.end();
+             it != ie, eit != eie; ++it, ++eit) {
+          const Array *array = *it;
+          const std::vector<typename SolverContext::result_type> &arr_exp =
+              *eit;
+          assert(array);
+          assert(array->size == arr_exp.size());
+
+          for (unsigned offset = 0; offset < array->size; offset++) {
+            unsigned char elem_value =
+                metaSMT::read_value(_meta_solver, arr_exp[offset]);
+            *pos++ = elem_value;
+          }
         }
       }
     }
@@ -346,7 +391,7 @@ MetaSMTSolverImpl<SolverContext>::runAndGetCexForked(
 
     if (res < 0) {
       klee_warning("waitpid() for metaSMT failed");
-      return SolverImpl::SOLVER_RUN_STATUS_WAITPID_FAILED;
+      return (SolverImpl::SOLVER_RUN_STATUS_WAITPID_FAILED);
     }
 
     // From timed_run.py: It appears that linux at least will on
@@ -356,7 +401,7 @@ MetaSMTSolverImpl<SolverContext>::runAndGetCexForked(
       klee_warning(
           "error: metaSMT did not return successfully (status = %d) \n",
           WTERMSIG(status));
-      return SolverImpl::SOLVER_RUN_STATUS_INTERRUPTED;
+      return (SolverImpl::SOLVER_RUN_STATUS_INTERRUPTED);
     }
 
     int exitcode = WEXITSTATUS(status);
@@ -366,10 +411,10 @@ MetaSMTSolverImpl<SolverContext>::runAndGetCexForked(
       hasSolution = false;
     } else if (exitcode == 52) {
       klee_warning("metaSMT timed out");
-      return SolverImpl::SOLVER_RUN_STATUS_TIMEOUT;
+      return (SolverImpl::SOLVER_RUN_STATUS_TIMEOUT);
     } else {
       klee_warning("metaSMT did not return a recognized code");
-      return SolverImpl::SOLVER_RUN_STATUS_UNEXPECTED_EXIT_CODE;
+      return (SolverImpl::SOLVER_RUN_STATUS_UNEXPECTED_EXIT_CODE);
     }
 
     if (hasSolution) {
@@ -412,62 +457,18 @@ MetaSMTSolver<SolverContext>::~MetaSMTSolver() {}
 
 template <typename SolverContext>
 char *MetaSMTSolver<SolverContext>::getConstraintLog(const Query &query) {
-  return impl->getConstraintLog(query);
+  return (impl->getConstraintLog(query));
 }
 
 template <typename SolverContext>
-void MetaSMTSolver<SolverContext>::setCoreSolverTimeout(time::Span timeout) {
+void MetaSMTSolver<SolverContext>::setCoreSolverTimeout(double timeout) {
   impl->setCoreSolverTimeout(timeout);
 }
 
-Solver *createMetaSMTSolver() {
-  using namespace metaSMT;
-
-  Solver *coreSolver = NULL;
-  std::string backend;
-  switch (MetaSMTBackend) {
-#ifdef METASMT_HAVE_STP
-  case METASMT_BACKEND_STP:
-    backend = "STP";
-    coreSolver = new MetaSMTSolver<DirectSolver_Context<solver::STP_Backend> >(
-        UseForkedCoreSolver, CoreSolverOptimizeDivides);
-    break;
-#endif
-#ifdef METASMT_HAVE_Z3
-  case METASMT_BACKEND_Z3:
-    backend = "Z3";
-    coreSolver = new MetaSMTSolver<DirectSolver_Context<solver::Z3_Backend> >(
-        UseForkedCoreSolver, CoreSolverOptimizeDivides);
-    break;
-#endif
-#ifdef METASMT_HAVE_BTOR
-  case METASMT_BACKEND_BOOLECTOR:
-    backend = "Boolector";
-    coreSolver = new MetaSMTSolver<DirectSolver_Context<solver::Boolector> >(
-        UseForkedCoreSolver, CoreSolverOptimizeDivides);
-    break;
-#endif
-#ifdef METASMT_HAVE_CVC4
-  case METASMT_BACKEND_CVC4:
-    backend = "CVC4";
-    coreSolver = new MetaSMTSolver<DirectSolver_Context<solver::CVC4> >(
-        UseForkedCoreSolver, CoreSolverOptimizeDivides);
-    break;
-#endif
-#ifdef METASMT_HAVE_YICES2
-  case METASMT_BACKEND_YICES2:
-    backend = "Yices2";
-    coreSolver = new MetaSMTSolver<DirectSolver_Context<solver::Yices2> >(
-        UseForkedCoreSolver, CoreSolverOptimizeDivides);
-    break;
-#endif
-  default:
-    llvm_unreachable("Unrecognised MetaSMT backend");
-    break;
-  };
-  klee_message("Starting MetaSMTSolver(%s)", backend.c_str());
-  return coreSolver;
-}
-
+template class MetaSMTSolver<DirectSolver_Context<metaSMT::solver::Boolector> >;
+template class MetaSMTSolver<
+    DirectSolver_Context<metaSMT::solver::Z3_Backend> >;
+template class MetaSMTSolver<
+    DirectSolver_Context<metaSMT::solver::STP_Backend> >;
 }
 #endif // ENABLE_METASMT

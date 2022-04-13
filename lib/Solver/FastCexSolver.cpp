@@ -8,27 +8,29 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "cex-solver"
-#include "klee/Solver/Solver.h"
+#include "klee/Solver.h"
 
-#include "klee/Expr/Constraints.h"
-#include "klee/Expr/Expr.h"
-#include "klee/Expr/ExprEvaluator.h"
-#include "klee/Expr/ExprRangeEvaluator.h"
-#include "klee/Expr/ExprVisitor.h"
-#include "klee/Solver/IncompleteSolver.h"
-#include "klee/Support/Debug.h"
-#include "klee/Support/IntEvaluation.h" // FIXME: Use APInt
+#include "klee/Constraints.h"
+#include "klee/Expr.h"
+#include "klee/IncompleteSolver.h"
+#include "klee/util/ExprEvaluator.h"
+#include "klee/util/ExprRangeEvaluator.h"
+#include "klee/util/ExprVisitor.h"
+// FIXME: Use APInt.
+#include "klee/Internal/Support/Debug.h"
+#include "klee/Internal/Support/IntEvaluation.h"
 
 #include "llvm/Support/raw_ostream.h"
-
+#include <sstream>
 #include <cassert>
 #include <map>
-#include <sstream>
 #include <vector>
 
 using namespace klee;
 
-// Hacker's Delight, pgs 58-63
+/***/
+
+      // Hacker's Delight, pgs 58-63
 static uint64_t minOR(uint64_t a, uint64_t b,
                       uint64_t c, uint64_t d) {
   uint64_t temp, m = ((uint64_t) 1)<<63;
@@ -97,22 +99,17 @@ static uint64_t maxAND(uint64_t a, uint64_t b,
 
 class ValueRange {
 private:
-  std::uint64_t m_min = 1, m_max = 0;
+  uint64_t m_min, m_max;
 
 public:
-  ValueRange() noexcept = default;
+  ValueRange() : m_min(1),m_max(0) {}
   ValueRange(const ref<ConstantExpr> &ce) {
     // FIXME: Support large widths.
     m_min = m_max = ce->getLimitedValue();
   }
-  explicit ValueRange(std::uint64_t value) noexcept
-      : m_min(value), m_max(value) {}
-  ValueRange(std::uint64_t _min, std::uint64_t _max) noexcept
-      : m_min(_min), m_max(_max) {}
-  ValueRange(const ValueRange &other) noexcept = default;
-  ValueRange &operator=(const ValueRange &other) noexcept = default;
-  ValueRange(ValueRange &&other) noexcept = default;
-  ValueRange &operator=(ValueRange &&other) noexcept = default;
+  ValueRange(uint64_t value) : m_min(value), m_max(value) {}
+  ValueRange(uint64_t _min, uint64_t _max) : m_min(_min), m_max(_max) {}
+  ValueRange(const ValueRange &b) : m_min(b.m_min), m_max(b.m_max) {}
 
   void print(llvm::raw_ostream &os) const {
     if (isFixed()) {
@@ -122,38 +119,40 @@ public:
     }
   }
 
-  bool isEmpty() const noexcept { return m_min > m_max; }
-  bool contains(std::uint64_t value) const {
+  bool isEmpty() const { 
+    return m_min>m_max; 
+  }
+  bool contains(uint64_t value) const { 
     return this->intersects(ValueRange(value)); 
   }
   bool intersects(const ValueRange &b) const { 
     return !this->set_intersection(b).isEmpty(); 
   }
 
-  bool isFullRange(unsigned bits) const noexcept {
-    return m_min == 0 && m_max == bits64::maxValueOfNBits(bits);
+  bool isFullRange(unsigned bits) {
+    return m_min==0 && m_max==bits64::maxValueOfNBits(bits);
   }
 
   ValueRange set_intersection(const ValueRange &b) const {
-    return ValueRange(std::max(m_min, b.m_min), std::min(m_max, b.m_max));
+    return ValueRange(std::max(m_min,b.m_min), std::min(m_max,b.m_max));
   }
   ValueRange set_union(const ValueRange &b) const {
-    return ValueRange(std::min(m_min, b.m_min), std::max(m_max, b.m_max));
+    return ValueRange(std::min(m_min,b.m_min), std::max(m_max,b.m_max));
   }
   ValueRange set_difference(const ValueRange &b) const {
     if (b.isEmpty() || b.m_min > m_max || b.m_max < m_min) { // no intersection
       return *this;
     } else if (b.m_min <= m_min && b.m_max >= m_max) { // empty
-      return ValueRange(1, 0);
+      return ValueRange(1,0); 
     } else if (b.m_min <= m_min) { // one range out
       // cannot overflow because b.m_max < m_max
-      return ValueRange(b.m_max + 1, m_max);
+      return ValueRange(b.m_max+1, m_max);
     } else if (b.m_max >= m_max) {
       // cannot overflow because b.min > m_min
-      return ValueRange(m_min, b.m_min - 1);
+      return ValueRange(m_min, b.m_min-1);
     } else {
       // two ranges, take bottom
-      return ValueRange(m_min, b.m_min - 1);
+      return ValueRange(m_min, b.m_min-1);
     }
   }
   ValueRange binaryAnd(const ValueRange &b) const {
@@ -166,9 +165,7 @@ public:
                         maxAND(m_min, m_max, b.m_min, b.m_max));
     }
   }
-  ValueRange binaryAnd(std::uint64_t b) const {
-    return binaryAnd(ValueRange(b));
-  }
+  ValueRange binaryAnd(uint64_t b) const { return binaryAnd(ValueRange(b)); }
   ValueRange binaryOr(ValueRange b) const {
     // XXX
     assert(!isEmpty() && !b.isEmpty() && "XXX");
@@ -179,31 +176,30 @@ public:
                         maxOR(m_min, m_max, b.m_min, b.m_max));
     }
   }
-  ValueRange binaryOr(std::uint64_t b) const { return binaryOr(ValueRange(b)); }
+  ValueRange binaryOr(uint64_t b) const { return binaryOr(ValueRange(b)); }
   ValueRange binaryXor(ValueRange b) const {
     if (isFixed() && b.isFixed()) {
       return ValueRange(m_min ^ b.m_min);
     } else {
-      std::uint64_t t = m_max | b.m_max;
+      uint64_t t = m_max | b.m_max;
       while (!bits64::isPowerOfTwo(t))
         t = bits64::withoutRightmostBit(t);
-      return ValueRange(0, (t << 1) - 1);
+      return ValueRange(0, (t<<1)-1);
     }
   }
 
   ValueRange binaryShiftLeft(unsigned bits) const {
-    return ValueRange(m_min << bits, m_max << bits);
+    return ValueRange(m_min<<bits, m_max<<bits);
   }
   ValueRange binaryShiftRight(unsigned bits) const {
-    return ValueRange(m_min >> bits, m_max >> bits);
+    return ValueRange(m_min>>bits, m_max>>bits);
   }
 
   ValueRange concat(const ValueRange &b, unsigned bits) const {
     return binaryShiftLeft(bits).binaryOr(b);
   }
-  ValueRange extract(std::uint64_t lowBit, std::uint64_t maxBit) const {
-    return binaryShiftRight(lowBit).binaryAnd(
-        bits64::maxValueOfNBits(maxBit - lowBit));
+  ValueRange extract(uint64_t lowBit, uint64_t maxBit) const {
+    return binaryShiftRight(lowBit).binaryAnd(bits64::maxValueOfNBits(maxBit-lowBit));
   }
 
   ValueRange add(const ValueRange &b, unsigned width) const {
@@ -230,44 +226,40 @@ public:
 
   // use min() to get value if true (XXX should we add a method to
   // make code clearer?)
-  bool isFixed() const noexcept { return m_min == m_max; }
+  bool isFixed() const { return m_min==m_max; }
 
-  bool operator==(const ValueRange &b) const noexcept {
-    return m_min == b.m_min && m_max == b.m_max;
+  bool operator==(const ValueRange &b) const { 
+    return m_min==b.m_min && m_max==b.m_max; 
   }
-  bool operator!=(const ValueRange &b) const noexcept { return !(*this == b); }
+  bool operator!=(const ValueRange &b) const { return !(*this==b); }
 
-  bool mustEqual(const std::uint64_t b) const noexcept {
-    return m_min == m_max && m_min == b;
-  }
-  bool mayEqual(const std::uint64_t b) const noexcept {
-    return m_min <= b && m_max >= b;
-  }
+  bool mustEqual(const uint64_t b) const { return m_min==m_max && m_min==b; }
+  bool mayEqual(const uint64_t b) const { return m_min<=b && m_max>=b; }
   
-  bool mustEqual(const ValueRange &b) const noexcept {
-    return isFixed() && b.isFixed() && m_min == b.m_min;
+  bool mustEqual(const ValueRange &b) const { 
+    return isFixed() && b.isFixed() && m_min==b.m_min; 
   }
   bool mayEqual(const ValueRange &b) const { return this->intersects(b); }
 
-  std::uint64_t min() const noexcept {
+  uint64_t min() const { 
     assert(!isEmpty() && "cannot get minimum of empty range");
     return m_min; 
   }
 
-  std::uint64_t max() const noexcept {
+  uint64_t max() const { 
     assert(!isEmpty() && "cannot get maximum of empty range");
     return m_max; 
   }
   
-  std::int64_t minSigned(unsigned bits) const {
-    assert((m_min >> bits) == 0 && (m_max >> bits) == 0 &&
+  int64_t minSigned(unsigned bits) const {
+    assert((m_min>>bits)==0 && (m_max>>bits)==0 &&
            "range is outside given number of bits");
 
     // if max allows sign bit to be set then it can be smallest value,
     // otherwise since the range is not empty, min cannot have a sign
     // bit
 
-    std::uint64_t smallest = (static_cast<std::uint64_t>(1) << (bits - 1));
+    uint64_t smallest = ((uint64_t) 1 << (bits-1));
     if (m_max >= smallest) {
       return ints::sext(smallest, 64, bits);
     } else {
@@ -275,11 +267,11 @@ public:
     }
   }
 
-  std::int64_t maxSigned(unsigned bits) const {
-    assert((m_min >> bits) == 0 && (m_max >> bits) == 0 &&
+  int64_t maxSigned(unsigned bits) const {
+    assert((m_min>>bits)==0 && (m_max>>bits)==0 &&
            "range is outside given number of bits");
 
-    std::uint64_t smallest = (static_cast<std::uint64_t>(1) << (bits - 1));
+    uint64_t smallest = ((uint64_t) 1 << (bits-1));
 
     // if max and min have sign bit then max is max, otherwise if only
     // max has sign bit then max is largest signed integer, otherwise
@@ -804,8 +796,8 @@ public:
       const Array *array = re->updates.root;
       CexObjectData &cod = getObjectData(array);
       CexValueData index = evalRangeForExpr(re->index);
-
-      for (const auto *un = re->updates.head.get(); un; un = un->next.get()) {
+        
+      for (const UpdateNode *un = re->updates.head; un; un = un->next) {
         CexValueData ui = evalRangeForExpr(un->index);
 
         // If these indices can't alias, continue propogation
@@ -979,12 +971,14 @@ public:
   FastCexSolver();
   ~FastCexSolver();
 
-  IncompleteSolver::PartialValidity computeTruth(const Query&);  
+  IncompleteSolver::PartialValidity
+  computeTruth(const Query &, std::vector<ref<Expr> > &unsatCore);
   bool computeValue(const Query&, ref<Expr> &result);
-  bool computeInitialValues(const Query&,
-                            const std::vector<const Array*> &objects,
-                            std::vector< std::vector<unsigned char> > &values,
-                            bool &hasSolution);
+  bool computeInitialValues(const Query &,
+                            const std::vector<const Array *> &objects,
+                            std::vector<std::vector<unsigned char> > &values,
+                            bool &hasSolution,
+                            std::vector<ref<Expr> > &unsatCore);
 };
 
 FastCexSolver::FastCexSolver() { }
@@ -1005,11 +999,12 @@ FastCexSolver::~FastCexSolver() { }
 /// constraints were proven valid or invalid.
 ///
 /// \return - True if the propogation was able to prove validity or invalidity.
-static bool propogateValues(const Query& query, CexData &cd, 
-                            bool checkExpr, bool &isValid) {
-  for (const auto &constraint : query.constraints) {
-    cd.propogatePossibleValue(constraint, 1);
-    cd.propogateExactValue(constraint, 1);
+static bool propogateValues(const Query &query, CexData &cd, bool checkExpr,
+                            bool &isValid, std::vector<ref<Expr> > &unsatCore) {
+  for (ConstraintManager::const_iterator it = query.constraints.begin(), 
+         ie = query.constraints.end(); it != ie; ++it) {
+    cd.propogatePossibleValue(*it, 1);
+    cd.propogateExactValue(*it, 1);
   }
   if (checkExpr) {
     cd.propogatePossibleValue(query.expr, 0);
@@ -1031,13 +1026,14 @@ static bool propogateValues(const Query& query, CexData &cd,
     }
   }
 
-  for (const auto &constraint : query.constraints) {
-    if (hasSatisfyingAssignment && !cd.evaluatePossible(constraint)->isTrue())
+  for (ConstraintManager::const_iterator it = query.constraints.begin(), 
+         ie = query.constraints.end(); it != ie; ++it) {
+    if (hasSatisfyingAssignment && !cd.evaluatePossible(*it)->isTrue())
       hasSatisfyingAssignment = false;
 
     // If this constraint is known to be false, then we can prove anything, so
     // the query is valid.
-    if (cd.evaluateExact(constraint)->isFalse()) {
+    if (cd.evaluateExact(*it)->isFalse()) {
       isValid = true;
       return true;
     }
@@ -1051,12 +1047,13 @@ static bool propogateValues(const Query& query, CexData &cd,
   return false;
 }
 
-IncompleteSolver::PartialValidity 
-FastCexSolver::computeTruth(const Query& query) {
+IncompleteSolver::PartialValidity
+FastCexSolver::computeTruth(const Query &query,
+                            std::vector<ref<Expr> > &unsatCore) {
   CexData cd;
 
   bool isValid;
-  bool success = propogateValues(query, cd, true, isValid);
+  bool success = propogateValues(query, cd, true, isValid, unsatCore);
 
   if (!success)
     return IncompleteSolver::None;
@@ -1068,7 +1065,8 @@ bool FastCexSolver::computeValue(const Query& query, ref<Expr> &result) {
   CexData cd;
 
   bool isValid;
-  bool success = propogateValues(query, cd, false, isValid);
+  std::vector<ref<Expr> > unsatCore;
+  bool success = propogateValues(query, cd, false, isValid, unsatCore);
 
   // Check if propogation wasn't able to determine anything.
   if (!success)
@@ -1090,17 +1088,14 @@ bool FastCexSolver::computeValue(const Query& query, ref<Expr> &result) {
   }
 }
 
-bool
-FastCexSolver::computeInitialValues(const Query& query,
-                                    const std::vector<const Array*>
-                                      &objects,
-                                    std::vector< std::vector<unsigned char> >
-                                      &values,
-                                    bool &hasSolution) {
+bool FastCexSolver::computeInitialValues(
+    const Query &query, const std::vector<const Array *> &objects,
+    std::vector<std::vector<unsigned char> > &values, bool &hasSolution,
+    std::vector<ref<Expr> > &unsatCore) {
   CexData cd;
 
   bool isValid;
-  bool success = propogateValues(query, cd, true, isValid);
+  bool success = propogateValues(query, cd, true, isValid, unsatCore);
 
   // Check if propogation wasn't able to determine anything.
   if (!success)

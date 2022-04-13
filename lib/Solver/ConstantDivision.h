@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef KLEE_CONSTANTDIVISION_H
-#define KLEE_CONSTANTDIVISION_H
+#ifndef __UTIL_CONSTANTDIVISION_H__
+#define __UTIL_CONSTANTDIVISION_H__
 
 #include <stdint.h>
 
@@ -48,4 +48,4 @@ void ComputeSDivConstants32(int32_t d, int32_t &mprime, int32_t &dsign,
 
 }
 
-#endif /* KLEE_CONSTANTDIVISION_H */
+#endif

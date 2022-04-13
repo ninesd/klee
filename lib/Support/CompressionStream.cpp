@@ -9,49 +9,47 @@
 #include "klee/Config/config.h"
 #include "klee/Config/Version.h"
 #ifdef HAVE_ZLIB_H
-#include "klee/Support/CompressionStream.h"
-
-#include "llvm/Support/FileSystem.h"
-
+#include "klee/Internal/Support/CompressionStream.h"
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+#include "llvm/Support/system_error.h"
+#else
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
+#endif
 
 namespace klee {
 
-compressed_fd_ostream::compressed_fd_ostream(const std::string &Filename,
+compressed_fd_ostream::compressed_fd_ostream(const char *Filename,
                                              std::string &ErrorInfo)
     : llvm::raw_ostream(), pos(0) {
   ErrorInfo = "";
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
   // Open file in binary mode
-#if LLVM_VERSION_CODE >= LLVM_VERSION(7, 0)
-  std::error_code EC =
-      llvm::sys::fs::openFileForWrite(Filename, FD);
-#else
-  std::error_code EC =
-      llvm::sys::fs::openFileForWrite(Filename, FD, llvm::sys::fs::F_None);
-#endif
+  llvm::error_code EC =
+      llvm::sys::fs::openFileForWrite(Filename, FD, llvm::sys::fs::F_Binary);
+
   if (EC) {
     ErrorInfo = EC.message();
     FD = -1;
-    return;
   }
+#else
+  FD = ::open(Filename, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+  if (FD < 0) {
+    ErrorInfo = "Could not open file.";
+    FD = -1;
+  }
+#endif
   // Initialize the compression library
-  strm.zalloc = Z_NULL;
-  strm.zfree = Z_NULL;
-  strm.opaque = Z_NULL;
-  strm.next_in = Z_NULL;
+  strm.zalloc = 0;
+  strm.zfree = 0;
   strm.next_out = buffer;
-  strm.avail_in = 0;
   strm.avail_out = BUFSIZE;
 
-  const auto ret = deflateInit2(&strm, Z_BEST_COMPRESSION, Z_DEFLATED, 31,
-                                8 /* memory usage default, 0 smallest, 9 highest*/,
-                                Z_DEFAULT_STRATEGY);
-  if (ret != Z_OK)
-    ErrorInfo = "Deflate initialisation returned with error: " + std::to_string(ret);
+  deflateInit2(&strm, Z_BEST_COMPRESSION, Z_DEFLATED, 15 | 16,
+               8 /* memory usage default, 0 smalles, 9 highest*/,
+               Z_DEFAULT_STRATEGY);
 }
 
 void compressed_fd_ostream::writeFullCompressedData() {
@@ -95,7 +93,7 @@ void compressed_fd_ostream::write_impl(const char *Ptr, size_t Size) {
   // Check if there is still data to compress
   while (strm.avail_in != 0) {
     // compress data
-    const auto res __attribute__ ((unused)) = deflate(&strm, Z_NO_FLUSH);
+    int res = deflate(&strm, Z_NO_FLUSH);
     assert(res == Z_OK);
     writeFullCompressedData();
   }

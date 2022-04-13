@@ -10,7 +10,7 @@
 #ifndef KLEE_CORESTATS_H
 #define KLEE_CORESTATS_H
 
-#include "klee/Statistics/Statistic.h"
+#include "klee/Statistic.h"
 
 namespace klee {
 namespace stats {
@@ -50,4 +50,4 @@ namespace stats {
 }
 }
 
-#endif /* KLEE_CORESTATS_H */
+#endif

@@ -8,15 +8,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "AddressSpace.h"
-
-#include "ExecutionState.h"
+#include "CoreStats.h"
 #include "Memory.h"
 #include "TimingSolver.h"
 
-#include "klee/Expr/Expr.h"
-#include "klee/Statistics/TimerStatIncrementer.h"
-
-#include "CoreStats.h"
+#include "klee/Expr.h"
+#include "klee/TimerStatIncrementer.h"
 
 using namespace klee;
 
@@ -33,40 +30,39 @@ void AddressSpace::unbindObject(const MemoryObject *mo) {
 }
 
 const ObjectState *AddressSpace::findObject(const MemoryObject *mo) const {
-  const auto res = objects.lookup(mo);
-  return res ? res->second.get() : nullptr;
+  const MemoryMap::value_type *res = objects.lookup(mo);
+  
+  return res ? res->second : 0;
 }
 
 ObjectState *AddressSpace::getWriteable(const MemoryObject *mo,
                                         const ObjectState *os) {
   assert(!os->readOnly);
 
-  // If this address space owns they object, return it
-  if (cowKey == os->copyOnWriteOwner)
+  if (cowKey==os->copyOnWriteOwner) {
     return const_cast<ObjectState*>(os);
-
-  // Add a copy of this object state that can be updated
-  ref<ObjectState> newObjectState(new ObjectState(*os));
-  newObjectState->copyOnWriteOwner = cowKey;
-  objects = objects.replace(std::make_pair(mo, newObjectState));
-  return newObjectState.get();
+  } else {
+    ObjectState *n = new ObjectState(*os);
+    n->copyOnWriteOwner = cowKey;
+    objects = objects.replace(std::make_pair(mo, n));
+    return n;    
+  }
 }
 
 /// 
 
 bool AddressSpace::resolveOne(const ref<ConstantExpr> &addr, 
-                              ObjectPair &result) const {
+                              ObjectPair &result) {
   uint64_t address = addr->getZExtValue();
   MemoryObject hack(address);
 
-  if (const auto res = objects.lookup_previous(&hack)) {
-    const auto &mo = res->first;
+  if (const MemoryMap::value_type *res = objects.lookup_previous(&hack)) {
+    const MemoryObject *mo = res->first;
     // Check if the provided address is between start and end of the object
     // [mo->address, mo->address + mo->size) or the object is a 0-sized object.
     if ((mo->size==0 && address==mo->address) ||
         (address - mo->address < mo->size)) {
-      result.first = res->first;
-      result.second = res->second.get();
+      result = *res;
       return true;
     }
   }
@@ -78,7 +74,7 @@ bool AddressSpace::resolveOne(ExecutionState &state,
                               TimingSolver *solver,
                               ref<Expr> address,
                               ObjectPair &result,
-                              bool &success) const {
+                              bool &success) {
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(address)) {
     success = resolveOne(CE, result);
     return true;
@@ -88,17 +84,16 @@ bool AddressSpace::resolveOne(ExecutionState &state,
     // try cheap search, will succeed for any inbounds pointer
 
     ref<ConstantExpr> cex;
-    if (!solver->getValue(state.constraints, address, cex, state.queryMetaData))
+    if (!solver->getValue(state, address, cex))
       return false;
     uint64_t example = cex->getZExtValue();
     MemoryObject hack(example);
-    const auto res = objects.lookup_previous(&hack);
-
+    const MemoryMap::value_type *res = objects.lookup_previous(&hack);
+    
     if (res) {
       const MemoryObject *mo = res->first;
       if (example - mo->address < mo->size) {
-        result.first = res->first;
-        result.second = res->second.get();
+        result = *res;
         success = true;
         return true;
       }
@@ -113,23 +108,21 @@ bool AddressSpace::resolveOne(ExecutionState &state,
     MemoryMap::iterator start = oi;
     while (oi!=begin) {
       --oi;
-      const auto &mo = oi->first;
-
+      const MemoryObject *mo = oi->first;
+        
       bool mayBeTrue;
-      if (!solver->mayBeTrue(state.constraints,
-                             mo->getBoundsCheckPointer(address), mayBeTrue,
-                             state.queryMetaData))
+      if (!solver->mayBeTrue(state, 
+                             mo->getBoundsCheckPointer(address), mayBeTrue))
         return false;
       if (mayBeTrue) {
-        result.first = oi->first;
-        result.second = oi->second.get();
+        result = *oi;
         success = true;
         return true;
       } else {
         bool mustBeTrue;
-        if (!solver->mustBeTrue(state.constraints,
+        if (!solver->mustBeTrue(state, 
                                 UgeExpr::create(address, mo->getBaseExpr()),
-                                mustBeTrue, state.queryMetaData))
+                                mustBeTrue))
           return false;
         if (mustBeTrue)
           break;
@@ -138,25 +131,24 @@ bool AddressSpace::resolveOne(ExecutionState &state,
 
     // search forwards
     for (oi=start; oi!=end; ++oi) {
-      const auto &mo = oi->first;
+      const MemoryObject *mo = oi->first;
 
       bool mustBeTrue;
-      if (!solver->mustBeTrue(state.constraints,
+      if (!solver->mustBeTrue(state, 
                               UltExpr::create(address, mo->getBaseExpr()),
-                              mustBeTrue, state.queryMetaData))
+                              mustBeTrue))
         return false;
       if (mustBeTrue) {
         break;
       } else {
         bool mayBeTrue;
 
-        if (!solver->mayBeTrue(state.constraints,
-                               mo->getBoundsCheckPointer(address), mayBeTrue,
-                               state.queryMetaData))
+        if (!solver->mayBeTrue(state, 
+                               mo->getBoundsCheckPointer(address),
+                               mayBeTrue))
           return false;
         if (mayBeTrue) {
-          result.first = oi->first;
-          result.second = oi->second.get();
+          result = *oi;
           success = true;
           return true;
         }
@@ -168,45 +160,12 @@ bool AddressSpace::resolveOne(ExecutionState &state,
   }
 }
 
-int AddressSpace::checkPointerInObject(ExecutionState &state,
-                                       TimingSolver *solver, ref<Expr> p,
-                                       const ObjectPair &op, ResolutionList &rl,
-                                       unsigned maxResolutions) const {
-  // XXX in the common case we can save one query if we ask
-  // mustBeTrue before mayBeTrue for the first result. easy
-  // to add I just want to have a nice symbolic test case first.
-  const MemoryObject *mo = op.first;
-  ref<Expr> inBounds = mo->getBoundsCheckPointer(p);
-  bool mayBeTrue;
-  if (!solver->mayBeTrue(state.constraints, inBounds, mayBeTrue,
-                         state.queryMetaData)) {
-    return 1;
-  }
-
-  if (mayBeTrue) {
-    rl.push_back(op);
-
-    // fast path check
-    auto size = rl.size();
-    if (size == 1) {
-      bool mustBeTrue;
-      if (!solver->mustBeTrue(state.constraints, inBounds, mustBeTrue,
-                              state.queryMetaData))
-        return 1;
-      if (mustBeTrue)
-        return 0;
-    }
-    else
-      if (size == maxResolutions)
-        return 1;
-  }
-
-  return 2;
-}
-
-bool AddressSpace::resolve(ExecutionState &state, TimingSolver *solver,
-                           ref<Expr> p, ResolutionList &rl,
-                           unsigned maxResolutions, time::Span timeout) const {
+bool AddressSpace::resolve(ExecutionState &state,
+                           TimingSolver *solver, 
+                           ref<Expr> p, 
+                           ResolutionList &rl, 
+                           unsigned maxResolutions,
+                           double timeout) {
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(p)) {
     ObjectPair res;
     if (resolveOne(CE, res))
@@ -214,77 +173,112 @@ bool AddressSpace::resolve(ExecutionState &state, TimingSolver *solver,
     return false;
   } else {
     TimerStatIncrementer timer(stats::resolveTime);
+    uint64_t timeout_us = (uint64_t) (timeout*1000000.);
 
     // XXX in general this isn't exactly what we want... for
     // a multiple resolution case (or for example, a \in {b,c,0})
     // we want to find the first object, find a cex assuming
     // not the first, find a cex assuming not the second...
     // etc.
-
+    
     // XXX how do we smartly amortize the cost of checking to
     // see if we need to keep searching up/down, in bad cases?
     // maybe we don't care?
-
+    
     // XXX we really just need a smart place to start (although
     // if its a known solution then the code below is guaranteed
     // to hit the fast path with exactly 2 queries). we could also
     // just get this by inspection of the expr.
-
+    
     ref<ConstantExpr> cex;
-    if (!solver->getValue(state.constraints, p, cex, state.queryMetaData))
+    if (!solver->getValue(state, p, cex))
       return true;
     uint64_t example = cex->getZExtValue();
     MemoryObject hack(example);
-
+    
     MemoryMap::iterator oi = objects.upper_bound(&hack);
     MemoryMap::iterator begin = objects.begin();
     MemoryMap::iterator end = objects.end();
-
+      
     MemoryMap::iterator start = oi;
+      
+    // XXX in the common case we can save one query if we ask
+    // mustBeTrue before mayBeTrue for the first result. easy
+    // to add I just want to have a nice symbolic test case first.
+      
     // search backwards, start with one minus because this
     // is the object that p *should* be within, which means we
-    // get write off the end with 4 queries
-    while (oi != begin) {
+    // get write off the end with 4 queries (XXX can be better,
+    // no?)
+    while (oi!=begin) {
       --oi;
       const MemoryObject *mo = oi->first;
-      if (timeout && timeout < timer.delta())
+      if (timeout_us && timeout_us < timer.check())
         return true;
 
-      auto op = std::make_pair<>(mo, oi->second.get());
-
-      int incomplete =
-          checkPointerInObject(state, solver, p, op, rl, maxResolutions);
-      if (incomplete != 2)
-        return incomplete ? true : false;
-
+      // XXX I think there is some query wasteage here?
+      ref<Expr> inBounds = mo->getBoundsCheckPointer(p);
+      bool mayBeTrue;
+      if (!solver->mayBeTrue(state, inBounds, mayBeTrue))
+        return true;
+      if (mayBeTrue) {
+        rl.push_back(*oi);
+        
+        // fast path check
+        unsigned size = rl.size();
+        if (size==1) {
+          bool mustBeTrue;
+          if (!solver->mustBeTrue(state, inBounds, mustBeTrue))
+            return true;
+          if (mustBeTrue)
+            return false;
+        } else if (size==maxResolutions) {
+          return true;
+        }
+      }
+        
       bool mustBeTrue;
-      if (!solver->mustBeTrue(state.constraints,
-                              UgeExpr::create(p, mo->getBaseExpr()), mustBeTrue,
-                              state.queryMetaData))
+      if (!solver->mustBeTrue(state, 
+                              UgeExpr::create(p, mo->getBaseExpr()),
+                              mustBeTrue))
         return true;
       if (mustBeTrue)
         break;
     }
-
     // search forwards
-    for (oi = start; oi != end; ++oi) {
+    for (oi=start; oi!=end; ++oi) {
       const MemoryObject *mo = oi->first;
-      if (timeout && timeout < timer.delta())
+      if (timeout_us && timeout_us < timer.check())
         return true;
 
       bool mustBeTrue;
-      if (!solver->mustBeTrue(state.constraints,
-                              UltExpr::create(p, mo->getBaseExpr()), mustBeTrue,
-                              state.queryMetaData))
+      if (!solver->mustBeTrue(state, 
+                              UltExpr::create(p, mo->getBaseExpr()),
+                              mustBeTrue))
         return true;
       if (mustBeTrue)
         break;
-      auto op = std::make_pair<>(mo, oi->second.get());
-
-      int incomplete =
-          checkPointerInObject(state, solver, p, op, rl, maxResolutions);
-      if (incomplete != 2)
-        return incomplete ? true : false;
+      
+      // XXX I think there is some query wasteage here?
+      ref<Expr> inBounds = mo->getBoundsCheckPointer(p);
+      bool mayBeTrue;
+      if (!solver->mayBeTrue(state, inBounds, mayBeTrue))
+        return true;
+      if (mayBeTrue) {
+        rl.push_back(*oi);
+        
+        // fast path check
+        unsigned size = rl.size();
+        if (size==1) {
+          bool mustBeTrue;
+          if (!solver->mustBeTrue(state, inBounds, mustBeTrue))
+            return true;
+          if (mustBeTrue)
+            return false;
+        } else if (size==maxResolutions) {
+          return true;
+        }
+      }
     }
   }
 
@@ -303,8 +297,8 @@ void AddressSpace::copyOutConcretes() {
     const MemoryObject *mo = it->first;
 
     if (!mo->isUserSpecified) {
-      const auto &os = it->second;
-      auto address = reinterpret_cast<std::uint8_t*>(mo->address);
+      ObjectState *os = it->second;
+      uint8_t *address = (uint8_t*) (unsigned long) mo->address;
 
       if (!os->readOnly)
         memcpy(address, os->concreteStore, mo->size);
@@ -313,31 +307,25 @@ void AddressSpace::copyOutConcretes() {
 }
 
 bool AddressSpace::copyInConcretes() {
-  for (auto &obj : objects) {
-    const MemoryObject *mo = obj.first;
+  for (MemoryMap::iterator it = objects.begin(), ie = objects.end(); 
+       it != ie; ++it) {
+    const MemoryObject *mo = it->first;
 
     if (!mo->isUserSpecified) {
-      const auto &os = obj.second;
+      const ObjectState *os = it->second;
+      uint8_t *address = (uint8_t*) (unsigned long) mo->address;
 
-      if (!copyInConcrete(mo, os.get(), mo->address))
-        return false;
+      if (memcmp(address, os->concreteStore, mo->size)!=0) {
+        if (os->readOnly) {
+          return false;
+        } else {
+          ObjectState *wos = getWriteable(mo, os);
+          memcpy(wos->concreteStore, address, mo->size);
+        }
+      }
     }
   }
 
-  return true;
-}
-
-bool AddressSpace::copyInConcrete(const MemoryObject *mo, const ObjectState *os,
-                                  uint64_t src_address) {
-  auto address = reinterpret_cast<std::uint8_t*>(src_address);
-  if (memcmp(address, os->concreteStore, mo->size) != 0) {
-    if (os->readOnly) {
-      return false;
-    } else {
-      ObjectState *wos = getWriteable(mo, os);
-      memcpy(wos->concreteStore, address, mo->size);
-    }
-  }
   return true;
 }
 

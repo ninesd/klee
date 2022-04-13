@@ -10,7 +10,7 @@
 #ifndef KLEE_CONTEXT_H
 #define KLEE_CONTEXT_H
 
-#include "klee/Expr/Expr.h"
+#include "klee/Expr.h"
 
 namespace klee {
 
@@ -28,7 +28,7 @@ namespace klee {
     
   public:
     Context() {}
-
+    
     /// initialize - Construct the global Context instance.
     static void initialize(bool IsLittleEndian, Expr::Width PointerWidth);
 
@@ -37,10 +37,9 @@ namespace klee {
 
     bool isLittleEndian() const { return IsLittleEndian; }
 
-    /// Returns width of the pointer in bits
     Expr::Width getPointerWidth() const { return PointerWidth; }
   };
   
 } // End klee namespace
 
-#endif /* KLEE_CONTEXT_H */
+#endif

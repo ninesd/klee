@@ -7,13 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "klee/Expr/ExprEvaluator.h"
+#include "klee/util/ExprEvaluator.h"
 
 using namespace klee;
 
 ExprVisitor::Action ExprEvaluator::evalRead(const UpdateList &ul,
                                             unsigned index) {
-  for (auto un = ul.head; un; un = un->next) {
+  for (const UpdateNode *un=ul.head; un; un=un->next) {
     ref<Expr> ui = visit(un->index);
     
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(ui)) {

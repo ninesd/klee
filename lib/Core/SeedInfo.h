@@ -10,7 +10,7 @@
 #ifndef KLEE_SEEDINFO_H
 #define KLEE_SEEDINFO_H
 
-#include "klee/Expr/Assignment.h"
+#include "klee/util/Assignment.h"
 
 extern "C" {
   struct KTest;
@@ -20,7 +20,6 @@ extern "C" {
 namespace klee {
   class ExecutionState;
   class TimingSolver;
-  class MemoryObject;
 
   class SeedInfo {
   public:
@@ -46,4 +45,4 @@ namespace klee {
   };
 }
 
-#endif /* KLEE_SEEDINFO_H */
+#endif

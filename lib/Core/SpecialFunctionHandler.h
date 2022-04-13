@@ -10,12 +10,11 @@
 #ifndef KLEE_SPECIALFUNCTIONHANDLER_H
 #define KLEE_SPECIALFUNCTIONHANDLER_H
 
-#include "klee/Config/config.h"
-
+#include "TxTree.h"
 #include <iterator>
 #include <map>
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace llvm {
   class Function;
@@ -70,7 +69,22 @@ namespace klee {
     static const_iterator end();
     static int size();
 
+    // const_iterator to iterate over stored HandlerInfo
+    // FIXME: Implement >, >=, <=, < operators
+    class persistentObject {
+    private:
+      std::vector<std::vector<int> > objects;
+      int count;
 
+    public:
+      void insert(std::vector<int> items) { objects.push_back(items); }
+      bool contains(std::vector<int> items) {
+        return std::find(objects.begin(), objects.end(), items) !=
+               objects.end();
+      }
+    };
+
+    persistentObject po;
 
   public:
     SpecialFunctionHandler(Executor &_executor);
@@ -79,10 +93,7 @@ namespace klee {
     /// prepared for execution. At the moment this involves deleting
     /// unused function bodies and marking intrinsics with appropriate
     /// flags for use in optimizations.
-    ///
-    /// @param preservedFunctions contains all the function names which should
-    /// be preserved during optimization
-    void prepare(std::vector<const char *> &preservedFunctions);
+    void prepare();
 
     /// Initialize the internal handler map after the module has been
     /// prepared for execution.
@@ -105,19 +116,20 @@ namespace klee {
     HANDLER(handleAbort);
     HANDLER(handleAssert);
     HANDLER(handleAssertFail);
-    HANDLER(handleTrigger);
     HANDLER(handleAssume);
     HANDLER(handleCalloc);
     HANDLER(handleCheckMemoryAccess);
+    HANDLER(handleDebugState);
+    HANDLER(handleDebugStateOff);
+    HANDLER(handleDebugSubsumption);
+    HANDLER(handleDebugSubsumptionOff);
+    HANDLER(handleMemoCheck);
+    HANDLER(handleMemo);
     HANDLER(handleDefineFixedObject);
     HANDLER(handleDelete);    
     HANDLER(handleDeleteArray);
-#ifdef SUPPORT_KLEE_EH_CXX
-    HANDLER(handleEhUnwindRaiseExceptionImpl);
-    HANDLER(handleEhTypeid);
-#endif
-    HANDLER(handleErrnoLocation);
     HANDLER(handleExit);
+    HANDLER(handleAliasFunction);
     HANDLER(handleFree);
     HANDLER(handleGetErrno);
     HANDLER(handleGetObjSize);
@@ -125,10 +137,8 @@ namespace klee {
     HANDLER(handleIsSymbolic);
     HANDLER(handleMakeSymbolic);
     HANDLER(handleMalloc);
-    HANDLER(handleMemalign);
     HANDLER(handleMarkGlobal);
-    HANDLER(handleOpenMerge);
-    HANDLER(handleCloseMerge);
+    HANDLER(handleMerge);
     HANDLER(handleNew);
     HANDLER(handleNewArray);
     HANDLER(handlePreferCex);
@@ -149,17 +159,8 @@ namespace klee {
     HANDLER(handleMulOverflow);
     HANDLER(handleSubOverflow);
     HANDLER(handleDivRemOverflow);
-    HANDLER(handleIsNaN);
-    HANDLER(handleIsInfinite);
-    HANDLER(handleIsNormal);
-    HANDLER(handleIsSubnormal);
-    HANDLER(handleGetRoundingMode);
-    HANDLER(handleSetConcreteRoundingMode);
-    HANDLER(handleSqrt);
-    HANDLER(handleFAbs);
-    HANDLER(handleRint);
 #undef HANDLER
   };
 } // End klee namespace
 
-#endif /* KLEE_SPECIALFUNCTIONHANDLER_H */
+#endif

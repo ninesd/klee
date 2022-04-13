@@ -1,28 +1,18 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 
+from __future__ import print_function
 import argparse
 import os
-import platform
 import subprocess
 import sys
 import shutil
 
 def testFile(name, klee_path, lli_path):
-    print("CWD: \"{}\"".format(os.getcwd()))
     baseName,ext = os.path.splitext(name)
     exeFile = 'Output/linked_%s.bc'%baseName
 
-    if platform.system() == 'FreeBSD':
-        make_prog = 'gmake'
-    else:
-        make_prog = 'make'
-
     print('-- building test bitcode --')
-    if os.path.exists("Makefile.cmake.test"):
-        # Prefer CMake generated make file
-        make_cmd = '%s -f Makefile.cmake.test %s 2>&1' % (make_prog, exeFile,)
-    else:
-        make_cmd = '%s %s 2>&1' % (make_prog, exeFile,)
+    make_cmd = 'make %s 2>&1' % (exeFile,)
     print("EXECUTING: %s" % (make_cmd,))
     sys.stdout.flush()
     if os.system(make_cmd):
@@ -32,6 +22,7 @@ def testFile(name, klee_path, lli_path):
     lli_cmd = [lli_path, '-force-interpreter=true', exeFile]
     print("EXECUTING: %s" % (lli_cmd,))
 
+    # Decode is for python 3.x
     lliOut = subprocess.check_output(lli_cmd).decode()
     print('-- lli output --\n%s--\n' % (lliOut,))
 
@@ -39,10 +30,11 @@ def testFile(name, klee_path, lli_path):
     klee_out_path = "Output/%s.klee-out" % (baseName,)
     if os.path.exists(klee_out_path):
         shutil.rmtree(klee_out_path)
-    klee_cmd = klee_path.split() + ['--output-dir=' + klee_out_path,  '--write-no-tests', exeFile]
+    klee_cmd = klee_path.split() + ['--output-dir=' + klee_out_path,  '--no-output', exeFile]
     print("EXECUTING: %s" % (klee_cmd,))
     sys.stdout.flush()
 
+    # Decode is for python 3.x
     kleeOut = subprocess.check_output(klee_cmd).decode()
     print('-- klee output --\n%s--\n' % (kleeOut,))
         

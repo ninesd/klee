@@ -10,12 +10,13 @@
 #include "ImpliedValue.h"
 
 #include "Context.h"
+#include "klee/Constraints.h"
+#include "klee/Expr.h"
+#include "klee/Solver.h"
+// FIXME: Use APInt.
+#include "klee/Internal/Support/IntEvaluation.h"
 
-#include "klee/Expr/Constraints.h"
-#include "klee/Expr/Expr.h"
-#include "klee/Expr/ExprUtil.h"
-#include "klee/Solver/Solver.h"
-#include "klee/Support/IntEvaluation.h" // FIXME: Use APInt
+#include "klee/util/ExprUtil.h"
 
 #include <map>
 #include <set>
@@ -193,12 +194,14 @@ void ImpliedValue::checkForImpliedValues(Solver *S, ref<Expr> e,
 
   getImpliedValues(e, value, results);
 
-  for (auto &i : results) {
-    auto it = found.find(i.first);
+  for (ImpliedValueList::iterator i = results.begin(), ie = results.end();
+       i != ie; ++i) {
+    std::map<ref<ReadExpr>, ref<ConstantExpr> >::iterator it = 
+      found.find(i->first);
     if (it != found.end()) {
-      assert(it->second == i.second && "Invalid ImpliedValue!");
+      assert(it->second == i->second && "Invalid ImpliedValue!");
     } else {
-      found.insert(std::make_pair(i.first, i.second));
+      found.insert(std::make_pair(i->first, i->second));
     }
   }
 
@@ -206,7 +209,7 @@ void ImpliedValue::checkForImpliedValues(Solver *S, ref<Expr> e,
   std::set< ref<ReadExpr> > readsSet(reads.begin(), reads.end());
   reads = std::vector< ref<ReadExpr> >(readsSet.begin(), readsSet.end());
 
-  ConstraintSet assumption;
+  std::vector<ref<Expr> > assumption;
   assumption.push_back(EqExpr::create(e, value));
 
   // obscure... we need to make sure that all the read indices are
@@ -223,15 +226,16 @@ void ImpliedValue::checkForImpliedValues(Solver *S, ref<Expr> e,
                                                              Context::get().getPointerWidth())));
   }
 
-  for (const auto &var : reads) {
+  ConstraintManager assume(assumption);
+  for (std::vector< ref<ReadExpr> >::iterator i = reads.begin(), 
+         ie = reads.end(); i != ie; ++i) {
+    ref<ReadExpr> var = *i;
     ref<ConstantExpr> possible;
-    bool success = S->getValue(Query(assumption, var), possible);
-    (void)success;
+    bool success = S->getValue(Query(assume, var), possible);
     assert(success && "FIXME: Unhandled solver failure");    
     std::map<ref<ReadExpr>, ref<ConstantExpr> >::iterator it = found.find(var);
     bool res;
-    success =
-        S->mustBeTrue(Query(assumption, EqExpr::create(var, possible)), res);
+    success = S->mustBeTrue(Query(assume, EqExpr::create(var, possible)), res);
     assert(success && "FIXME: Unhandled solver failure");    
     if (res) {
       if (it != found.end()) {

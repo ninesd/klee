@@ -10,50 +10,33 @@
 #define _LARGEFILE64_SOURCE
 #include "fd.h"
 
-#include "klee/klee.h"
-
-#include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <stdarg.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
+#include <errno.h>
 #include <sys/syscall.h>
+#include <sys/stat.h>
 #include <sys/types.h>
-#ifndef __FreeBSD__
+#include <fcntl.h>
+#include <stdarg.h>
+#include <assert.h>
 #include <sys/vfs.h>
-#endif
+#include <unistd.h>
 #include <dirent.h>
 #include <sys/ioctl.h>
 #include <sys/mtio.h>
-#include <sys/select.h>
-#include <sys/time.h>
 #include <termios.h>
-#include <unistd.h>
+#include <sys/select.h>
+#include <klee/klee.h>
+
+/* #define DEBUG */
+
+void klee_warning(const char*);
+void klee_warning_once(const char*);
+int klee_get_errno(void);
 
 /* Returns pointer to the symbolic file structure fs the pathname is symbolic */
 static exe_disk_file_t *__get_sym_file(const char *pathname) {
-  if (!pathname)
-    return NULL;
-
-  // Handle the case where symbolic file is given as an absolute path, ie.
-  // /current/work/dir/A
-  if (pathname[0] == '/') {
-    char cwd[1024] = {0};
-    if (getcwd(cwd, 1024)) {
-      size_t cwd_len = strlen(cwd);
-      // strip trailing / if present
-      if (cwd_len > 0 && cwd[cwd_len - 1] == '/') {
-        cwd[--cwd_len] = '\0';
-      }
-      if (strncmp(pathname, cwd, cwd_len) == 0) {
-        if (pathname[cwd_len] != '\0')
-          pathname += cwd_len + 1;
-      }
-    }
-  }
   char c = pathname[0];
   unsigned i;
 
@@ -94,8 +77,12 @@ int access(const char *pathname, int mode) {
     /* XXX we should check against stat values but we also need to
        enforce in open and friends then. */
     return 0;
-  }
-  return syscall(__NR_access, __concretize_string(pathname), mode);
+  } else {
+    int r = syscall(__NR_access, __concretize_string(pathname), mode);
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
+  } 
 }
 
 mode_t umask(mode_t mask) {  
@@ -192,8 +179,10 @@ int __fd_open(const char *pathname, int flags, mode_t mode) {
 				 (mode & ~__exe_env.umask));
   } else {    
     int os_fd = syscall(__NR_open, __concretize_string(pathname), flags, mode);
-    if (os_fd == -1)
+    if (os_fd == -1) {
+      errno = klee_get_errno();
       return -1;
+    }
     f->fd = os_fd;
   }
   
@@ -245,8 +234,10 @@ int __fd_openat(int basefd, const char *pathname, int flags, mode_t mode) {
   memset(f, 0, sizeof *f);
 
   int os_fd = syscall(__NR_openat, (long)basefd, __concretize_string(pathname), (long)flags, mode);
-  if (os_fd == -1)
+  if (os_fd == -1) {
+    errno = klee_get_errno();
     return -1;
+  }
 
   f->fd = os_fd;
   f->flags = eOpen;
@@ -266,14 +257,6 @@ int utimes(const char *path, const struct timeval times[2]) {
   exe_disk_file_t *dfile = __get_sym_file(path);
 
   if (dfile) {
-
-    if (!times) {
-      struct timeval newTimes[2];
-      gettimeofday(&(newTimes[0]), NULL);
-      newTimes[1] = newTimes[0];
-      times = newTimes;
-    }
-
     /* don't bother with usecs */
     dfile->stat->st_atime = times[0].tv_sec;
     dfile->stat->st_mtime = times[1].tv_sec;
@@ -283,7 +266,11 @@ int utimes(const char *path, const struct timeval times[2]) {
 #endif
     return 0;
   }
-  return syscall(__NR_utimes, __concretize_string(path), times);
+  int r = syscall(__NR_utimes, __concretize_string(path), times);
+  if (r == -1)
+    errno = klee_get_errno();
+
+  return r;
 }
 
 
@@ -305,8 +292,12 @@ int futimesat(int fd, const char* path, const struct timeval times[2]) {
     return utimes(path, times);
   }
 
-  return syscall(__NR_futimesat, (long)fd,
-                 (path ? __concretize_string(path) : NULL), times);
+  int r = syscall(__NR_futimesat, (long)fd,
+                 (path ? __concretize_string(path) : NULL),
+                 times);
+  if (r == -1)
+    errno = klee_get_errno();
+  return r;
 }
  
 int close(int fd) {
@@ -382,8 +373,10 @@ ssize_t read(int fd, void *buf, size_t count) {
     else
       r = syscall(__NR_pread64, f->fd, buf, count, (off64_t) f->off);
 
-    if (r == -1)
+    if (r == -1) {
+      errno = klee_get_errno();
       return -1;
+    }
     
     if (f->fd != 0)
       f->off += r;
@@ -438,9 +431,11 @@ ssize_t write(int fd, const void *buf, size_t count) {
     if (f->fd == 1 || f->fd == 2)
       r = syscall(__NR_write, f->fd, buf, count);
     else r = syscall(__NR_pwrite64, f->fd, buf, count, (off64_t) f->off);
-
-    if (r == -1)
+    
+    if (r == -1) {
+      errno = klee_get_errno();
       return -1;
+    }
     
     assert(r >= 0);
     if (f->fd != 1 && f->fd != 2)
@@ -506,8 +501,10 @@ off64_t __fd_lseek(int fd, off64_t offset, int whence) {
       }
     }
 
-    if (new_off == -1)
+    if (new_off == -1) {
+      errno = klee_get_errno();
       return -1;
+    }
 
     f->off = new_off;
     return new_off;
@@ -541,10 +538,13 @@ int __fd_stat(const char *path, struct stat64 *buf) {
 
   {
 #if __WORDSIZE == 64
-    return syscall(__NR_stat, __concretize_string(path), buf);
+    int r = syscall(__NR_stat, __concretize_string(path), buf);
 #else
-    return syscall(__NR_stat64, __concretize_string(path), buf);
+    int r = syscall(__NR_stat64, __concretize_string(path), buf);
 #endif
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
   }
 }
 
@@ -569,12 +569,18 @@ int fstatat(int fd, const char *path, struct stat *buf, int flags) {
   } 
 
 #if (defined __NR_newfstatat) && (__NR_newfstatat != 0)
-  return syscall(__NR_newfstatat, (long)fd,
-                 (path ? __concretize_string(path) : NULL), buf, (long)flags);
+  int r = syscall(__NR_newfstatat, (long)fd,
+               (path ? __concretize_string(path) : NULL),
+               buf, (long)flags);
 #else
-  return syscall(__NR_fstatat64, (long)fd,
-                 (path ? __concretize_string(path) : NULL), buf, (long)flags);
+  int r = syscall(__NR_fstatat64, (long)fd,
+               (path ? __concretize_string(path) : NULL),
+               buf, (long)flags);
 #endif
+
+  if (r == -1)
+    errno = klee_get_errno();
+  return r;
 }
 
 
@@ -587,10 +593,13 @@ int __fd_lstat(const char *path, struct stat64 *buf) {
 
   {    
 #if __WORDSIZE == 64
-    return syscall(__NR_lstat, __concretize_string(path), buf);
+    int r = syscall(__NR_lstat, __concretize_string(path), buf);
 #else
-    return syscall(__NR_lstat64, __concretize_string(path), buf);
+    int r = syscall(__NR_lstat64, __concretize_string(path), buf);
 #endif
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
   }
 }
 
@@ -604,7 +613,12 @@ int chdir(const char *path) {
     return -1;
   }
 
-  return syscall(__NR_chdir, __concretize_string(path));
+  {
+    int r = syscall(__NR_chdir, __concretize_string(path));
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
+  }
 }
 
 int fchdir(int fd) {
@@ -619,9 +633,12 @@ int fchdir(int fd) {
     klee_warning("symbolic file, ignoring (ENOENT)");
     errno = ENOENT;
     return -1;
+  } else {
+    int r = syscall(__NR_fchdir, f->fd);
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
   }
-
-  return syscall(__NR_fchdir, f->fd);
 }
 
 /* Sets mode and or errno and return appropriate result. */
@@ -652,9 +669,12 @@ int chmod(const char *path, mode_t mode) {
 
   if (dfile) {
     return __df_chmod(dfile, mode);
+  } else {
+    int r = syscall(__NR_chmod, __concretize_string(path), mode);
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
   }
-
-  return syscall(__NR_chmod, __concretize_string(path), mode);
 }
 
 int fchmod(int fd, mode_t mode) {
@@ -676,9 +696,12 @@ int fchmod(int fd, mode_t mode) {
 
   if (f->dfile) {
     return __df_chmod(f->dfile, mode);
-  }
-
-  return syscall(__NR_fchmod, f->fd, mode);
+  } else {
+    int r = syscall(__NR_fchmod, f->fd, mode);
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
+  }  
 }
 
 static int __df_chown(exe_disk_file_t *df, uid_t owner, gid_t group) {
@@ -692,9 +715,12 @@ int chown(const char *path, uid_t owner, gid_t group) {
 
   if (df) {
     return __df_chown(df, owner, group);
+  } else {
+    int r = syscall(__NR_chown, __concretize_string(path), owner, group);
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
   }
-
-  return syscall(__NR_chown, __concretize_string(path), owner, group);
 }
 
 int fchown(int fd, uid_t owner, gid_t group) {
@@ -707,9 +733,12 @@ int fchown(int fd, uid_t owner, gid_t group) {
 
   if (f->dfile) {
     return __df_chown(f->dfile, owner, group);
+  } else {
+    int r = syscall(__NR_fchown, fd, owner, group);
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
   }
-
-  return syscall(__NR_fchown, fd, owner, group);
 }
 
 int lchown(const char *path, uid_t owner, gid_t group) {
@@ -718,9 +747,12 @@ int lchown(const char *path, uid_t owner, gid_t group) {
 
   if (df) {
     return __df_chown(df, owner, group);
+  } else {
+    int r = syscall(__NR_chown, __concretize_string(path), owner, group);
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
   }
-
-  return syscall(__NR_chown, __concretize_string(path), owner, group);
 }
 
 int __fd_fstat(int fd, struct stat64 *buf) {
@@ -733,10 +765,13 @@ int __fd_fstat(int fd, struct stat64 *buf) {
   
   if (!f->dfile) {
 #if __WORDSIZE == 64
-    return syscall(__NR_fstat, f->fd, buf);
+    int r = syscall(__NR_fstat, f->fd, buf);
 #else
-    return syscall(__NR_fstat64, f->fd, buf);
+    int r = syscall(__NR_fstat64, f->fd, buf);
 #endif
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
   }
   
   memcpy(buf, f->dfile->stat, sizeof(*f->dfile->stat));
@@ -764,12 +799,16 @@ int __fd_ftruncate(int fd, off64_t length) {
     klee_warning("symbolic file, ignoring (EIO)");
     errno = EIO;
     return -1;
-  }
+  } else {
 #if __WORDSIZE == 64
-  return syscall(__NR_ftruncate, f->fd, length);
+    int r = syscall(__NR_ftruncate, f->fd, length);
 #else
-  return syscall(__NR_ftruncate64, f->fd, length);
+    int r = syscall(__NR_ftruncate64, f->fd, length);
 #endif
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
+  }  
 }
 
 int __fd_getdents(unsigned int fd, struct dirent64 *dirp, unsigned int count) {
@@ -803,9 +842,7 @@ int __fd_getdents(unsigned int fd, struct dirent64 *dirp, unsigned int count) {
         dirp->d_type = IFTODT(df->stat->st_mode);
         dirp->d_name[0] = 'A' + i;
         dirp->d_name[1] = '\0';
-#ifdef _DIRENT_HAVE_D_OFF
         dirp->d_off = (i+1) * sizeof(*dirp);
-#endif
         bytes += dirp->d_reclen;
         ++dirp;
       }
@@ -816,9 +853,7 @@ int __fd_getdents(unsigned int fd, struct dirent64 *dirp, unsigned int count) {
       dirp->d_reclen = pad - bytes;
       dirp->d_type = DT_UNKNOWN;
       dirp->d_name[0] = '\0';
-#ifdef _DIRENT_HAVE_D_OFF
       dirp->d_off = 4096;
-#endif
       bytes += dirp->d_reclen;
       f->off = pad;
 
@@ -839,19 +874,19 @@ int __fd_getdents(unsigned int fd, struct dirent64 *dirp, unsigned int count) {
       s = syscall(__NR_lseek, f->fd, os_pos, SEEK_SET);
       assert(s != (off64_t) -1);
       res = syscall(__NR_getdents64, f->fd, dirp, count);
-      if (res > -1) {
+      if (res == -1) {
+        errno = klee_get_errno();
+      } else {
         int pos = 0;
-        f->off = syscall(__NR_lseek, f->fd, 0, SEEK_CUR);
-        assert(f->off != (off64_t)-1);
-        f->off += 4096;
+        f->off = syscall(__NR_lseek, f->fd, 0, SEEK_CUR) + 4096;
 
         /* Patch offsets */
+        
         while (pos < res) {
           struct dirent64 *dp = (struct dirent64*) ((char*) dirp + pos);
-#ifdef _DIRENT_HAVE_D_OFF
           dp->d_off += 4096;
-#endif
           pos += dp->d_reclen;
+
         }
       }
       return res;
@@ -880,6 +915,7 @@ int ioctl(int fd, unsigned long request, ...) {
   va_start(ap, request);
   buf = va_arg(ap, void*);
   va_end(ap);
+  
   if (f->dfile) {
     struct stat *stat = (struct stat*) f->dfile->stat;
 
@@ -897,9 +933,7 @@ int ioctl(int fd, unsigned long request, ...) {
         ts->c_oflag = 5;
         ts->c_cflag = 1215;
         ts->c_lflag = 35287;
-#ifdef __GLIBC__
         ts->c_line = 0;
-#endif
         ts->c_cc[0] = '\x03';
         ts->c_cc[1] = '\x1c';
         ts->c_cc[2] = '\x7f';
@@ -1003,31 +1037,27 @@ int ioctl(int fd, unsigned long request, ...) {
       errno = EINVAL;
       return -1;
     }
+  } else {
+    int r = syscall(__NR_ioctl, f->fd, request, buf );
+    if (r == -1) 
+      errno = klee_get_errno();
+    return r;
   }
-  return syscall(__NR_ioctl, f->fd, request, buf);
 }
 
 int fcntl(int fd, int cmd, ...) {
   exe_file_t *f = __get_file(fd);
   va_list ap;
   unsigned arg; /* 32 bit assumption (int/ptr) */
-  struct flock *lock;
 
   if (!f) {
     errno = EBADF;
     return -1;
   }
-#ifdef F_GETSIG
+  
   if (cmd==F_GETFD || cmd==F_GETFL || cmd==F_GETOWN || cmd==F_GETSIG ||
       cmd==F_GETLEASE || cmd==F_NOTIFY) {
-#else
-   if (cmd==F_GETFD || cmd==F_GETFL || cmd==F_GETOWN) {
-#endif
     arg = 0;
-  } else if (cmd == F_GETLK || cmd == F_SETLK || cmd == F_SETLKW) {
-    va_start(ap, cmd);
-    lock = va_arg(ap, struct flock *);
-    va_end(ap);
   } else {
     va_start(ap, cmd);
     arg = va_arg(ap, int);
@@ -1057,27 +1087,17 @@ int fcntl(int fd, int cmd, ...) {
       */
       return 0;
     }
-    // Initially no other process keeps a lock, so we say the file is unlocked.
-    // Of course this doesn't account for a program locking and then checking if
-    // a lock is there. However this is quite paranoid programming and we assume
-    // doesn't happen.
-    case F_GETLK: {
-      lock->l_type = F_UNLCK;
-      return 0;
-    }
-    // We assume the application does locking correctly and will lock/unlock
-    // files correctly.
-    // Therefore this call always succeeds.
-    case F_SETLK: {
-      return 0;
-    }
     default:
       klee_warning("symbolic file, ignoring (EINVAL)");
       errno = EINVAL;
       return -1;
     }
+  } else {
+    int r = syscall(__NR_fcntl, f->fd, cmd, arg );
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
   }
-  return syscall(__NR_fcntl, f->fd, cmd, arg);
 }
 
 int __fd_statfs(const char *path, struct statfs *buf) {
@@ -1089,7 +1109,12 @@ int __fd_statfs(const char *path, struct statfs *buf) {
     return -1;
   }
 
-  return syscall(__NR_statfs, __concretize_string(path), buf);
+  {
+    int r = syscall(__NR_statfs, __concretize_string(path), buf);
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
+  }
 }
 
 int fstatfs(int fd, struct statfs *buf) {
@@ -1104,8 +1129,12 @@ int fstatfs(int fd, struct statfs *buf) {
     klee_warning("symbolic file, ignoring (EBADF)");
     errno = EBADF;
     return -1;
+  } else {
+    int r = syscall(__NR_fstatfs, f->fd, buf);
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
   }
-  return syscall(__NR_fstatfs, f->fd, buf);
 }
 
 int fsync(int fd) {
@@ -1116,8 +1145,12 @@ int fsync(int fd) {
     return -1;
   } else if (f->dfile) {
     return 0;
+  } else {
+    int r = syscall(__NR_fsync, f->fd);
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
   }
-  return syscall(__NR_fsync, f->fd);
 }
 
 int dup2(int oldfd, int newfd) {
@@ -1242,8 +1275,12 @@ ssize_t readlink(const char *path, char *buf, size_t bufsize) {
       errno = EINVAL;
       return -1;
     }
+  } else {
+    int r = syscall(__NR_readlink, path, buf, bufsize);
+    if (r == -1)
+      errno = klee_get_errno();
+    return r;
   }
-  return syscall(__NR_readlink, path, buf, bufsize);
 }
 
 #undef FD_SET
@@ -1316,8 +1353,10 @@ int select(int nfds, fd_set *read, fd_set *write,
     if (r == -1) {
       /* If no symbolic results, return error. Otherwise we will
          silently ignore the OS error. */
-      if (!count)
+      if (!count) {
+        errno = klee_get_errno();
         return -1;
+      }
     } else {
       count += r;
 
@@ -1351,15 +1390,9 @@ char *getcwd(char *buf, size_t size) {
   }
 
   if (!buf) {
-    size = 1024; // typically PATH_MAX
+    if (!size)
+      size = 1024;
     buf = malloc(size);
-    if (!buf) {
-      errno = ENOMEM;
-      return NULL;
-    }
-  } else if (!size) {
-    errno = EINVAL;
-    return NULL;
   }
   
   buf = __concretize_ptr(buf);
@@ -1369,8 +1402,11 @@ char *getcwd(char *buf, size_t size) {
      to properly work with symbolics. */
   klee_check_memory_access(buf, size);
   r = syscall(__NR_getcwd, buf, size);
-  if (r == -1)
+  if (r == -1) {
+    errno = klee_get_errno();
     return NULL;
+  }
+    
   return buf;
 }
 
@@ -1393,25 +1429,19 @@ static const char *__concretize_string(const char *s) {
   char *sc = __concretize_ptr(s);
   unsigned i;
 
-  for (i = 0;; ++i, ++sc) {
+  for (i=0; ; ++i) {
     char c = *sc;
-    // Avoid writing read-only memory locations
-    if (!klee_is_symbolic(c)) {
-      if (!c)
-        break;
-      continue;
-    }
     if (!(i&(i-1))) {
       if (!c) {
-        *sc = 0;
+        *sc++ = 0;
         break;
       } else if (c=='/') {
-        *sc = '/';
+        *sc++ = '/';
       } 
     } else {
       char cc = (char) klee_get_valuel((long)c);
       klee_assume(cc == c);
-      *sc = cc;
+      *sc++ = cc;
       if (!cc) break;
     }
   }

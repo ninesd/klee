@@ -7,75 +7,90 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "klee/Expr/Constraints.h"
+#include "klee/Constraints.h"
+#include "klee/CommandLine.h"
 
-#include "klee/Expr/ExprVisitor.h"
-#include "klee/Module/KModule.h"
-#include "klee/Support/OptionCategories.h"
-
+#include "klee/util/ExprPPrinter.h"
+#include "klee/util/ExprVisitor.h"
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
 #include "llvm/IR/Function.h"
+#else
+#include "llvm/Function.h"
+#endif
 #include "llvm/Support/CommandLine.h"
+#include "klee/Internal/Module/KModule.h"
 
 #include <map>
 
 using namespace klee;
 
 namespace {
-llvm::cl::opt<bool> RewriteEqualities(
-    "rewrite-equalities",
-    llvm::cl::desc("Rewrite existing constraints when an equality with a "
-                   "constant is added (default=true)"),
-    llvm::cl::init(true),
-    llvm::cl::cat(SolvingCat));
-} // namespace
+  llvm::cl::opt<bool>
+  RewriteEqualities("rewrite-equalities",
+		    llvm::cl::init(true),
+		    llvm::cl::desc("Rewrite existing constraints when an equality with a constant is added (default=on)"));
+}
+
 
 class ExprReplaceVisitor : public ExprVisitor {
 private:
   ref<Expr> src, dst;
 
 public:
-  ExprReplaceVisitor(const ref<Expr> &_src, const ref<Expr> &_dst)
-      : src(_src), dst(_dst) {}
+  ExprReplaceVisitor(ref<Expr> _src, ref<Expr> _dst) : src(_src), dst(_dst) {}
 
-  Action visitExpr(const Expr &e) override {
-    if (e == *src) {
+  Action visitExpr(const Expr &e) {
+    if (e == *src.get()) {
       return Action::changeTo(dst);
+    } else {
+      return Action::doChildren();
     }
-    return Action::doChildren();
   }
 
-  Action visitExprPost(const Expr &e) override {
-    if (e == *src) {
+  Action visitExprPost(const Expr &e) {
+    if (e == *src.get()) {
       return Action::changeTo(dst);
+    } else {
+      return Action::doChildren();
     }
-    return Action::doChildren();
   }
 };
 
 class ExprReplaceVisitor2 : public ExprVisitor {
 private:
-  const std::map< ref<Expr>, ref<Expr> > &replacements;
+  const std::map<ref<Expr>, std::pair<ref<Expr>, ref<Expr> > > &replacements;
+
+  std::set<ref<Expr> > usedEqualities;
 
 public:
-  explicit ExprReplaceVisitor2(
-      const std::map<ref<Expr>, ref<Expr>> &_replacements)
+  ExprReplaceVisitor2(const std::map<
+      ref<Expr>, std::pair<ref<Expr>, ref<Expr> > > &_replacements)
       : ExprVisitor(true), replacements(_replacements) {}
 
-  Action visitExprPost(const Expr &e) override {
-    auto it = replacements.find(ref<Expr>(const_cast<Expr *>(&e)));
+  void getCore(std::vector<ref<Expr> > &core) {
+    core.insert(core.begin(), usedEqualities.begin(), usedEqualities.end());
+  }
+
+  Action visitExprPost(const Expr &e) {
+    std::map<ref<Expr>, std::pair<ref<Expr>, ref<Expr> > >::const_iterator it =
+        replacements.find(ref<Expr>(const_cast<Expr *>(&e)));
     if (it!=replacements.end()) {
-      return Action::changeTo(it->second);
+      usedEqualities.insert(it->second.second);
+      return Action::changeTo(it->second.first);
+    } else {
+      return Action::doChildren();
     }
-    return Action::doChildren();
   }
 };
 
 bool ConstraintManager::rewriteConstraints(ExprVisitor &visitor) {
-  ConstraintSet old;
+  ConstraintManager::constraints_ty old;
   bool changed = false;
 
-  std::swap(constraints, old);
-  for (auto &ce : old) {
+  constraints.swap(old);
+  for (ConstraintManager::constraints_ty::iterator 
+         it = old.begin(), ie = old.end(); it != ie; ++it) {
+    ref<Expr> &ce = *it;
     ref<Expr> e = visitor.visit(ce);
 
     if (e!=ce) {
@@ -89,41 +104,52 @@ bool ConstraintManager::rewriteConstraints(ExprVisitor &visitor) {
   return changed;
 }
 
-ref<Expr> ConstraintManager::simplifyExpr(const ConstraintSet &constraints,
-                                          const ref<Expr> &e) {
+void ConstraintManager::simplifyForValidConstraint(ref<Expr> e) {
+  // XXX 
+}
 
+ref<Expr> ConstraintManager::simplifyExpr(ref<Expr> e) const {
+  std::vector<ref<Expr> > simplificationCore;
+  return simplifyExpr(e, simplificationCore);
+}
+
+ref<Expr> ConstraintManager::simplifyExpr(ref<Expr> e,
+                                          std::vector<ref<Expr> > &core) const {
   if (isa<ConstantExpr>(e))
     return e;
 
-  std::map< ref<Expr>, ref<Expr> > equalities;
+  std::map<ref<Expr>, std::pair<ref<Expr>, ref<Expr> > > equalities;
 
-  for (auto &constraint : constraints) {
-    if (const EqExpr *ee = dyn_cast<EqExpr>(constraint)) {
+  for (ConstraintManager::constraints_ty::const_iterator 
+         it = constraints.begin(), ie = constraints.end(); it != ie; ++it) {
+    if (const EqExpr *ee = dyn_cast<EqExpr>(*it)) {
       if (isa<ConstantExpr>(ee->left)) {
-        equalities.insert(std::make_pair(ee->right,
-                                         ee->left));
+        equalities[ee->right] = std::make_pair(ee->left, *it);
       } else {
-        equalities.insert(
-            std::make_pair(constraint, ConstantExpr::alloc(1, Expr::Bool)));
+        equalities[*it] =
+            std::make_pair(ConstantExpr::alloc(1, Expr::Bool), *it);
       }
     } else {
-      equalities.insert(
-          std::make_pair(constraint, ConstantExpr::alloc(1, Expr::Bool)));
+      equalities[*it] = std::make_pair(ConstantExpr::alloc(1, Expr::Bool), *it);
     }
   }
 
-  return ExprReplaceVisitor2(equalities).visit(e);
+  ExprReplaceVisitor2 visitor(equalities);
+  ref<Expr> ret = visitor.visit(e);
+  if (INTERPOLATION_ENABLED)
+    visitor.getCore(core);
+  return ret;
 }
 
-void ConstraintManager::addConstraintInternal(const ref<Expr> &e) {
+void ConstraintManager::addConstraintInternal(ref<Expr> e) {
   // rewrite any known equalities and split Ands into different conjuncts
 
   switch (e->getKind()) {
   case Expr::Constant:
-    assert(cast<ConstantExpr>(e)->isTrue() &&
+    assert(cast<ConstantExpr>(e)->isTrue() && 
            "attempt to add invalid (false) constraint");
     break;
-
+    
     // split to enable finer grained independence and other optimizations
   case Expr::And: {
     BinaryExpr *be = cast<BinaryExpr>(e);
@@ -148,31 +174,14 @@ void ConstraintManager::addConstraintInternal(const ref<Expr> &e) {
     constraints.push_back(e);
     break;
   }
-
+    
   default:
     constraints.push_back(e);
     break;
   }
 }
 
-void ConstraintManager::addConstraint(const ref<Expr> &e) {
-  ref<Expr> simplified = simplifyExpr(constraints, e);
-  addConstraintInternal(simplified);
+void ConstraintManager::addConstraint(ref<Expr> e) {
+  e = simplifyExpr(e);
+  addConstraintInternal(e);
 }
-
-ConstraintManager::ConstraintManager(ConstraintSet &_constraints)
-    : constraints(_constraints) {}
-
-bool ConstraintSet::empty() const { return constraints.empty(); }
-
-klee::ConstraintSet::constraint_iterator ConstraintSet::begin() const {
-  return constraints.begin();
-}
-
-klee::ConstraintSet::constraint_iterator ConstraintSet::end() const {
-  return constraints.end();
-}
-
-size_t ConstraintSet::size() const noexcept { return constraints.size(); }
-
-void ConstraintSet::push_back(const ref<Expr> &e) { constraints.push_back(e); }

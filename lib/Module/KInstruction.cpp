@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "klee/Module/KInstruction.h"
-#include <string>
+#include "klee/Internal/Module/KInstruction.h"
 
 using namespace llvm;
 using namespace klee;
@@ -17,11 +16,4 @@ using namespace klee;
 
 KInstruction::~KInstruction() {
   delete[] operands;
-}
-
-std::string KInstruction::getSourceLocation() const {
-  if (!info->file.empty())
-    return info->file + ":" + std::to_string(info->line) + " " +
-           std::to_string(info->column);
-  else return "[no debug info]";
 }

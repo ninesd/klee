@@ -11,20 +11,37 @@
 
 #include "klee/Config/Version.h"
 
-#include "KLEEIRMetaData.h"
-
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/DataLayout.h"
+#else
+#include "llvm/Constants.h"
+#include "llvm/DerivedTypes.h"
+#include "llvm/Function.h"
+#include "llvm/InstrTypes.h"
+#include "llvm/Instruction.h"
+#include "llvm/Instructions.h"
+#include "llvm/IntrinsicInst.h"
+#include "llvm/Module.h"
+#include "llvm/Type.h"
+
+#include "llvm/LLVMContext.h"
+
+#if LLVM_VERSION_CODE <= LLVM_VERSION(3, 1)
+#include "llvm/Target/TargetData.h"
+#else
+#include "llvm/DataLayout.h"
+#endif
+#endif
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -34,125 +51,109 @@ using namespace klee;
 
 char DivCheckPass::ID;
 
-bool DivCheckPass::runOnModule(Module &M) {
-  std::vector<llvm::BinaryOperator *> divInstruction;
+bool DivCheckPass::runOnModule(Module &M) { 
+  Function *divZeroCheckFunction = 0;
 
-  for (auto &F : M) {
-    for (auto &BB : F) {
-      for (auto &I : BB) {
-        auto binOp = dyn_cast<BinaryOperator>(&I);
-        if (!binOp)
-          continue;
+  bool moduleChanged = false;
+  
+  for (Module::iterator f = M.begin(), fe = M.end(); f != fe; ++f) {
+    for (Function::iterator b = f->begin(), be = f->end(); b != be; ++b) {
+      for (BasicBlock::iterator i = b->begin(), ie = b->end(); i != ie; ++i) {     
+          if (BinaryOperator* binOp = dyn_cast<BinaryOperator>(i)) {
+          // find all [s|u][div|mod] instructions
+          Instruction::BinaryOps opcode = binOp->getOpcode();
+          if (opcode == Instruction::SDiv || opcode == Instruction::UDiv ||
+              opcode == Instruction::SRem || opcode == Instruction::URem) {
+            
+            CastInst *denominator =
+              CastInst::CreateIntegerCast(i->getOperand(1),
+                                          Type::getInt64Ty(getGlobalContext()),
+                                          false,  /* sign doesn't matter */
+                                          "int_cast_to_i64",
+                                          i);
+            
+            // Lazily bind the function to avoid always importing it.
+            if (!divZeroCheckFunction) {
+              Constant *fc = M.getOrInsertFunction("klee_div_zero_check", 
+                                                   Type::getVoidTy(getGlobalContext()), 
+                                                   Type::getInt64Ty(getGlobalContext()), 
+                                                   NULL);
+              divZeroCheckFunction = cast<Function>(fc);
+            }
 
-        // find all [s|u][div|rem] instructions
-        auto opcode = binOp->getOpcode();
-        if (opcode != Instruction::SDiv && opcode != Instruction::UDiv &&
-            opcode != Instruction::SRem && opcode != Instruction::URem)
-          continue;
+            CallInst * ci = CallInst::Create(divZeroCheckFunction, denominator, "", &*i);
 
-        // Check if the operand is constant and not zero, skip in that case.
-        const auto &operand = binOp->getOperand(1);
-        if (const auto &coOp = dyn_cast<llvm::Constant>(operand)) {
-          if (!coOp->isZeroValue())
-            continue;
+            // Set debug location of checking call to that of the div/rem
+            // operation so error locations are reported in the correct
+            // location.
+            ci->setDebugLoc(binOp->getDebugLoc());
+            moduleChanged = true;
+          }
         }
-
-        // Check if the operand is already checked by "klee_div_zero_check"
-        if (KleeIRMetaData::hasAnnotation(I, "klee.check.div", "True"))
-          continue;
-        divInstruction.push_back(binOp);
       }
     }
   }
-
-  // If nothing to do, return
-  if (divInstruction.empty())
-    return false;
-
-  LLVMContext &ctx = M.getContext();
-  KleeIRMetaData md(ctx);
-  auto divZeroCheckFunction =
-      M.getOrInsertFunction("klee_div_zero_check", Type::getVoidTy(ctx),
-                            Type::getInt64Ty(ctx) KLEE_LLVM_GOIF_TERMINATOR);
-
-  for (auto &divInst : divInstruction) {
-    llvm::IRBuilder<> Builder(divInst /* Inserts before divInst*/);
-    auto denominator =
-        Builder.CreateIntCast(divInst->getOperand(1), Type::getInt64Ty(ctx),
-                              false, /* sign doesn't matter */
-                              "int_cast_to_i64");
-    Builder.CreateCall(divZeroCheckFunction, denominator);
-    md.addAnnotation(*divInst, "klee.check.div", "True");
-  }
-
-  return true;
+  return moduleChanged;
 }
 
 char OvershiftCheckPass::ID;
 
 bool OvershiftCheckPass::runOnModule(Module &M) {
-  std::vector<llvm::BinaryOperator *> shiftInstructions;
-  for (auto &F : M) {
-    for (auto &BB : F) {
-      for (auto &I : BB) {
-        auto binOp = dyn_cast<BinaryOperator>(&I);
-        if (!binOp)
-          continue;
+  Function *overshiftCheckFunction = 0;
 
-        // find all shift instructions
-        auto opcode = binOp->getOpcode();
-        if (opcode != Instruction::Shl && opcode != Instruction::LShr &&
-            opcode != Instruction::AShr)
-          continue;
+  bool moduleChanged = false;
 
-        // Check if the operand is constant and not zero, skip in that case
-        auto operand = binOp->getOperand(1);
-        if (auto coOp = dyn_cast<llvm::ConstantInt>(operand)) {
-          auto typeWidth =
-              binOp->getOperand(0)->getType()->getScalarSizeInBits();
-          // If the constant shift is positive and smaller,equal the type width,
-          // we can ignore this instruction
-          if (!coOp->isNegative() && coOp->getZExtValue() < typeWidth)
-            continue;
+  for (Module::iterator f = M.begin(), fe = M.end(); f != fe; ++f) {
+    for (Function::iterator b = f->begin(), be = f->end(); b != be; ++b) {
+      for (BasicBlock::iterator i = b->begin(), ie = b->end(); i != ie; ++i) {
+          if (BinaryOperator* binOp = dyn_cast<BinaryOperator>(i)) {
+          // find all shift instructions
+          Instruction::BinaryOps opcode = binOp->getOpcode();
+
+          if (opcode == Instruction::Shl ||
+              opcode == Instruction::LShr ||
+              opcode == Instruction::AShr ) {
+            std::vector<llvm::Value*> args;
+
+            // Determine bit width of first operand
+            uint64_t bitWidth=i->getOperand(0)->getType()->getScalarSizeInBits();
+
+            ConstantInt *bitWidthC = ConstantInt::get(Type::getInt64Ty(getGlobalContext()),bitWidth,false);
+            args.push_back(bitWidthC);
+
+            CastInst *shift =
+              CastInst::CreateIntegerCast(i->getOperand(1),
+                                          Type::getInt64Ty(getGlobalContext()),
+                                          false,  /* sign doesn't matter */
+                                          "int_cast_to_i64",
+                                          i);
+            args.push_back(shift);
+
+
+            // Lazily bind the function to avoid always importing it.
+            if (!overshiftCheckFunction) {
+              Constant *fc = M.getOrInsertFunction("klee_overshift_check",
+                                                   Type::getVoidTy(getGlobalContext()),
+                                                   Type::getInt64Ty(getGlobalContext()),
+                                                   Type::getInt64Ty(getGlobalContext()),
+                                                   NULL);
+              overshiftCheckFunction = cast<Function>(fc);
+            }
+
+            // Inject CallInstr to check if overshifting possible
+            CallInst* ci =
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 0)
+            CallInst::Create(overshiftCheckFunction, args, "", &*i);
+#else
+            CallInst::Create(overshiftCheckFunction, args.begin(), args.end(), "", &*i);
+#endif
+            // set debug information from binary operand to preserve it
+            ci->setDebugLoc(binOp->getDebugLoc());
+            moduleChanged = true;
+          }
         }
-
-        if (KleeIRMetaData::hasAnnotation(I, "klee.check.shift", "True"))
-          continue;
-
-        shiftInstructions.push_back(binOp);
       }
     }
   }
-
-  if (shiftInstructions.empty())
-    return false;
-
-  // Retrieve the checker function
-  auto &ctx = M.getContext();
-  KleeIRMetaData md(ctx);
-  auto overshiftCheckFunction = M.getOrInsertFunction(
-      "klee_overshift_check", Type::getVoidTy(ctx), Type::getInt64Ty(ctx),
-      Type::getInt64Ty(ctx) KLEE_LLVM_GOIF_TERMINATOR);
-
-  for (auto &shiftInst : shiftInstructions) {
-    llvm::IRBuilder<> Builder(shiftInst);
-
-    std::vector<llvm::Value *> args;
-
-    // Determine bit width of first operand
-    uint64_t bitWidth = shiftInst->getOperand(0)->getType()->getScalarSizeInBits();
-    auto bitWidthC = ConstantInt::get(Type::getInt64Ty(ctx), bitWidth, false);
-    args.push_back(bitWidthC);
-
-    auto shiftValue =
-        Builder.CreateIntCast(shiftInst->getOperand(1), Type::getInt64Ty(ctx),
-                              false, /* sign doesn't matter */
-                              "int_cast_to_i64");
-    args.push_back(shiftValue);
-
-    Builder.CreateCall(overshiftCheckFunction, args);
-    md.addAnnotation(*shiftInst, "klee.check.shift", "True");
-  }
-
-  return true;
+  return moduleChanged;
 }

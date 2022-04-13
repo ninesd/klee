@@ -7,21 +7,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "klee/Solver/Solver.h"
-#include "klee/Solver/SolverImpl.h"
+#include "klee/Solver.h"
+#include "klee/SolverImpl.h"
 
 using namespace klee;
 
 SolverImpl::~SolverImpl() {}
 
-bool SolverImpl::computeValidity(const Query &query, Solver::Validity &result) {
+bool SolverImpl::computeValidity(const Query &query, Solver::Validity &result,
+                                 std::vector<ref<Expr> > &unsatCore) {
   bool isTrue, isFalse;
-  if (!computeTruth(query, isTrue))
+  if (!computeTruth(query, isTrue, unsatCore))
     return false;
   if (isTrue) {
     result = Solver::True;
   } else {
-    if (!computeTruth(query.negateExpr(), isFalse))
+    if (!computeTruth(query.negateExpr(), isFalse, unsatCore))
       return false;
     result = isFalse ? Solver::False : Solver::Unknown;
   }

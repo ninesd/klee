@@ -12,26 +12,36 @@
 
 #include "klee/Config/Version.h"
 
-#include "llvm/ADT/Triple.h"
-#include "llvm/CodeGen/IntrinsicLowering.h"
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#else
+#include "llvm/Constants.h"
+#include "llvm/Instructions.h"
+#include "llvm/Module.h"
+#endif
+#include "llvm/ADT/Triple.h"
+#include "llvm/CodeGen/IntrinsicLowering.h"
 #include "llvm/Pass.h"
 
 namespace llvm {
-class Function;
-class Instruction;
-class Module;
-class DataLayout;
-class TargetLowering;
-class Type;
-} // namespace llvm
+  class Function;
+  class Instruction;
+  class Module;
+#if LLVM_VERSION_CODE <= LLVM_VERSION(3, 1)
+  class TargetData;
+#else
+  class DataLayout;
+#endif
+  class TargetLowering;
+  class Type;
+}
 
 namespace klee {
 
-/// RaiseAsmPass - This pass raises some common occurences of inline
-/// asm which are used by glibc into normal LLVM IR.
+  /// RaiseAsmPass - This pass raises some common occurences of inline
+  /// asm which are used by glibc into normal LLVM IR.
 class RaiseAsmPass : public llvm::ModulePass {
   static char ID;
 
@@ -39,9 +49,13 @@ class RaiseAsmPass : public llvm::ModulePass {
 
   llvm::Triple triple;
 
-  llvm::Function *getIntrinsic(llvm::Module &M, unsigned IID, llvm::Type **Tys,
+  llvm::Function *getIntrinsic(llvm::Module &M,
+                               unsigned IID,
+                               LLVM_TYPE_Q llvm::Type **Tys,
                                unsigned NumTys);
-  llvm::Function *getIntrinsic(llvm::Module &M, unsigned IID, llvm::Type *Ty0) {
+  llvm::Function *getIntrinsic(llvm::Module &M,
+                               unsigned IID, 
+                               LLVM_TYPE_Q llvm::Type *Ty0) {
     return getIntrinsic(M, IID, &Ty0, 1);
   }
 
@@ -49,56 +63,69 @@ class RaiseAsmPass : public llvm::ModulePass {
 
 public:
   RaiseAsmPass() : llvm::ModulePass(ID), TLI(0) {}
-
-  bool runOnModule(llvm::Module &M) override;
+  
+  virtual bool runOnModule(llvm::Module &M);
 };
 
-// This is a module pass because it can add and delete module
-// variables (via intrinsic lowering).
+  // This is a module pass because it can add and delete module
+  // variables (via intrinsic lowering).
 class IntrinsicCleanerPass : public llvm::ModulePass {
   static char ID;
+#if LLVM_VERSION_CODE <= LLVM_VERSION(3, 1)
+  const llvm::TargetData &TargetData;
+#else
   const llvm::DataLayout &DataLayout;
+#endif
   llvm::IntrinsicLowering *IL;
-  bool WithFPRuntime;
+  bool LowerIntrinsics;
 
   bool runOnBasicBlock(llvm::BasicBlock &b, llvm::Module &M);
-
 public:
-  IntrinsicCleanerPass(const llvm::DataLayout &TD, bool _WithFPRuntime)
-      : llvm::ModulePass(ID), DataLayout(TD),
-        IL(new llvm::IntrinsicLowering(TD)), WithFPRuntime(_WithFPRuntime) {}
-  ~IntrinsicCleanerPass() { delete IL; }
-
-  bool runOnModule(llvm::Module &M) override;
+#if LLVM_VERSION_CODE <= LLVM_VERSION(3, 1)
+  IntrinsicCleanerPass(const llvm::TargetData &TD,
+#else
+  IntrinsicCleanerPass(const llvm::DataLayout &TD,
+#endif
+                       bool LI=true)
+    : llvm::ModulePass(ID),
+#if LLVM_VERSION_CODE <= LLVM_VERSION(3, 1)
+      TargetData(TD),
+#else
+      DataLayout(TD),
+#endif
+      IL(new llvm::IntrinsicLowering(TD)),
+      LowerIntrinsics(LI) {}
+  ~IntrinsicCleanerPass() { delete IL; } 
+  
+  virtual bool runOnModule(llvm::Module &M);
 };
-
-// performs two transformations which make interpretation
-// easier and faster.
-//
-// 1) Ensure that all the PHI nodes in a basic block have
-//    the incoming block list in the same order. Thus the
-//    incoming block index only needs to be computed once
-//    for each transfer.
-//
-// 2) Ensure that no PHI node result is used as an argument to
-//    a subsequent PHI node in the same basic block. This allows
-//    the transfer to execute the instructions in order instead
-//    of in two passes.
+  
+  // performs two transformations which make interpretation
+  // easier and faster.
+  //
+  // 1) Ensure that all the PHI nodes in a basic block have
+  //    the incoming block list in the same order. Thus the
+  //    incoming block index only needs to be computed once
+  //    for each transfer.
+  // 
+  // 2) Ensure that no PHI node result is used as an argument to
+  //    a subsequent PHI node in the same basic block. This allows
+  //    the transfer to execute the instructions in order instead
+  //    of in two passes.
 class PhiCleanerPass : public llvm::FunctionPass {
   static char ID;
 
 public:
   PhiCleanerPass() : llvm::FunctionPass(ID) {}
-
-  bool runOnFunction(llvm::Function &f) override;
+  
+  virtual bool runOnFunction(llvm::Function &f);
 };
-
+  
 class DivCheckPass : public llvm::ModulePass {
   static char ID;
-
 public:
-  DivCheckPass() : ModulePass(ID) {}
-  bool runOnModule(llvm::Module &M) override;
+  DivCheckPass(): ModulePass(ID) {}
+  virtual bool runOnModule(llvm::Module &M);
 };
 
 /// This pass injects checks to check for overshifting.
@@ -117,10 +144,9 @@ public:
 /// \endcode
 class OvershiftCheckPass : public llvm::ModulePass {
   static char ID;
-
 public:
-  OvershiftCheckPass() : ModulePass(ID) {}
-  bool runOnModule(llvm::Module &M) override;
+  OvershiftCheckPass(): ModulePass(ID) {}
+  virtual bool runOnModule(llvm::Module &M);
 };
 
 /// LowerSwitchPass - Replace all SwitchInst instructions with chained branch
@@ -129,82 +155,31 @@ public:
 class LowerSwitchPass : public llvm::FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  LowerSwitchPass() : FunctionPass(ID) {}
-
-  bool runOnFunction(llvm::Function &F) override;
-
+  LowerSwitchPass() : FunctionPass(ID) {} 
+  
+  virtual bool runOnFunction(llvm::Function &F);
+  
   struct SwitchCase {
     llvm ::Constant *value;
     llvm::BasicBlock *block;
-
-    SwitchCase() : value(0), block(0) {}
-    SwitchCase(llvm::Constant *v, llvm::BasicBlock *b) : value(v), block(b) {}
+    
+    SwitchCase() : value(0), block(0) { }
+    SwitchCase(llvm::Constant *v, llvm::BasicBlock *b) :
+      value(v), block(b) { }
   };
-
-  typedef std::vector<SwitchCase> CaseVector;
+  
+  typedef std::vector<SwitchCase>           CaseVector;
   typedef std::vector<SwitchCase>::iterator CaseItr;
-
+  
 private:
   void processSwitchInst(llvm::SwitchInst *SI);
-  void switchConvert(CaseItr begin, CaseItr end, llvm::Value *value,
+  void switchConvert(CaseItr begin,
+                     CaseItr end,
+                     llvm::Value *value,
                      llvm::BasicBlock *origBlock,
                      llvm::BasicBlock *defaultBlock);
 };
 
-/// InstructionOperandTypeCheckPass - Type checks the types of instruction
-/// operands to check that they conform to invariants expected by the Executor.
-///
-/// This is a ModulePass because other pass types are not meant to maintain
-/// state between calls.
-class InstructionOperandTypeCheckPass : public llvm::ModulePass {
-private:
-  bool instructionOperandsConform;
+}
 
-public:
-  static char ID;
-  InstructionOperandTypeCheckPass()
-      : llvm::ModulePass(ID), instructionOperandsConform(true) {}
-  bool runOnModule(llvm::Module &M) override;
-  bool checkPassed() const { return instructionOperandsConform; }
-};
-
-/// FunctionAliasPass - Enables a user of KLEE to specify aliases to functions
-/// using -function-alias=<name|pattern>:<replacement> which are injected as
-/// GlobalAliases into the module. The replaced function is removed.
-class FunctionAliasPass : public llvm::ModulePass {
-
-public:
-  static char ID;
-  FunctionAliasPass() : llvm::ModulePass(ID) {}
-  bool runOnModule(llvm::Module &M) override;
-
-private:
-  static const llvm::FunctionType *getFunctionType(const llvm::GlobalValue *gv);
-  static bool checkType(const llvm::GlobalValue *match, const llvm::GlobalValue *replacement);
-  static bool tryToReplace(llvm::GlobalValue *match, llvm::GlobalValue *replacement);
-  static bool isFunctionOrGlobalFunctionAlias(const llvm::GlobalValue *gv);
-
-};
-
-#ifdef USE_WORKAROUND_LLVM_PR39177
-/// WorkaroundLLVMPR39177Pass - Workaround for LLVM PR39177 within KLEE repo.
-/// For more information on this, please refer to the comments in
-/// cmake/workaround_llvm_pr39177.cmake
-class WorkaroundLLVMPR39177Pass : public llvm::ModulePass {
-public:
-  static char ID;
-  WorkaroundLLVMPR39177Pass() : llvm::ModulePass(ID) {}
-  bool runOnModule(llvm::Module &M) override;
-};
 #endif
-
-/// Instruments every function that contains a KLEE function call as nonopt
-class OptNonePass : public llvm::ModulePass {
-public:
-  static char ID;
-  OptNonePass() : llvm::ModulePass(ID) {}
-  bool runOnModule(llvm::Module &M) override;
-};
-} // namespace klee
-
-#endif /* KLEE_PASSES_H */
