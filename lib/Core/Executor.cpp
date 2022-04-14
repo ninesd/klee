@@ -393,6 +393,13 @@ cl::opt<std::string> TimerInterval(
     cl::init("1s"),
     cl::cat(TerminationCat));
 
+cl::opt<unsigned> TriggerTimes(
+    "trigger-times",
+    cl::desc(
+        "Early terminate when reach enough triggers. (default=1000000)"),
+    cl::init(1000000),
+    cl::cat(TerminationCat));
+
 
 /*** Debugging options ***/
 
@@ -3804,7 +3811,7 @@ void Executor::run(ExecutionState &initialState) {
   searcher->update(0, newStates, std::vector<ExecutionState *>());
 
   // main interpreter loop
-  while (!states.empty() && !haltExecution) {
+  while (!states.empty() && !haltExecution && TriggerTimes>0) {
     ExecutionState &state = searcher->selectState();
     KInstruction *ki = state.pc;
     stepInstruction(state);
@@ -4023,6 +4030,11 @@ void Executor::terminateStateOnError(ExecutionState &state,
 
     interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
   }
+
+  if (termReason == Executor::Trigger) {
+    TriggerTimes--;
+  }
+}
     
   if (!EmitAllErrorsInSamePath) {
     terminateState(state);
