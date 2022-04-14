@@ -458,7 +458,7 @@ cl::opt<bool> DebugCheckForImpliedValues(
 extern "C" unsigned dumpStates, dumpPTree;
 unsigned dumpStates = 0, dumpPTree = 0;
 
-static unsigned int Executor::triggerTimes = 0;
+unsigned int Executor::triggerTimes = 0;
 
 const char *Executor::TerminateReasonNames[] = {
   [ Abort ] = "abort",
