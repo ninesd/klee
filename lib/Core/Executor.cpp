@@ -3811,7 +3811,7 @@ void Executor::run(ExecutionState &initialState) {
   searcher->update(0, newStates, std::vector<ExecutionState *>());
 
   // main interpreter loop
-  while (!states.empty() && !haltExecution && TriggerTimes>0) {
+  while (!states.empty() && !haltExecution && TriggerTimes>triggerTimes) {
     ExecutionState &state = searcher->selectState();
     KInstruction *ki = state.pc;
     stepInstruction(state);
@@ -4029,12 +4029,13 @@ void Executor::terminateStateOnError(ExecutionState &state,
     }
 
     interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
-  }
 
-  if (termReason == Executor::Trigger) {
-    TriggerTimes--;
+    if (termReason == Executor::Trigger) {
+      triggerTimes++;
+      if (TriggerTimes == triggerTimes)
+        klee_message("NOTE: Trigger enough times! Now terminate.");
+    }
   }
-}
     
   if (!EmitAllErrorsInSamePath) {
     terminateState(state);
