@@ -124,6 +124,7 @@ public:
   RNG theRNG;
 
 private:
+  static unsigned int triggerTimes;
   static const char *TerminateReasonNames[];
   /* Set of Intrinsic::ID. Plain type is used here to avoid including llvm in the header */
   static const std::unordered_set <llvm::Intrinsic::ID> supportedFPIntrinsics;
@@ -234,8 +235,6 @@ private:
 
   /// Return the typeid corresponding to a certain `type_info`
   ref<ConstantExpr> getEhTypeidFor(ref<Expr> type_info);
-
-  static unsigned int triggerTimes;
 
   llvm::Function* getTargetFunction(llvm::Value *calledVal,
                                     ExecutionState &state);
