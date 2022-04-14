@@ -166,7 +166,7 @@ extern "C" {
   void klee_stack_trace(void);
 
   /* Print range for given argument and tagged with name */
-  void klee_print_range(const char * name, int arg );
+  void klee_print_range(const char * name, int arg);
 
   /* Open a merge */
   void klee_open_merge(void);

@@ -458,7 +458,7 @@ cl::opt<bool> DebugCheckForImpliedValues(
 extern "C" unsigned dumpStates, dumpPTree;
 unsigned dumpStates = 0, dumpPTree = 0;
 
-unsigned int Executor::triggerTimes = 0;
+std::set<std::string> Executor::triggerLog = std::set<std::string>();
 
 const char *Executor::TerminateReasonNames[] = {
   [ Abort ] = "abort",
@@ -3813,7 +3813,7 @@ void Executor::run(ExecutionState &initialState) {
   searcher->update(0, newStates, std::vector<ExecutionState *>());
 
   // main interpreter loop
-  while (!states.empty() && !haltExecution && TriggerTimes>triggerTimes) {
+  while (!states.empty() && !haltExecution && TriggerTimes>triggerLog.size()) {
     ExecutionState &state = searcher->selectState();
     KInstruction *ki = state.pc;
     stepInstruction(state);
@@ -4033,8 +4033,8 @@ void Executor::terminateStateOnError(ExecutionState &state,
     interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
 
     if (termReason == Executor::Trigger) {
-      triggerTimes++;
-      if (TriggerTimes == triggerTimes)
+      triggerLog.insert(message.c_str());
+      if (TriggerTimes == triggerLog.size())
         klee_message("NOTE: Trigger enough times! Now terminate.");
     }
   }

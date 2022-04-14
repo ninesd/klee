@@ -124,7 +124,7 @@ public:
   RNG theRNG;
 
 private:
-  static unsigned int triggerTimes;
+  static std::set<std::string> triggerLog;
   static const char *TerminateReasonNames[];
   /* Set of Intrinsic::ID. Plain type is used here to avoid including llvm in the header */
   static const std::unordered_set <llvm::Intrinsic::ID> supportedFPIntrinsics;
