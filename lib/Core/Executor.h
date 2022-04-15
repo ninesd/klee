@@ -103,6 +103,7 @@ public:
     Abort,
     Assert,
     Trigger,
+    TriggerAndTerminate,
     BadVectorAccess,
     Exec,
     External,
