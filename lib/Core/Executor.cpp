@@ -4034,7 +4034,7 @@ void Executor::terminateStateOnError(ExecutionState &state,
 
     interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
 
-    if (termReason == Executor::Trigger || termReason == Executor::TriggerAndTernimate) {
+    if (termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
       triggerLog.insert(message.c_str());
       if (TriggerTimes == triggerLog.size())
         klee_message("NOTE: Trigger enough times! Now terminate.");
