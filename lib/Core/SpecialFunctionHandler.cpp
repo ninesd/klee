@@ -84,6 +84,7 @@ static SpecialFunctionHandler::HandlerInfo handlerInfo[] = {
   addDNR("klee_silent_exit", handleSilentExit),
   addDNR("klee_report_error", handleReportError),
   add("__klee_trigger", handleTrigger, false),
+  addDNR("__klee_trigger_and_terminate", handleTriggerAndTerminate),
   add("calloc", handleCalloc, true),
   add("free", handleFree, false),
   add("klee_assume", handleAssume, false),
@@ -376,6 +377,15 @@ void SpecialFunctionHandler::handleTrigger(ExecutionState &state,
   executor.terminateStateOnError(state,
                                  "TRIGGER: " + readStringAtAddress(state, arguments[0]),
                                  Executor::Trigger);
+}
+
+void SpecialFunctionHandler::handleTriggerAndTerminate(ExecutionState &state,
+                                           KInstruction *target,
+                                           std::vector<ref<Expr> > &arguments) {
+  assert(arguments.size()==4 && "invalid number of arguments to __klee_trigger");
+  executor.terminateStateOnError(state,
+                                 "TRIGGER: " + readStringAtAddress(state, arguments[0]),
+                                 Executor::TriggerAndTerminate);
 }
 
 void SpecialFunctionHandler::handleReportError(ExecutionState &state,
