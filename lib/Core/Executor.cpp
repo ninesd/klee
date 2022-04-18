@@ -157,6 +157,11 @@ cl::opt<bool> EmitAllErrors(
              "(default=false, i.e. one per (error,instruction) pair)"),
     cl::cat(TestGenCat));
 
+cl::opt<bool> EnableOptimizer(
+    "EnableOptimizer", cl::init(true),
+    cl::desc("EnableOptimizer (default=true)."),
+    cl::cat(TestGenCat));
+
 
 /* Constraint solving options */
 
@@ -2554,11 +2559,13 @@ ref<Expr> Executor::toUnique(const ExecutionState &state,
   if (!isa<ConstantExpr>(e)) {
     ref<ConstantExpr> value;
     bool isTrue = false;
-    e = optimizer.optimizeExpr(e, true);
+    if (EnableOptimizer)
+      e = optimizer.optimizeExpr(e, true);
     solver->setTimeout(coreSolverTimeout);
     if (solver->getValue(state.constraints, e, value, state.queryMetaData)) {
       ref<Expr> cond = EqExpr::create(e, value);
-      cond = optimizer.optimizeExpr(cond, false);
+      if (EnableOptimizer)
+        cond = optimizer.optimizeExpr(cond, false);
       if (solver->mustBeTrue(state.constraints, cond, isTrue,
                              state.queryMetaData) &&
           isTrue)
@@ -2611,7 +2618,8 @@ void Executor::executeGetValue(ExecutionState &state,
     seedMap.find(&state);
   if (it==seedMap.end() || isa<ConstantExpr>(e)) {
     ref<ConstantExpr> value;
-    e = optimizer.optimizeExpr(e, true);
+    if (EnableOptimizer)
+      e = optimizer.optimizeExpr(e, true);
     bool success =
         solver->getValue(state.constraints, e, value, state.queryMetaData);
     assert(success && "FIXME: Unhandled solver failure");
@@ -2626,7 +2634,8 @@ void Executor::executeGetValue(ExecutionState &state,
     for (std::vector<SeedInfo>::iterator siit = it->second.begin(), 
            siie = it->second.end(); siit != siie; ++siit) {
       ref<Expr> cond = siit->assignment.evaluate(e);
-      cond = optimizer.optimizeExpr(cond, true);
+      if (EnableOptimizer)
+        cond = optimizer.optimizeExpr(cond, true);
       ref<ConstantExpr> value;
       bool success =
           solver->getValue(state.constraints, cond, value, state.queryMetaData);
@@ -3801,7 +3810,8 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
              "Wrong operand index!");
       ref<Expr> cond = eval(ki, 0, state).value;
 
-      cond = optimizer.optimizeExpr(cond, false);
+      if (EnableOptimizer)
+        cond = optimizer.optimizeExpr(cond, false);
       Executor::StatePair branches = branchFork(state, cond, false);
 
       // NOTE: There is a hidden dependency here, markBranchVisited
@@ -3983,7 +3993,8 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
         // Check if control flow could take this case
         bool result;
-        match = optimizer.optimizeExpr(match, false);
+        if (EnableOptimizer)
+          match = optimizer.optimizeExpr(match, false);
         bool success = solver->mayBeTrue(state.constraints, match, result,
                                          state.queryMetaData, unsatCore);
         assert(success && "FIXME: Unhandled solver failure");
@@ -4017,7 +4028,8 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       }
 
       // Check if control could take the default case
-      defaultValue = optimizer.optimizeExpr(defaultValue, false);
+      if (EnableOptimizer)
+        defaultValue = optimizer.optimizeExpr(defaultValue, false);
       bool res;
       std::vector<ref<Expr> > unsatCore;
       bool success = solver->mayBeTrue(state.constraints, defaultValue, res,
@@ -4149,7 +4161,8 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
          have already got a value. But in the end the caches should
          handle it for us, albeit with some overhead. */
       do {
-        v = optimizer.optimizeExpr(v, true);
+        if (EnableOptimizer)
+          v = optimizer.optimizeExpr(v, true);
         ref<ConstantExpr> value;
         bool success =
             solver->getValue(free->constraints, v, value, free->queryMetaData);
@@ -6178,7 +6191,8 @@ void Executor::callExternalFunction(ExecutionState &state,
   for (std::vector<ref<Expr> >::iterator ai = arguments.begin(), 
        ae = arguments.end(); ai!=ae; ++ai) {
     if (ExternalCalls == ExternalCallPolicy::All) { // don't bother checking uniqueness
-      *ai = optimizer.optimizeExpr(*ai, true);
+      if (EnableOptimizer)
+        *ai = optimizer.optimizeExpr(*ai, true);
       ref<ConstantExpr> ce;
       bool success =
           solver->getValue(state.constraints, *ai, ce, state.queryMetaData);
@@ -6402,7 +6416,8 @@ void Executor::executeAlloc(ExecutionState &state,
     // return argument first). This shows up in pcre when llvm
     // collapses the size expression with a select.
 
-    size = optimizer.optimizeExpr(size, true);
+    if (EnableOptimizer)
+      size = optimizer.optimizeExpr(size, true);
 
     ref<ConstantExpr> example;
     bool success =
@@ -6483,7 +6498,8 @@ void Executor::executeAlloc(ExecutionState &state,
 void Executor::executeFree(ExecutionState &state,
                            ref<Expr> address,
                            KInstruction *target) {
-  address = optimizer.optimizeExpr(address, true);
+  if (EnableOptimizer)
+    address = optimizer.optimizeExpr(address, true);
   StatePair zeroPointer = fork(state, Expr::createIsZero(address), true);
   if (zeroPointer.first) {
     if (target)
@@ -6517,7 +6533,8 @@ void Executor::resolveExact(ExecutionState &state,
                             ref<Expr> p,
                             ExactResolutionList &results, 
                             const std::string &name) {
-  p = optimizer.optimizeExpr(p, true);
+  if (EnableOptimizer)
+    p = optimizer.optimizeExpr(p, true);
   // XXX we may want to be capping this?
   ResolutionList rl;
   state.addressSpace.resolve(state, solver, p, rl);
@@ -6559,7 +6576,8 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       value = ConstraintManager::simplifyExpr(state.constraints, value);
   }
 
-  address = optimizer.optimizeExpr(address, true);
+  if (EnableOptimizer)
+    address = optimizer.optimizeExpr(address, true);
 
   // fast path: single in-bounds resolution
   ObjectPair op;
@@ -6580,7 +6598,8 @@ void Executor::executeMemoryOperation(ExecutionState &state,
     
     ref<Expr> offset = mo->getOffsetExpr(address);
     ref<Expr> check = mo->getBoundsCheckOffset(offset, bytes);
-    check = optimizer.optimizeExpr(check, true);
+    if (EnableOptimizer)
+      check = optimizer.optimizeExpr(check, true);
 
     bool inBounds;
     solver->setTimeout(coreSolverTimeout);
@@ -6640,7 +6659,8 @@ void Executor::executeMemoryOperation(ExecutionState &state,
   // resolution with out of bounds)
 
   // TODO DOUBT?
-  address = optimizer.optimizeExpr(address, true);
+  if (EnableOptimizer)
+    address = optimizer.optimizeExpr(address, true);
   ResolutionList rl;  
   solver->setTimeout(coreSolverTimeout);
   bool incomplete = state.addressSpace.resolve(state, solver, address, rl,
