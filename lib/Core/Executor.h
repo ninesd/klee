@@ -137,6 +137,7 @@ public:
     Abort,
     Assert,
     Trigger,
+    TriggerAndTerminate,
     BadVectorAccess,
     Exec,
     External,
@@ -158,6 +159,7 @@ public:
   RNG theRNG;
 
 private:
+  static std::set<std::string> triggerLog;
   static const char *TerminateReasonNames[];
   /* Set of Intrinsic::ID. Plain type is used here to avoid including llvm in the header */
   static const std::unordered_set <llvm::Intrinsic::ID> supportedFPIntrinsics;

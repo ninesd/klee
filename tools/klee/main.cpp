@@ -895,6 +895,7 @@ static const char *modelledExternals[] = {
         "__assert_fail",
         "__assert_rtn",
         "__klee_trigger",
+        "__klee_trigger_and_terminate",
         "__errno_location",
         "__error",
         "calloc",

@@ -113,6 +113,24 @@ extern "C" {
    ? __klee_trigger (#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__)) \
    : (void) (0)                                                         \
 
+  /* special klee trigger if false macro. this trigger should be used when
+   * path consistency across platforms is desired (e.g., in tests).
+   * NB: __klee_trigger is a klee "special" function
+   */
+# define klee_trigger_and_terminate_if_false(expr)                                             \
+  ((expr)                                                               \
+   ? (void) (0)                                                         \
+   : __klee_trigger_and_terminate (#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__)) \
+
+  /* special klee trigger if true macro. this trigger should be used when
+   * path consistency across platforms is desired (e.g., in tests).
+   * NB: __klee_trigger is a klee "special" function
+   */
+# define klee_trigger_and_terminate_if_true(expr)                                             \
+  ((expr)                                                               \
+   ? __klee_trigger_and_terminate (#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__)) \
+   : (void) (0)                                                         \
+
   /* Return true if the given value is symbolic (represented by an
    * expression) in the current state. This is primarily for debugging
    * and writing tests but can also be used to enable prints in replay
@@ -166,7 +184,7 @@ extern "C" {
   void klee_stack_trace(void);
 
   /* Print range for given argument and tagged with name */
-  void klee_print_range(const char * name, int arg );
+  void klee_print_range(const char * name, int arg);
 
   /* Open a merge */
   void klee_open_merge(void);
