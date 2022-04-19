@@ -3472,7 +3472,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
       state.txTreeNode->bindCallArguments(state.prevPC->inst, arguments, state.roundingMode);
       if (DebugTracerX)
         llvm::errs() << "[executeCall:bindCallArguments] eh_typeid_for, Node:" << state.txTreeNode->getNodeSequenceNumber()
-            << " : " << state.prevPC->inst->getOpcodeName() << "\n";
+            << ", inst:" << state.prevPC->inst->getOpcodeName() << "\n";
     }
   }
 }
