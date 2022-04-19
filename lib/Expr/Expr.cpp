@@ -204,7 +204,7 @@ void Expr::printKind(llvm::raw_ostream &os, Kind k) {
     X(FAbs);
     X(FNeg);
     X(FRint);
-    X(Exist);
+    X(Exists);
 #undef X
   default:
     assert(0 && "invalid kind");
