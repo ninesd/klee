@@ -2658,10 +2658,13 @@ void Executor::executeGetValue(ExecutionState &state,
 
     if (INTERPOLATION_ENABLED) {
       txTree->execute(target->inst, e, value, state.roundingMode);
-      if (DebugTracerX)
+      if (DebugTracerX) {
         llvm::errs() << "[executeGetValue:execute] Node:" << state.txTreeNode->getNodeSequenceNumber()
                      << ", Inst:" << target->inst->getOpcodeName()
-                     << ", Value:" << value->getOpcodeName() << "\n";
+                     << ", Value:";
+        value->print(llvm::errs());
+        llvm::errs() << "\n";
+      }
     }
   } else {
     std::set< ref<Expr> > values;
@@ -2696,10 +2699,10 @@ void Executor::executeGetValue(ExecutionState &state,
       if (INTERPOLATION_ENABLED) {
         TxTree::executeOnNode(es->txTreeNode, target->inst, e, *vit, state.roundingMode);
         if (DebugTracerX) {
-          llvm::errs() << "[executeGetValue:executeOnNode] Node:" << es->getNodeSequenceNumber()
+          llvm::errs() << "[executeGetValue:executeOnNode] Node:" << es->txTreeNode->getNodeSequenceNumber()
              << ", Inst:" << target->inst->getOpcodeName()
              << ", Value:";
-          vit->print(llvm::errs());
+          vit.print(llvm::errs());
           llvm::errs() << "\n";
         }
       }
