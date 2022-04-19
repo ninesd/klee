@@ -2702,7 +2702,7 @@ void Executor::executeGetValue(ExecutionState &state,
           llvm::errs() << "[executeGetValue:executeOnNode] Node:" << es->txTreeNode->getNodeSequenceNumber()
              << ", Inst:" << target->inst->getOpcodeName()
              << ", Value:";
-          vit.print(llvm::errs());
+          (*vit)->print(llvm::errs());
           llvm::errs() << "\n";
         }
       }
