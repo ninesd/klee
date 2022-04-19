@@ -3186,6 +3186,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
       break;
     }
 
+#if LLVM_VERSION_CODE >= LLVM_VERSION(7, 0)
     case Intrinsic::fshr:
     case Intrinsic::fshl: {
       ref<Expr> op1 = eval(ki, 1, state).value;
@@ -3221,7 +3222,6 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
 
       break;
     }
-#if LLVM_VERSION_CODE >= LLVM_VERSION(7, 0)
 #endif
 
     // va_arg is handled by caller and intrinsic lowering, see comment for
@@ -3265,6 +3265,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
       break;
     }
 
+#ifdef SUPPORT_KLEE_EH_CXX
     case Intrinsic::eh_typeid_for: {
       ref<Expr> result = getEhTypeidFor(arguments.at(0));
       bindLocal(ki, state, result);
@@ -3279,7 +3280,6 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
 
       break;
     }
-#ifdef SUPPORT_KLEE_EH_CXX
 #endif
 
     case Intrinsic::vaend:
@@ -3467,7 +3467,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
     for (unsigned k = 0; k < numFormals; k++)
       bindArgument(kf, k, state, arguments[k]);
 
-    if (INTERPOLATION_ENABLED){
+    if (INTERPOLATION_ENABLED) {
       // We bind the abstract dependency call arguments
       state.txTreeNode->bindCallArguments(state.prevPC->inst, arguments, state.roundingMode);
       if (DebugTracerX)
