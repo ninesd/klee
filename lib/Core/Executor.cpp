@@ -5748,7 +5748,7 @@ void Executor::updateStates(ExecutionState *current) {
     if (INTERPOLATION_ENABLED) {
       txTree->remove(es, solver, (current == 0));
       if (DebugTracerX)
-        llvm::errs() << "[updateStates:remove] : " << es.txTreeNode->getNodeSequenceNumber() << "\n";
+        llvm::errs() << "[updateStates:remove] : " << es->txTreeNode->getNodeSequenceNumber() << "\n";
     }
 
     delete es;
