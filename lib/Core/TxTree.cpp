@@ -55,7 +55,7 @@ TxSubsumptionTableEntry::TxSubsumptionTableEntry(
     TxTreeNode *node, const std::vector<llvm::Instruction *> &callHistory)
     : programPoint(node->getProgramPoint()),
       nodeSequenceNumber(node->getNodeSequenceNumber()) {
-  llvm::errs() << "WARNING set prevProgramPoint\n";
+//  llvm::errs() << "WARNING set prevProgramPoint\n";
   std::map<ref<Expr>, ref<Expr> > substitution;
   existentials.clear();
   interpolant = node->getInterpolant(existentials, substitution);
@@ -894,14 +894,13 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
     }
   }
 
-//  prevProgramPoint = state.txTreeNode->getPrevProgramPoint();
-  if (debugSubsumptionLevel >= 1 && isa<llvm::PHINode>(state.pc->inst)) {
-    llvm::errs() << "WARNING PhiNode Check : \n";
-    llvm::errs() << "PC : " << reinterpret_cast<uintptr_t>(state.pc->inst) << "\n";
-    llvm::errs() << "prevPC : " << reinterpret_cast<uintptr_t>(state.prevPC->inst) << "\n";
-    llvm::errs() << "txTreeNode->prevProgramPoint: " << state.txTreeNode->getPrevProgramPoint() << "\n";
-    llvm::errs() << "prevProgramPoint : " << prevProgramPoint << "\n";
-  }
+//  if (debugSubsumptionLevel >= 1 && isa<llvm::PHINode>(state.pc->inst)) {
+//    llvm::errs() << "WARNING PhiNode Check : \n";
+//    llvm::errs() << "PC : " << reinterpret_cast<uintptr_t>(state.pc->inst) << "\n";
+//    llvm::errs() << "prevPC : " << reinterpret_cast<uintptr_t>(state.prevPC->inst) << "\n";
+//    llvm::errs() << "txTreeNode->prevProgramPoint: " << state.txTreeNode->getPrevProgramPoint() << "\n";
+//    llvm::errs() << "prevProgramPoint : " << prevProgramPoint << "\n";
+//  }
   // PhiNode Check 1 (checking previous BB is the same at subsumption point)
   if (isa<llvm::PHINode>(state.pc->inst) &&
       prevProgramPoint != reinterpret_cast<uintptr_t>(state.prevPC->inst)) {
@@ -2114,7 +2113,7 @@ TxSubsumptionTable::insert(uintptr_t id,
 
 bool TxSubsumptionTable::check(TimingSolver *solver, ExecutionState &state,
                                time::Span timeout, int debugSubsumptionLevel) {
-  llvm::errs() << "WARNING check begin\n";
+//  llvm::errs() << "WARNING check begin\n";
   CallHistoryIndexedTable *subTable = 0;
   TxTreeNode *txTreeNode = state.txTreeNode;
 
@@ -2162,8 +2161,8 @@ bool TxSubsumptionTable::check(TimingSolver *solver, ExecutionState &state,
     // the successful subsumption mostly happen in the newest entry.
     for (EntryIterator it = iterPair.first, ie = iterPair.second; it != ie;
          ++it) {
-      llvm::errs() << "WARNING : before subsumed prevProgramPoint : " << (*it)->prevProgramPoint << "\n";
-      llvm::errs() << "WARNING : before subsumed txTreeNode->prevProgramPoint: " << state.txTreeNode->getPrevProgramPoint() << "\n";
+//      llvm::errs() << "WARNING : before subsumed prevProgramPoint : " << (*it)->prevProgramPoint << "\n";
+//      llvm::errs() << "WARNING : before subsumed txTreeNode->prevProgramPoint: " << state.txTreeNode->getPrevProgramPoint() << "\n";
 //      if (txSubsumptionTableEntry.subsumed(solver, state, timeout, leftRetrieval,
       if ((*it)->subsumed(solver, state, timeout, leftRetrieval,
                           __internalStore, __concretelyAddressedHistoricalStore,
