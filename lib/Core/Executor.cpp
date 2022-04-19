@@ -4347,8 +4347,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     // Update dependency
     if (INTERPOLATION_ENABLED) {
       txTree->execute(i, result, left, right, state.roundingMode);
-      if (DebugTracerX)
-        llvm::errs() << "[executeInstruction:execute] Add, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+      if (DebugTracerX) {
+        llvm::errs() << "[executeInstruction:execute] Add, Node:" << state.txTreeNode->getNodeSequenceNumber() << ", Left:";
+        left->print(llvm::errs());
+        llvm::errs() << " + Right:";
+        left->print(llvm::errs());
+        llvm::errs() << "\n";
+      }
     }
 
     break;
@@ -4363,8 +4368,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     // Update dependency
     if (INTERPOLATION_ENABLED) {
       txTree->execute(i, result, left, right, state.roundingMode);
-      if (DebugTracerX)
-        llvm::errs() << "[executeInstruction:execute] Sub, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+      if (DebugTracerX) {
+        llvm::errs() << "[executeInstruction:execute] Sub, Node:" << state.txTreeNode->getNodeSequenceNumber() << ", Left:";
+        left->print(llvm::errs());
+        llvm::errs() << " - Right:";
+        left->print(llvm::errs());
+        llvm::errs() << "\n";
+      }
     }
 
     break;
@@ -4379,8 +4389,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     // Update dependency
     if (INTERPOLATION_ENABLED) {
       txTree->execute(i, result, left, right, state.roundingMode);
-      if (DebugTracerX)
-        llvm::errs() << "[executeInstruction:execute] Mul, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+      if (DebugTracerX) {
+        llvm::errs() << "[executeInstruction:execute] Mul, Node:" << state.txTreeNode->getNodeSequenceNumber() << ", Left:";
+        left->print(llvm::errs());
+        llvm::errs() << " * Right:";
+        left->print(llvm::errs());
+        llvm::errs() << "\n";
+      }
     }
 
     break;
@@ -4395,8 +4410,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     // Update dependency
     if (INTERPOLATION_ENABLED) {
       txTree->execute(i, result, left, right, state.roundingMode);
-      if (DebugTracerX)
-        llvm::errs() << "[executeInstruction:execute] UDiv, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+      if (DebugTracerX) {
+        llvm::errs() << "[executeInstruction:execute] UDiv, Node:" << state.txTreeNode->getNodeSequenceNumber() << ", Left:";
+        left->print(llvm::errs());
+        llvm::errs() << " / Right:";
+        left->print(llvm::errs());
+        llvm::errs() << "\n";
+      }
     }
 
     break;
@@ -4411,8 +4431,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     // Update dependency
     if (INTERPOLATION_ENABLED) {
       txTree->execute(i, result, left, right, state.roundingMode);
-      if (DebugTracerX)
-        llvm::errs() << "[executeInstruction:execute] SDiv, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+      if (DebugTracerX) {
+        llvm::errs() << "[executeInstruction:execute] SDiv, Node:" << state.txTreeNode->getNodeSequenceNumber() << ", Left:";
+        left->print(llvm::errs());
+        llvm::errs() << " / Right:";
+        left->print(llvm::errs());
+        llvm::errs() << "\n";
+      }
     }
 
     break;
@@ -4427,8 +4452,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     // Update dependency
     if (INTERPOLATION_ENABLED) {
       txTree->execute(i, result, left, right, state.roundingMode);
-      if (DebugTracerX)
-        llvm::errs() << "[executeInstruction:execute] URem, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+      if (DebugTracerX) {
+        llvm::errs() << "[executeInstruction:execute] URem, Node:" << state.txTreeNode->getNodeSequenceNumber() << ", Left:";
+        left->print(llvm::errs());
+        llvm::errs() << " % Right:";
+        left->print(llvm::errs());
+        llvm::errs() << "\n";
+      }
     }
 
     break;
@@ -4443,8 +4473,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     // Update dependency
     if (INTERPOLATION_ENABLED) {
       txTree->execute(i, result, left, right, state.roundingMode);
-      if (DebugTracerX)
-        llvm::errs() << "[executeInstruction:execute] SRem, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+      if (DebugTracerX) {
+        llvm::errs() << "[executeInstruction:execute] SRem, Node:" << state.txTreeNode->getNodeSequenceNumber() << ", Left:";
+        left->print(llvm::errs());
+        llvm::errs() << " % Right:";
+        left->print(llvm::errs());
+        llvm::errs() << "\n";
+      }
     }
 
     break;
@@ -4459,8 +4494,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     // Update dependency
     if (INTERPOLATION_ENABLED) {
       txTree->execute(i, result, left, right, state.roundingMode);
-      if (DebugTracerX)
-        llvm::errs() << "[executeInstruction:execute] And, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+      if (DebugTracerX) {
+        llvm::errs() << "[executeInstruction:execute] And, Node:" << state.txTreeNode->getNodeSequenceNumber() << ", Left:";
+        left->print(llvm::errs());
+        llvm::errs() << " And Right:";
+        left->print(llvm::errs());
+        llvm::errs() << "\n";
+      }
     }
 
     break;
@@ -4475,8 +4515,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     // Update dependency
     if (INTERPOLATION_ENABLED) {
       txTree->execute(i, result, left, right, state.roundingMode);
-      if (DebugTracerX)
-        llvm::errs() << "[executeInstruction:execute] Or, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+      if (DebugTracerX) {
+        llvm::errs() << "[executeInstruction:execute] Or, Node:" << state.txTreeNode->getNodeSequenceNumber() << ", Left:";
+        left->print(llvm::errs());
+        llvm::errs() << "Or Right:";
+        left->print(llvm::errs());
+        llvm::errs() << "\n";
+      }
     }
 
     break;
@@ -4491,8 +4536,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     // Update dependency
     if (INTERPOLATION_ENABLED) {
       txTree->execute(i, result, left, right, state.roundingMode);
-      if (DebugTracerX)
-        llvm::errs() << "[executeInstruction:execute] Xor, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+      if (DebugTracerX) {
+        llvm::errs() << "[executeInstruction:execute] Xor, Node:" << state.txTreeNode->getNodeSequenceNumber() << ", Left:";
+        left->print(llvm::errs());
+        llvm::errs() << " Xor Right:";
+        left->print(llvm::errs());
+        llvm::errs() << "\n";
+      }
     }
 
     break;
