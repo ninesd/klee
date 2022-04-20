@@ -6640,7 +6640,8 @@ void Executor::callExternalFunction(ExecutionState &state,
       }
       txTree->execute(target->inst, tmpArgs, state.roundingMode);
       if (DebugTracerX)
-        llvm::errs() << "[callExternalFunction:execute] Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+        llvm::errs() << "[callExternalFunction:execute] Node:" << state.txTreeNode->getNodeSequenceNumber()
+                     << ", Inst:" << target->inst->getOpcodeName() << "\n";
     }
 
   }
@@ -6736,7 +6737,8 @@ void Executor::executeAlloc(ExecutionState &state,
       if (INTERPOLATION_ENABLED) {
         txTree->execute(target->inst, mo->getBaseExpr(), size, state.roundingMode);
         if (DebugTracerX)
-          llvm::errs() << "[executeAlloc:execute] Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+          llvm::errs() << "[executeAlloc:execute] Node:" << state.txTreeNode->getNodeSequenceNumber()
+                       << ", Inst:" << target->inst->getOpcodeName() << "\n";
       }
       
       if (reallocFrom) {
@@ -6816,7 +6818,8 @@ void Executor::executeAlloc(ExecutionState &state,
           if (INTERPOLATION_ENABLED) {
             txTree->execute(target->inst, result, state.roundingMode);
             if (DebugTracerX)
-              llvm::errs() << "[executeAlloc:execute] symbolic, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+              llvm::errs() << "[executeAlloc:execute] symbolic, Node:" << state.txTreeNode->getNodeSequenceNumber()
+                           << ", Inst:" << target->inst->getOpcodeName() << "\n";
           }
 
         }
@@ -6970,11 +6973,12 @@ void Executor::executeMemoryOperation(ExecutionState &state,
           wos->write(offset, value);
 
           // Update dependency
-          if (INTERPOLATION_ENABLED) {
+          if (INTERPOLATION_ENABLED && target) {
             if (DebugTracerX)
-              llvm::errs() << "[executeMemoryOperation:executeMemoryOperation] isWrite, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+              llvm::errs() << "[executeMemoryOperation:executeMemoryOperation] isWrite, Node:" << state.txTreeNode->getNodeSequenceNumber()
+                           << ", Inst:" << target->inst->getOpcodeName() << "\n";
           }
-          if (INTERPOLATION_ENABLED &&
+          if (INTERPOLATION_ENABLED && target &&
               txTree->executeMemoryOperation(target->inst, value, address,
                                              inBounds, state.roundingMode)) {
             // Memory error according to Tracer-X
@@ -6994,7 +6998,8 @@ void Executor::executeMemoryOperation(ExecutionState &state,
         // Update dependency
         if (INTERPOLATION_ENABLED && target) {
           if (DebugTracerX)
-            llvm::errs() << "[executeMemoryOperation:executeMemoryOperation] !isWrite, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+            llvm::errs() << "[executeMemoryOperation:executeMemoryOperation] !isWrite, Node:" << state.txTreeNode->getNodeSequenceNumber()
+                         << ", Inst:" << target->inst->getOpcodeName() << "\n";
         }
         if (INTERPOLATION_ENABLED && target &&
             txTree->executeMemoryOperation(target->inst, result, address,
@@ -7048,7 +7053,8 @@ void Executor::executeMemoryOperation(ExecutionState &state,
             TxTree::executeOnNode(bound->txTreeNode, target->inst, value,
                                   address, state.roundingMode);
             if (DebugTracerX)
-              llvm::errs() << "[executeMemoryOperation:executeOnNode] Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+              llvm::errs() << "[executeMemoryOperation:executeOnNode] Node:" << state.txTreeNode->getNodeSequenceNumber()
+                           << ", Inst:" << target->inst->getOpcodeName() << "\n";
 
           }
 
@@ -7062,7 +7068,8 @@ void Executor::executeMemoryOperation(ExecutionState &state,
           TxTree::executeOnNode(bound->txTreeNode, target->inst, result,
                                 address, state.roundingMode);
           if (DebugTracerX)
-            llvm::errs() << "[executeMemoryOperation:executeOnNode] Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+            llvm::errs() << "[executeMemoryOperation:executeOnNode] Node:" << state.txTreeNode->getNodeSequenceNumber()
+                         << ", Inst:" << target->inst->getOpcodeName() << "\n";
         }
 
       }
@@ -7092,7 +7099,8 @@ void Executor::executeMemoryOperation(ExecutionState &state,
         state.txTreeNode->memoryBoundViolationInterpolation(target->inst,
                                                             address);
         if (DebugTracerX)
-          llvm::errs() << "[executeMemoryOperation:memoryBoundViolationInterpolation] Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+          llvm::errs() << "[executeMemoryOperation:memoryBoundViolationInterpolation] Node:" << state.txTreeNode->getNodeSequenceNumber()
+                       << ", Inst:" << target->inst->getOpcodeName() << "\n";
       }
 
       terminateStateOnError(*unbound, "memory error: out of bound pointer", Ptr,
