@@ -6414,7 +6414,7 @@ void Executor::terminateStateOnError(ExecutionState &state,
     interpreterHandler->incInstructionsDepthOnErrorTermination(
         state.txTreeNode->getInstructionsDepth());
 
-    if (termReason == Executor::Assert || termReason == Executor::Trigger) {
+    if (termReason == Executor::Assert || termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
       TxTreeGraph::setError(state, TxTreeGraph::ASSERTION);
       if (DebugTracerX)
         llvm::errs() << "[terminateStateOnError:setError] ASSERTION, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
