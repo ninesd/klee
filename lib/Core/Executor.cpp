@@ -6910,7 +6910,9 @@ void Executor::executeMemoryOperation(ExecutionState &state,
                                       ref<Expr> address,
                                       ref<Expr> value /* undef if read */,
                                       KInstruction *target /* undef if write */) {
-  Expr::Width type = (isWrite ? value->getWidth() : 
+  if (DebugTracerX)
+    llvm::errs() << "[executeMemoryOperation]\n";
+  Expr::Width type = (isWrite ? value->getWidth() :
                      getWidthForLLVMType(target->inst->getType()));
   unsigned bytes = Expr::getMinBytesForWidth(type);
 
@@ -6970,7 +6972,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
           // Update dependency
           if (INTERPOLATION_ENABLED && target) {
             if (DebugTracerX)
-              llvm::errs() << "[executeMemoryOperation:executeMemoryOperation] inBounds, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+              llvm::errs() << "[executeMemoryOperation:executeMemoryOperation] isWrite, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
           }
           if (INTERPOLATION_ENABLED && target &&
               txTree->executeMemoryOperation(target->inst, value, address,
@@ -6992,7 +6994,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
         // Update dependency
         if (INTERPOLATION_ENABLED && target) {
           if (DebugTracerX)
-            llvm::errs() << "[executeMemoryOperation:executeMemoryOperation] Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
+            llvm::errs() << "[executeMemoryOperation:executeMemoryOperation] !isWrite, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
         }
         if (INTERPOLATION_ENABLED && target &&
             txTree->executeMemoryOperation(target->inst, result, address,
