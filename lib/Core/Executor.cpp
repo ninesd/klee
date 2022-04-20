@@ -6967,8 +6967,6 @@ void Executor::executeMemoryOperation(ExecutionState &state,
           terminateStateOnError(state, "memory error: object read only",
                                 ReadOnly);
         } else {
-          if (DebugTracerX)
-            llvm::errs() << "[executeMemoryOperation] isWrite\n";
           ObjectState *wos = state.addressSpace.getWriteable(mo, os);
           wos->write(offset, value);
 
