@@ -6910,8 +6910,6 @@ void Executor::executeMemoryOperation(ExecutionState &state,
                                       ref<Expr> address,
                                       ref<Expr> value /* undef if read */,
                                       KInstruction *target /* undef if write */) {
-  if (DebugTracerX)
-    llvm::errs() << "[executeMemoryOperation]\n";
   Expr::Width type = (isWrite ? value->getWidth() :
                      getWidthForLLVMType(target->inst->getType()));
   unsigned bytes = Expr::getMinBytesForWidth(type);
@@ -6959,11 +6957,7 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       return;
     }
 
-        if (DebugTracerX)
-          llvm::errs() << "[executeMemoryOperation] success\n";
     if (inBounds) {
-      if (DebugTracerX)
-        llvm::errs() << "[executeMemoryOperation] inBounds\n";
       const ObjectState *os = op.second;
       if (isWrite) {
         if (os->readOnly) {
@@ -6976,11 +6970,11 @@ void Executor::executeMemoryOperation(ExecutionState &state,
           wos->write(offset, value);
 
           // Update dependency
-          if (INTERPOLATION_ENABLED && target) {
+          if (INTERPOLATION_ENABLED) {
             if (DebugTracerX)
               llvm::errs() << "[executeMemoryOperation:executeMemoryOperation] isWrite, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
           }
-          if (INTERPOLATION_ENABLED && target &&
+          if (INTERPOLATION_ENABLED &&
               txTree->executeMemoryOperation(target->inst, value, address,
                                              inBounds, state.roundingMode)) {
             // Memory error according to Tracer-X
