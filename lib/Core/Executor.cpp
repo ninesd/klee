@@ -6959,13 +6959,19 @@ void Executor::executeMemoryOperation(ExecutionState &state,
       return;
     }
 
+        if (DebugTracerX)
+          llvm::errs() << "[executeMemoryOperation] success\n";
     if (inBounds) {
+      if (DebugTracerX)
+        llvm::errs() << "[executeMemoryOperation] inBounds\n";
       const ObjectState *os = op.second;
       if (isWrite) {
         if (os->readOnly) {
           terminateStateOnError(state, "memory error: object read only",
                                 ReadOnly);
         } else {
+          if (DebugTracerX)
+            llvm::errs() << "[executeMemoryOperation] isWrite\n";
           ObjectState *wos = state.addressSpace.getWriteable(mo, os);
           wos->write(offset, value);
 
