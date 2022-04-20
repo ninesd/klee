@@ -53,11 +53,11 @@ bool DivCheckPass::runOnModule(Module &M) {
           continue;
 
         CastInst *denominator =
-            CastInst::CreateIntegerCast(I->getOperand(1),
+            CastInst::CreateIntegerCast(I.getOperand(1),
                                         Type::getInt64Ty(getGlobalContext()),
                                         false,  /* sign doesn't matter */
                                         "int_cast_to_i64",
-                                        I);
+                                        &I);
 
         // Lazily bind the function to avoid always importing it.
         if (!divZeroCheckFunction) {
@@ -68,7 +68,7 @@ bool DivCheckPass::runOnModule(Module &M) {
           divZeroCheckFunction = cast<Function>(fc);
         }
 
-        CallInst * ci = CallInst::Create(divZeroCheckFunction, denominator, "", &*I);
+        CallInst * ci = CallInst::Create(divZeroCheckFunction, denominator, "", I);
 
         // Set debug location of checking call to that of the div/rem
         // operation so error locations are reported in the correct
@@ -104,17 +104,17 @@ bool OvershiftCheckPass::runOnModule(Module &M) {
         std::vector<llvm::Value*> args;
 
         // Determine bit width of first operand
-        uint64_t bitWidth=I->getOperand(0)->getType()->getScalarSizeInBits();
+        uint64_t bitWidth=I.getOperand(0)->getType()->getScalarSizeInBits();
 
         ConstantInt *bitWidthC = ConstantInt::get(Type::getInt64Ty(getGlobalContext()),bitWidth,false);
         args.push_back(bitWidthC);
 
         CastInst *shift =
-            CastInst::CreateIntegerCast(I->getOperand(1),
+            CastInst::CreateIntegerCast(I.getOperand(1),
                                         Type::getInt64Ty(getGlobalContext()),
                                         false,  /* sign doesn't matter */
                                         "int_cast_to_i64",
-                                        I);
+                                        &I);
         args.push_back(shift);
 
 
@@ -129,7 +129,7 @@ bool OvershiftCheckPass::runOnModule(Module &M) {
         }
 
         // Inject CallInstr to check if overshifting possible
-        CallInst* ci = CallInst::Create(overshiftCheckFunction, args, "", &*I);
+        CallInst* ci = CallInst::Create(overshiftCheckFunction, args, "", I);
         // set debug information from binary operand to preserve it
         ci->setDebugLoc(binOp->getDebugLoc());
         moduleChanged = true;
