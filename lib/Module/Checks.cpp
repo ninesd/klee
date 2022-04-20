@@ -50,17 +50,16 @@ bool DivCheckPass::runOnModule(Module &M) {
             opcode != Instruction::SRem && opcode != Instruction::URem)
           continue;
 
-//        // Check if the operand is constant and not zero, skip in that case.
-//        const auto &operand = binOp->getOperand(1);
-//        if (const auto &coOp = dyn_cast<llvm::Constant>(operand)) {
-//          if (!coOp->isZeroValue())
-//            continue;
-//        }
-//
-//        // Check if the operand is already checked by "klee_div_zero_check"
-//        if (KleeIRMetaData::hasAnnotation(I, "klee.check.div", "True"))
-//          continue;
+        // Check if the operand is constant and not zero, skip in that case.
+        const auto &operand = binOp->getOperand(1);
+        if (const auto &coOp = dyn_cast<llvm::Constant>(operand)) {
+          if (!coOp->isZeroValue())
+            continue;
+        }
 
+        // Check if the operand is already checked by "klee_div_zero_check"
+        if (KleeIRMetaData::hasAnnotation(I, "klee.check.div", "True"))
+          continue;
         divInstruction.push_back(binOp);
       }
     }
@@ -106,19 +105,19 @@ bool OvershiftCheckPass::runOnModule(Module &M) {
             opcode != Instruction::AShr)
           continue;
 
-//        // Check if the operand is constant and not zero, skip in that case
-//        auto operand = binOp->getOperand(1);
-//        if (auto coOp = dyn_cast<llvm::ConstantInt>(operand)) {
-//          auto typeWidth =
-//              binOp->getOperand(0)->getType()->getScalarSizeInBits();
-//          // If the constant shift is positive and smaller,equal the type width,
-//          // we can ignore this instruction
-//          if (!coOp->isNegative() && coOp->getZExtValue() < typeWidth)
-//            continue;
-//        }
-//
-//        if (KleeIRMetaData::hasAnnotation(I, "klee.check.shift", "True"))
-//          continue;
+        // Check if the operand is constant and not zero, skip in that case
+        auto operand = binOp->getOperand(1);
+        if (auto coOp = dyn_cast<llvm::ConstantInt>(operand)) {
+          auto typeWidth =
+              binOp->getOperand(0)->getType()->getScalarSizeInBits();
+          // If the constant shift is positive and smaller,equal the type width,
+          // we can ignore this instruction
+          if (!coOp->isNegative() && coOp->getZExtValue() < typeWidth)
+            continue;
+        }
+
+        if (KleeIRMetaData::hasAnnotation(I, "klee.check.shift", "True"))
+          continue;
 
         shiftInstructions.push_back(binOp);
       }
