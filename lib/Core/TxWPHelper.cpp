@@ -34,6 +34,20 @@ bool TxWPHelper::isTargetDependent(llvm::Value *inst, ref<Expr> expr) {
       return false;
   }
 
+  case Expr::FPExt:
+  case Expr::FPTrunc:
+  case Expr::FPToUI:
+  case Expr::FPToSI:
+  case Expr::UIToFP:
+  case Expr::SIToFP:
+  case Expr::FSqrt:
+  case Expr::FAbs:
+  case Expr::FNeg:
+  case Expr::FRint:
+  case Expr::IsNaN:
+  case Expr::IsInfinite:
+  case Expr::IsNormal:
+  case Expr::IsSubnormal:
   case Expr::NotOptimized:
   case Expr::Not:
   case Expr::Extract:
@@ -44,6 +58,18 @@ bool TxWPHelper::isTargetDependent(llvm::Value *inst, ref<Expr> expr) {
     return isTargetDependent(inst, kids[0]);
   }
 
+  case Expr::FOEq:
+  case Expr::FOLt:
+  case Expr::FOLe:
+  case Expr::FOGt:
+  case Expr::FOGe:
+  case Expr::FAdd:
+  case Expr::FSub:
+  case Expr::FMul:
+  case Expr::FDiv:
+  case Expr::FRem:
+  case Expr::FMax:
+  case Expr::FMin:
   case Expr::Eq:
   case Expr::Ne:
   case Expr::Ult:
@@ -133,6 +159,20 @@ ref<Expr> TxWPHelper::substituteExpr(ref<Expr> base, const ref<Expr> lhs,
         return base;
     }
 
+    case Expr::FPExt:
+    case Expr::FPTrunc:
+    case Expr::FPToUI:
+    case Expr::FPToSI:
+    case Expr::UIToFP:
+    case Expr::SIToFP:
+    case Expr::FSqrt:
+    case Expr::FAbs:
+    case Expr::FNeg:
+    case Expr::FRint:
+    case Expr::IsNaN:
+    case Expr::IsInfinite:
+    case Expr::IsNormal:
+    case Expr::IsSubnormal:
     case Expr::NotOptimized:
     case Expr::Not:
     case Expr::Extract:
@@ -146,6 +186,18 @@ ref<Expr> TxWPHelper::substituteExpr(ref<Expr> base, const ref<Expr> lhs,
         return base->rebuild(kids);
     }
 
+    case Expr::FOEq:
+    case Expr::FOLt:
+    case Expr::FOLe:
+    case Expr::FOGt:
+    case Expr::FOGe:
+    case Expr::FAdd:
+    case Expr::FSub:
+    case Expr::FMul:
+    case Expr::FDiv:
+    case Expr::FRem:
+    case Expr::FMax:
+    case Expr::FMin:
     case Expr::Sel:
     case Expr::Concat:
     case Expr::Eq:
