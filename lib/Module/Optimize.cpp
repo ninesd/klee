@@ -75,7 +75,7 @@ static cl::alias ExportDynamic("export-dynamic",
 
 static cl::opt<bool>
     Strip("strip-all", cl::desc("Strip all symbol information from executable"),
-          cl::init(true), cl::cat(klee::ModuleCat));
+          cl::init(false), cl::cat(klee::ModuleCat));
 
 static cl::alias A0("s", cl::desc("Alias for --strip-all"),
                     cl::aliasopt(Strip));
@@ -297,6 +297,7 @@ void Optimize(Module *M, llvm::ArrayRef<const char *> preservedFunctions) {
   }
 
   // Run our queue of passes all at once now, efficiently.
-  Passes.run(*M);
+  if (!Passes.isEmpty())
+    Passes.run(*M);
 }
 }
