@@ -626,12 +626,12 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
   preservedFunctions.push_back("memcmp");
   preservedFunctions.push_back("memmove");
 
+  llvm::errs() << "opts : " << opts.Optimize << "\n";
   kmodule->optimiseAndPrepare(opts, preservedFunctions);
-  kmodule->manifest(interpreterHandler, StatsTracker::useStatistics());
   kmodule->checkModule();
 
   // 4.) Manifest the module
-//  kmodule->manifest(interpreterHandler, StatsTracker::useStatistics());
+  kmodule->manifest(interpreterHandler, StatsTracker::useStatistics());
 
   specialFunctionHandler->bind();
 
