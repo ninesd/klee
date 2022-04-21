@@ -314,7 +314,7 @@ void KModule::optimiseAndPrepare(
   // going to be unresolved. We really need to handle the intrinsics
   // directly I think?
   legacy::PassManager pm3;
-  if (INTERPOLATION_ENABLED)
+  if (!INTERPOLATION_ENABLED)
     pm3.add(createCFGSimplificationPass());
   switch(SwitchType) {
   case eSwitchTypeInternal: break;
