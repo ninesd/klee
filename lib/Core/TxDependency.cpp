@@ -1567,7 +1567,6 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
     addDependency(op1, ret);
     return ret;
   }
-  // TODO DOUBT???
   case llvm::Instruction::FAdd: {
     ref<Expr> expr = op1Expr->FAdd(op2Expr, rm);
     ref<TxStateValue> ret = getNewTxStateValue(ce, callHistory, expr);

@@ -983,7 +983,6 @@ void Executor::branch(ExecutionState &state,
       ExecutionState *ns = es->branch();
       addedStates.push_back(ns);
       result.push_back(ns);
-      // TODO DOUBT???
       std::pair<PTreeNode*, PTreeNode*> res =
           processTree->attach(es->ptreeNode, ns, es);
       ns->ptreeNode = res.first;
@@ -1348,7 +1347,7 @@ std::set<std::string> Executor::extractVarNames(ExecutionState &current,
         if (ai == &f->getEntryBlock().front()) {
           res.insert(f->arg_begin()->getName().data());
         } else if (ai == f->getEntryBlock().front().getNextNode()) {
-          // TODO DOUBT??
+          // TODO DOUBT?
           res.insert((f->arg_begin()+1)->getName().data());
         }
       } else {
@@ -3471,7 +3470,7 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
       // We bind the abstract dependency call arguments
       state.txTreeNode->bindCallArguments(state.prevPC->inst, arguments, state.roundingMode);
       if (DebugTracerX)
-        llvm::errs() << "[executeCall:bindCallArguments] eh_typeid_for, Node:" << state.txTreeNode->getNodeSequenceNumber()
+        llvm::errs() << "[executeCall:bindCallArguments] !f->isDeclaration(), Node:" << state.txTreeNode->getNodeSequenceNumber()
             << ", inst:" << state.prevPC->inst->getOpcodeName() << "\n";
     }
   }
