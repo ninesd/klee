@@ -49,11 +49,6 @@
 using namespace llvm;
 
 static cl::opt<bool>
-    DisableOptimizations("disable-opt",
-                         cl::desc("Do not run any optimization passes (default=true)"),
-                         cl::init(true), cl::cat(klee::ModuleCat));
-
-static cl::opt<bool>
     DisableInline("disable-inlining",
                   cl::desc("Do not run the inliner pass (default=false)"),
                   cl::init(false), cl::cat(klee::ModuleCat));
@@ -108,8 +103,6 @@ static void AddStandardCompilePasses(legacy::PassManager &PM) {
   // If the -strip-debug command line option was specified, do it.
   if (StripDebug)
     addPass(PM, createStripSymbolsPass(true));
-
-  if (DisableOptimizations) return;
 
   addPass(PM, createCFGSimplificationPass());    // Clean up disgusting code
   addPass(PM, createPromoteMemoryToRegisterPass());// Kill useless allocas
@@ -293,7 +286,6 @@ void Optimize(Module *M, llvm::ArrayRef<const char *> preservedFunctions) {
   addPass(Passes, createGlobalDCEPass());
 
   // Run our queue of passes all at once now, efficiently.
-  if (!DisableOptimizations)
-    Passes.run(*M);
+  Passes.run(*M);
 }
 }
