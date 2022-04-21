@@ -56,12 +56,12 @@ static cl::opt<bool>
 static cl::opt<bool>
     DisableInline("disable-inlining",
                   cl::desc("Do not run the inliner pass (default=false)"),
-                  cl::init(false), cl::cat(klee::ModuleCat));
+                  cl::init(true), cl::cat(klee::ModuleCat));
 
 static cl::opt<bool> DisableInternalize(
     "disable-internalize",
     cl::desc("Do not mark all symbols as internal (default=false)"),
-    cl::init(false), cl::cat(klee::ModuleCat));
+    cl::init(true), cl::cat(klee::ModuleCat));
 
 static cl::opt<bool> VerifyEach(
     "verify-each",
@@ -75,7 +75,7 @@ static cl::alias ExportDynamic("export-dynamic",
 
 static cl::opt<bool>
     Strip("strip-all", cl::desc("Strip all symbol information from executable"),
-          cl::init(false), cl::cat(klee::ModuleCat));
+          cl::init(true), cl::cat(klee::ModuleCat));
 
 static cl::alias A0("s", cl::desc("Alias for --strip-all"),
                     cl::aliasopt(Strip));
@@ -83,7 +83,7 @@ static cl::alias A0("s", cl::desc("Alias for --strip-all"),
 static cl::opt<bool>
     StripDebug("strip-debug",
                cl::desc("Strip debugger symbol info from executable"),
-               cl::init(false), cl::cat(klee::ModuleCat));
+               cl::init(true), cl::cat(klee::ModuleCat));
 
 static cl::alias A1("S", cl::desc("Alias for --strip-debug"),
                     cl::aliasopt(StripDebug));
