@@ -1634,10 +1634,17 @@ setDebugSubsumptionLevelTxTree(debugSubsumptionLevel);
             solver->setTimeout(time::Span());
           }
 
-          if (!success || result != Solver::True) {
+          if (!success) {
             if (debugSubsumptionLevel >= 1) {
-              klee_message("#%lu=>#%lu: Check failure as solved did not decide "
-                           "validity of existentially-quantified query",
+              klee_message("#%lu=>#%lu: Check failure as solved query not success",
+                           state.txTreeNode->getNodeSequenceNumber(),
+                           nodeSequenceNumber);
+            }
+            return false;
+          }
+          else if (result != Solver::True) {
+            if (debugSubsumptionLevel >= 1) {
+              klee_message("#%lu=>#%lu: Check failure as solved query not true",
                            state.txTreeNode->getNodeSequenceNumber(),
                            nodeSequenceNumber);
             }
