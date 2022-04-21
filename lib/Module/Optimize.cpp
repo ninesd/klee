@@ -297,7 +297,6 @@ void Optimize(Module *M, llvm::ArrayRef<const char *> preservedFunctions) {
   }
 
   // Run our queue of passes all at once now, efficiently.
-  if (!Passes.isEmpty())
-    Passes.run(*M);
+  Passes.run(*M);
 }
 }
