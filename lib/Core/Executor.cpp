@@ -611,8 +611,6 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
     kmodule->instrument(opts);
   }
 
-  kmodule->manifest(interpreterHandler, StatsTracker::useStatistics());
-
   // 3.) Optimise and prepare for KLEE
 
   // Create a list of functions that should be preserved if used
@@ -629,6 +627,7 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
   preservedFunctions.push_back("memmove");
 
   kmodule->optimiseAndPrepare(opts, preservedFunctions);
+  kmodule->manifest(interpreterHandler, StatsTracker::useStatistics());
   kmodule->checkModule();
 
   // 4.) Manifest the module
