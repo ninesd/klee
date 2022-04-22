@@ -50,7 +50,7 @@ extern llvm::cl::opt<bool> WPInterpolant;
 
 extern llvm::cl::opt<bool> MarkGlobal;
 
-extern cl::opt<bool> DebugTracerX;
+extern llvm::cl::opt<bool> DebugTracerX;
 }
 
 #endif // KLEE_COMMANDLINE_H
