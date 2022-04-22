@@ -161,7 +161,7 @@ llvm::cl::opt<bool>
                llvm::cl::cat(TracerXCat));
 }
 
-cl::opt<bool> DebugTracerX(
+llvm::cl::opt<bool> DebugTracerX(
     "debug-tracerx", cl::init(false),
     cl::desc("Debug TracerX (default=false)."),
     cl::cat(TestGenCat));
