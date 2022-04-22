@@ -3269,7 +3269,6 @@ void Executor::executeCall(ExecutionState &state, KInstruction *ki, Function *f,
       ref<Expr> result = getEhTypeidFor(arguments.at(0));
       bindLocal(ki, state, result);
 
-      // TODO DOUBT?
       // Update dependency
       if (INTERPOLATION_ENABLED) {
         txTree->execute(i, result, arguments.at(0), state.roundingMode);
@@ -3852,7 +3851,6 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
           }
 
           bindLocal(kcaller, state, result);
-          //  TODO DOUBT?
         }
       } else {
         // We check that the return value has no users instead of
@@ -6722,7 +6720,6 @@ void Executor::executeAlloc(ExecutionState &state,
     if (!mo) {
       bindLocal(target, state, 
                 ConstantExpr::alloc(0, Context::get().getPointerWidth()));
-      // TODO DOUBT?
     } else {
       ObjectState *os = bindObjectInState(state, mo, isLocal);
       if (zeroMemory) {
@@ -6851,7 +6848,6 @@ void Executor::executeFree(ExecutionState &state,
   if (zeroPointer.first) {
     if (target)
       bindLocal(target, *zeroPointer.first, Expr::createPointer(0));
-      //TODO DOUBT?
   }
   if (zeroPointer.second) { // address != 0
     ExactResolutionList rl;
@@ -6870,7 +6866,6 @@ void Executor::executeFree(ExecutionState &state,
         it->second->addressSpace.unbindObject(mo);
         if (target)
           bindLocal(target, *it->second, Expr::createPointer(0));
-          //TODO DOUBT?
       }
     }
   }
@@ -7015,7 +7010,6 @@ void Executor::executeMemoryOperation(ExecutionState &state,
   // we are on an error path (no resolution, multiple resolution, one
   // resolution with out of bounds)
 
-  // TODO DOUBT?
   if (EnableOptimizer)
     address = optimizer.optimizeExpr(address, true);
   ResolutionList rl;  
