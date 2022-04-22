@@ -527,6 +527,14 @@ Executor::Executor(LLVMContext &ctx, const InterpreterOptions &opts,
       atMemoryLimit(false), inhibitForking(false), haltExecution(false),
       ivcEnabled(false), txTree(0), debugLogBuffer(debugBufferString) {
 
+    // Basic Block Coverage Counters
+    if (BBCoverage >= 1) {
+      allBlockCount = 0;
+      allBlockCollected = false;
+      blockCoverage = 0;
+      allICMPCount = 0;
+      coveredICMPCount = 0;
+    }
 
   const time::Span maxTime{MaxTime};
   if (maxTime) timers.add(
@@ -2376,7 +2384,7 @@ Executor::StatePair Executor::speculationFork(ExecutionState &current,
       // case also we extract the unsat core of the proof
       txTree->markPathCondition(current, unsatCore);
       if (DebugTracerX)
-        llvm::errs() << "[speculationFork:markPathCondition] branch=False, Node" << current.txTreeNode->getNodeSequenceNumber() <<"\n";
+        llvm::errs() << "[speculationFork:markPathCondition] branch=False, Node:" << current.txTreeNode->getNodeSequenceNumber() <<"\n";
       if (WPInterpolant)
         txTree->markInstruction(current.prevPC, false);
     }
@@ -4294,6 +4302,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Update dependency
     if (INTERPOLATION_ENABLED) {
+      // TODO DOUBT??
       txTree->executePHI(i, state.incomingBBIndex, result, state.roundingMode);
       if (DebugTracerX)
         llvm::errs() << "[executeInstruction:executePHI] PHI, Node:" << state.txTreeNode->getNodeSequenceNumber()
