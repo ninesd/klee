@@ -49,6 +49,8 @@ extern llvm::cl::opt<std::string> DependencyFolder;
 extern llvm::cl::opt<bool> WPInterpolant;
 
 extern llvm::cl::opt<bool> MarkGlobal;
+
+extern cl::opt<bool> DebugTracerX;
 }
 
 #endif // KLEE_COMMANDLINE_H

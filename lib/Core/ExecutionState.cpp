@@ -135,8 +135,16 @@ void ExecutionState::addTxTreeConstraint(ref<Expr> e, llvm::Instruction *instr) 
 
   if (txTreeNode && binstr && binstr->isConditional()) {
     txTreeNode->addConstraint(e, binstr->getCondition(), roundingMode);
+    if (DebugTracerX) {
+      llvm::errs() << "[addConstraint:addConstraint] Node:" << txTreeNode->getNodeSequenceNumber()
+                   << ", Inst:" << instr->getOpcodeName() << "\n";
+    }
   } else if (txTreeNode && !binstr) {
     txTreeNode->addConstraint(e, instr->getOperand(0), roundingMode);
+    if (DebugTracerX) {
+      llvm::errs() << "[addConstraint:addConstraint] Node:" << txTreeNode->getNodeSequenceNumber()
+                   << ", Inst:" << instr->getOpcodeName() << "\n";
+    }
   }
 }
 
@@ -163,8 +171,16 @@ void ExecutionState::popFrame(KInstruction *ki, ref<Expr> returnValue) {
     addressSpace.unbindObject(memoryObject);
   stack.pop_back();
 
-  if (INTERPOLATION_ENABLED && site && ki)
+  if (INTERPOLATION_ENABLED && site && ki) {
     txTreeNode->bindReturnValue(site, ki->inst, returnValue, roundingMode);
+    if (DebugTracerX) {
+      llvm::errs() << "[popFrame:bindReturnValue] Node:" << txTreeNode->getNodeSequenceNumber()
+                   << ", Inst:" << ki->inst->getOpcodeName()
+                   << ", Value:";
+      returnValue->print(llvm::errs());
+      llvm::errs() << "\n";
+    }
+  }
 }
 
 void ExecutionState::addSymbolic(const MemoryObject *mo, const Array *array) {

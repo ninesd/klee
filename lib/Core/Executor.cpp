@@ -162,11 +162,6 @@ cl::opt<bool> EnableOptimizer(
     cl::desc("Enable Optimizer (default=true)."),
     cl::cat(TestGenCat));
 
-cl::opt<bool> DebugTracerX(
-    "debug-tracerx", cl::init(false),
-    cl::desc("Debug TracerX (default=false)."),
-    cl::cat(TestGenCat));
-
 
 /* Constraint solving options */
 
