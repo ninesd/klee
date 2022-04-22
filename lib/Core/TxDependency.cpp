@@ -1444,8 +1444,13 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
     ref<ConstantExpr> offset =
         ConstantExpr::alloc(0, Context::get().getPointerWidth());
 
+#if LLVM_VERSION_CODE >= LLVM_VERSION(4, 0)
     for (llvm::gep_type_iterator ii = llvm::gep_type_begin(ce), ie = llvm::gep_type_end(ce);
          ii != ie; ++ii) {
+#else
+for (gep_type_iterator ii = gep_type_begin(ce), ie = gep_type_end(ce);
+     ii != ie; ++ii) {
+#endif
       ;
       ref<ConstantExpr> addend =
           ConstantExpr::alloc(0, Context::get().getPointerWidth());
@@ -1455,7 +1460,11 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
           evalConstant(cast<llvm::Constant>(ii.getOperand()), callHistory, rm)->getExpression());
       if (indexOp->isZero())
         continue;
+#if LLVM_VERSION_CODE >= LLVM_VERSION(4, 0)
       if (auto STy = ii.getStructTypeOrNull()) {
+#else
+      if (StructType *STy = dyn_cast<StructType>(*ii)) {
+#endif
           unsigned ElementIdx = indexOp->getZExtValue();
           const llvm::StructLayout *SL = targetData->getStructLayout(STy);
           addend = ConstantExpr::alloc(llvm::APInt(Context::get().getPointerWidth(),
