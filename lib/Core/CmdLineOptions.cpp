@@ -15,7 +15,7 @@ llvm::cl::opt<bool> NoInterpolation(
     "no-interpolation",
     llvm::cl::desc("Disable interpolation for search space reduction. "
                    "Interpolation is enabled by default when Z3 was the solver "
-                   "used. This option has no effect when Z3 was not used."),
+                   "used. This option has no effect when Z3 was not used (default=false)."),
     llvm::cl::init(false),
     llvm::cl::cat(TracerXCat));
 
@@ -23,7 +23,7 @@ llvm::cl::opt<bool> OutputTree(
     "output-tree",
     llvm::cl::desc("Outputs tree.dot: the execution tree in .dot file "
                    "format. At present, this feature is only available when "
-                   "Z3 is compiled in and interpolation is enabled."),
+                   "Z3 is compiled in and interpolation is enabled (default=false)."),
     llvm::cl::init(false),
     llvm::cl::cat(TracerXCat));
 
@@ -33,7 +33,7 @@ llvm::cl::opt<bool>
                                 "paths. This is needed for the computation of "
                                 "coverage using gcov or llvm-cov, as otherwise the "
                                 "part of code visited by the subsumed paths are "
-                                "not considered in the coverage computation."),
+                                "not considered in the coverage computation (default=false)."),
                  llvm::cl::init(false),
                  llvm::cl::cat(TracerXCat));
 
@@ -48,7 +48,7 @@ llvm::cl::opt<bool> NoExistential(
         "20), we strengthen the query by adding the constraint x' = x. This "
         "has an effect of removing all existentially-quantified variables "
         "most solvers are not very powerful at solving, however, at likely "
-        "less number of subsumptions due to the strengthening of the query."),
+        "less number of subsumptions due to the strengthening of the query (default=false)."),
     llvm::cl::init(false),
     llvm::cl::cat(TracerXCat));
 
@@ -91,8 +91,8 @@ llvm::cl::opt<int>
 llvm::cl::opt<bool> EmitAllErrorsInSamePath(
     "emit-all-errors-in-same-path",
     llvm::cl::desc("Enables detection of multiple errors "
-             "in same paths (default=false (off)). Note: Specially used "
-             "for achieving MC/DC."),
+             "in same paths. Note: Specially used "
+             "for achieving MC/DC (default=false)."),
     llvm::cl::init(false),
     llvm::cl::cat(TracerXCat));
 
@@ -100,7 +100,7 @@ llvm::cl::opt<bool> ExactAddressInterpolant(
     "exact-address-interpolant",
     llvm::cl::desc("This option uses exact address for interpolating "
                    "successful out-of-bound memory access instead of the "
-                   "default memory offset bound."),
+                   "default memory offset bound (default=false)."),
     llvm::cl::init(false),
     llvm::cl::cat(TracerXCat));
 
@@ -108,20 +108,20 @@ llvm::cl::opt<bool> SpecialFunctionBoundInterpolation(
     "special-function-bound-interpolation",
     llvm::cl::desc("Perform memory access interpolation only within function "
                    "named tracerx_check, either memory offset bound or exact "
-                   "address (enabled with -exact-address-interpolant)."),
+                   "address (enabled with -exact-address-interpolant) (default=false)."),
     llvm::cl::init(false),
     llvm::cl::cat(TracerXCat));
 
 llvm::cl::opt<bool> TracerXPointerError(
     "tracerx-pointer-error",
     llvm::cl::desc("Enables detection of more memory errors by interpolation "
-                   "shadow memory (may be false positives)."),
+                   "shadow memory (may be false positives) (default=false)."),
     llvm::cl::init(false),
     llvm::cl::cat(TracerXCat));
 
 llvm::cl::opt<SpecType>
     SpecTypeToUse("spec-type",
-                  llvm::cl::desc("Speculation type: coverage or safety"),
+                  llvm::cl::desc("Speculation type: coverage or safety (default=NO_SPEC)."),
                   llvm::cl::values(clEnumValN(SAFETY, "safety", "safety"),
                                    clEnumValN(COVERAGE, "coverage", "coverage")),
                   llvm::cl::init(NO_SPEC),
@@ -150,19 +150,19 @@ llvm::cl::opt<std::string> DependencyFolder(
 
 llvm::cl::opt<bool>
     WPInterpolant("wp-interpolant",
-                  llvm::cl::desc("Perform weakest-precondition interpolation"),
+                  llvm::cl::desc("Perform weakest-precondition interpolation (default=false)."),
                   llvm::cl::init(false),
                   llvm::cl::cat(TracerXCat));
 
 llvm::cl::opt<bool>
     MarkGlobal("mark-global",
-               llvm::cl::desc("Decide whether global variables are marked or not"),
+               llvm::cl::desc("Decide whether global variables are marked or not (default=true)."),
                llvm::cl::init(true),
                llvm::cl::cat(TracerXCat));
-}
 
 llvm::cl::opt<bool>
     DebugTracerX("debug-tracerx",
                  llvm::cl::desc("Output Debug Info for TracerX (default=false)."),
                  llvm::cl::init(false),
                  llvm::cl::cat(TracerXCat));
+}
