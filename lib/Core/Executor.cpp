@@ -3773,7 +3773,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       assert(!caller && "caller set on initial stack frame");
       terminateStateOnExit(state);
     } else {
-      state.popFrame(ki, ConstantExpr::alloc(0, Expr::Bool));
+      state.popFrame(ki, result);
 
       if (statsTracker)
         statsTracker->framePopped(state);
