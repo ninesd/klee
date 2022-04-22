@@ -1450,7 +1450,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
       ref<ConstantExpr> addend =
           ConstantExpr::alloc(0, Context::get().getPointerWidth());
 
-      // TODO DOUBT???
+      // TODO DOUBT??
       ref<ConstantExpr> indexOp = cast<ConstantExpr>(
           evalConstant(cast<llvm::Constant>(ii.getOperand()), callHistory, rm)->getExpression());
       if (indexOp->isZero())
@@ -1460,25 +1460,7 @@ ref<TxStateValue> TxDependency::evalConstantExpr(
           const llvm::StructLayout *SL = targetData->getStructLayout(STy);
           addend = ConstantExpr::alloc(llvm::APInt(Context::get().getPointerWidth(),
                                         SL->getElementOffset(ElementIdx)));
-//      if (ii.isStruct()) {
-//        llvm::StructType *st = ii.getStructType();
-//        const llvm::StructLayout *sl = targetData->getStructLayout(st);
-//        const llvm::ConstantInt *ci = cast<llvm::ConstantInt>(ii.getOperand());
-//
-//        addend = ConstantExpr::alloc(
-//            sl->getElementOffset((unsigned)ci->getZExtValue()),
-//            Context::get().getPointerWidth());
       } else {
-//        llvm::ArrayType *set = llvm::cast<llvm::ArrayType>(ii.getIndexedType());
-//        ref<ConstantExpr> index = cast<ConstantExpr>(
-//            evalConstant(cast<llvm::Constant>(ii.getOperand()), callHistory, rm)
-//                ->getExpression());
-//        unsigned elementSize =
-//            targetData->getTypeStoreSize(set->getElementType());
-//
-//        index = index->ZExt(Context::get().getPointerWidth());
-//        addend = index->Mul(
-//            ConstantExpr::alloc(elementSize, Context::get().getPointerWidth()));
           addend = indexOp->SExt(Context::get().getPointerWidth())
              ->Mul(ConstantExpr::alloc(
                  llvm::APInt(Context::get().getPointerWidth(),
