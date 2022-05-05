@@ -388,14 +388,17 @@ void SpecialFunctionHandler::handleTrigger(ExecutionState &state,
                                               KInstruction *target,
                                               std::vector<ref<Expr> > &arguments) {
   assert(arguments.size()==4 && "invalid number of arguments to __klee_trigger");
+  static std::set<std::string> passedTrigger;
+  bool result = false;
+  std::string info = readStringAtAddress(state, arguments[0]);
+  if (passedTrigger.count(info)==1) return;
   if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC && state.txTreeNode->isSpeculationNode()) {
-    executor.terminateStateOnError(state,
-                                   "SPECULATION FAIL: " + readStringAtAddress(state, arguments[0]),
-                                   Executor::Trigger);
+    result = executor.terminateStateOnError(state, "SPECULATION FAIL: " + info, Executor::Trigger);
   } else {
-    executor.terminateStateOnError(state,
-                                   "TRIGGER: " + readStringAtAddress(state, arguments[0]),
-                                   Executor::Trigger);
+    result = executor.terminateStateOnError(state, "TRIGGER: " + info, Executor::Trigger);
+  }
+  if (result) {
+    passedTrigger.insert(info);
   }
 }
 
