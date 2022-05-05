@@ -403,9 +403,15 @@ void SpecialFunctionHandler::handleTriggerAndTerminate(ExecutionState &state,
                                            KInstruction *target,
                                            std::vector<ref<Expr> > &arguments) {
   assert(arguments.size()==4 && "invalid number of arguments to __klee_trigger");
-  executor.terminateStateOnError(state,
-                                 "TRIGGER: " + readStringAtAddress(state, arguments[0]),
-                                 Executor::TriggerAndTerminate);
+  if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC && state.txTreeNode->isSpeculationNode()) {
+    executor.terminateStateOnError(state,
+                                   "SPECULATION FAIL: " + readStringAtAddress(state, arguments[0]),
+                                   Executor::TriggerAndTerminate);
+  } else {
+    executor.terminateStateOnError(state,
+                                   "TRIGGER: " + readStringAtAddress(state, arguments[0]),
+                                   Executor::TriggerAndTerminate);
+  }
 }
 
 void SpecialFunctionHandler::handleReportError(ExecutionState &state,
