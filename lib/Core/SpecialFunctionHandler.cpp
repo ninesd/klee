@@ -388,7 +388,6 @@ void SpecialFunctionHandler::handleTrigger(ExecutionState &state,
                                               KInstruction *target,
                                               std::vector<ref<Expr> > &arguments) {
   assert(arguments.size()==4 && "invalid number of arguments to __klee_trigger");
-  static std::set<std::string> passedTrigger;
   bool result = false;
   std::string info = readStringAtAddress(state, arguments[0]);
   if (passedTrigger.count(info)==1) return;
@@ -402,14 +401,31 @@ void SpecialFunctionHandler::handleTrigger(ExecutionState &state,
   }
 }
 
-void SpecialFunctionHandler::handleTriggerAndTerminate(ExecutionState &state,
+void SpecialFunctionHandler::handleTriggerhandleTriggerAndTerminate(ExecutionState &state,
                                            KInstruction *target,
                                            std::vector<ref<Expr> > &arguments) {
   assert(arguments.size()==4 && "invalid number of arguments to __klee_trigger");
-  executor.terminateStateOnError(state,
-                                 "TRIGGER: " + readStringAtAddress(state, arguments[0]),
-                                 Executor::TriggerAndTerminate);
+  bool result = false;
+  std::string info = readStringAtAddress(state, arguments[0]);
+  if (passedTrigger.count(info)==1) return;
+  if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC && state.txTreeNode->isSpeculationNode()) {
+    result = executor.terminateStateOnError(state, "SPECULATION FAIL: " + info, Executor::TriggerAndTerminate);
+  } else {
+    result = executor.terminateStateOnError(state, "TRIGGER: " + info, Executor::TriggerAndTerminate);
+  }
+  if (result) {
+    passedTrigger.insert(info);
+  }
 }
+
+//void SpecialFunctionHandler::handleTriggerAndTerminate(ExecutionState &state,
+//                                           KInstruction *target,
+//                                           std::vector<ref<Expr> > &arguments) {
+//  assert(arguments.size()==4 && "invalid number of arguments to __klee_trigger");
+//  executor.terminateStateOnError(state,
+//                                 "TRIGGER: " + readStringAtAddress(state, arguments[0]),
+//                                 Executor::TriggerAndTerminate);
+//}
 
 void SpecialFunctionHandler::handleReportError(ExecutionState &state,
                                                KInstruction *target,
