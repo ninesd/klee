@@ -401,7 +401,7 @@ void SpecialFunctionHandler::handleTrigger(ExecutionState &state,
   }
 }
 
-void SpecialFunctionHandler::handleTriggerhandleTriggerAndTerminate(ExecutionState &state,
+void SpecialFunctionHandler::handleTriggerAndTerminate(ExecutionState &state,
                                            KInstruction *target,
                                            std::vector<ref<Expr> > &arguments) {
   assert(arguments.size()==4 && "invalid number of arguments to __klee_trigger");
