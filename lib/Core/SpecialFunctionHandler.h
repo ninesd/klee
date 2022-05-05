@@ -30,9 +30,6 @@ namespace klee {
   template<typename T> class ref;
   
   class SpecialFunctionHandler {
-  private:
-    std::set<std::string> passedTrigger;
-
   public:
     typedef void (SpecialFunctionHandler::*Handler)(ExecutionState &state,
                                                     KInstruction *target, 

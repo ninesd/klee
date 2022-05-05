@@ -6389,7 +6389,7 @@ bool Executor::shouldExitOn(enum TerminateReason termReason) {
   return false;
 }
 
-bool Executor::terminateStateOnError(ExecutionState &state,
+void Executor::terminateStateOnError(ExecutionState &state,
                                      const llvm::Twine &messaget,
                                      enum TerminateReason termReason,
                                      const char *suffix,
@@ -6399,8 +6399,6 @@ bool Executor::terminateStateOnError(ExecutionState &state,
   Instruction * lastInst;
   const InstructionInfo &ii = getLastNonKleeInternalInstruction(state, &lastInst);
 
-  bool result = false;
-
   if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
       SpecStrategyToUse != TIMID && state.txTreeNode->isSpeculationNode()) {
     //    llvm::outs() << "=== start jumpback because of error \n";
@@ -6408,7 +6406,7 @@ bool Executor::terminateStateOnError(ExecutionState &state,
     speculativeBackJump(state);
     klee_message("Speculation Failed: %s:%d: %s", ii.file.c_str(), ii.line,
                  message.c_str());
-    return false;
+    return;
   }
 
   interpreterHandler->incErrorTermination();
@@ -6438,7 +6436,6 @@ bool Executor::terminateStateOnError(ExecutionState &state,
 
   if (EmitAllErrors ||
       emittedErrors.insert(std::make_pair(lastInst, message)).second) {
-    result = true;
     if (ii.file != "") {
       klee_message("ERROR: %s:%d: %s", ii.file.c_str(), ii.line, message.c_str());
     } else {
@@ -6486,8 +6483,6 @@ bool Executor::terminateStateOnError(ExecutionState &state,
 
   if (shouldExitOn(termReason))
     haltExecution = true;
-
-  return result;
 }
 
 // XXX shoot me
