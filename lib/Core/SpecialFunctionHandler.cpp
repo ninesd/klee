@@ -83,8 +83,7 @@ static SpecialFunctionHandler::HandlerInfo handlerInfo[] = {
   addDNR("klee_abort", handleAbort),
   addDNR("klee_silent_exit", handleSilentExit),
   addDNR("klee_report_error", handleReportError),
-//  add("__klee_trigger", handleTrigger, false),
-  addDNR("__klee_trigger", handleTrigger),
+  add("__klee_trigger", handleTrigger, false),
   addDNR("__klee_trigger_and_terminate", handleTriggerAndTerminate),
   add("calloc", handleCalloc, true),
   add("free", handleFree, false),
@@ -391,15 +390,15 @@ void SpecialFunctionHandler::handleTrigger(ExecutionState &state,
   assert(arguments.size()==4 && "invalid number of arguments to __klee_trigger");
   bool result = false;
   std::string info = readStringAtAddress(state, arguments[0]);
-  if (passedTrigger.count(info)==1) return;
-  if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC && state.txTreeNode->isSpeculationNode()) {
-    result = executor.terminateStateOnError(state, "SPECULATION FAIL: " + info, Executor::Trigger);
-  } else {
-    result = executor.terminateStateOnError(state, "TRIGGER: " + info, Executor::Trigger);
-  }
-  if (result) {
-    passedTrigger.insert(info);
-  }
+//  if (passedTrigger.count(info)==1) return;
+//  if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC && state.txTreeNode->isSpeculationNode()) {
+//    result = executor.terminateStateOnError(state, "SPECULATION FAIL: " + info, Executor::Trigger);
+//  } else {
+//    result = executor.terminateStateOnError(state, "TRIGGER: " + info, Executor::Trigger);
+//  }
+//  if (result) {
+//    passedTrigger.insert(info);
+//  }
 }
 
 void SpecialFunctionHandler::handleTriggerAndTerminate(ExecutionState &state,
@@ -408,15 +407,15 @@ void SpecialFunctionHandler::handleTriggerAndTerminate(ExecutionState &state,
   assert(arguments.size()==4 && "invalid number of arguments to __klee_trigger");
   bool result = false;
   std::string info = readStringAtAddress(state, arguments[0]);
-  if (passedTrigger.count(info)==1) return;
-  if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC && state.txTreeNode->isSpeculationNode()) {
-    result = executor.terminateStateOnError(state, "SPECULATION FAIL: " + info, Executor::TriggerAndTerminate);
-  } else {
-    result = executor.terminateStateOnError(state, "TRIGGER: " + info, Executor::TriggerAndTerminate);
-  }
-  if (result) {
-    passedTrigger.insert(info);
-  }
+//  if (passedTrigger.count(info)==1) return;
+//  if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC && state.txTreeNode->isSpeculationNode()) {
+//    result = executor.terminateStateOnError(state, "SPECULATION FAIL: " + info, Executor::TriggerAndTerminate);
+//  } else {
+//    result = executor.terminateStateOnError(state, "TRIGGER: " + info, Executor::TriggerAndTerminate);
+//  }
+//  if (result) {
+//    passedTrigger.insert(info);
+//  }
 }
 
 //void SpecialFunctionHandler::handleTriggerAndTerminate(ExecutionState &state,
