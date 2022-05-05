@@ -387,9 +387,9 @@ void SpecialFunctionHandler::handleAssertFail(ExecutionState &state,
 void SpecialFunctionHandler::handleTrigger(ExecutionState &state,
                                               KInstruction *target,
                                               std::vector<ref<Expr> > &arguments) {
-  assert(arguments.size()==4 && "invalid number of arguments to __klee_trigger");
-  bool result = false;
-  std::string info = readStringAtAddress(state, arguments[0]);
+//  assert(arguments.size()==4 && "invalid number of arguments to __klee_trigger");
+//  bool result = false;
+//  std::string info = readStringAtAddress(state, arguments[0]);
 //  if (passedTrigger.count(info)==1) return;
 //  if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC && state.txTreeNode->isSpeculationNode()) {
 //    result = executor.terminateStateOnError(state, "SPECULATION FAIL: " + info, Executor::Trigger);
@@ -404,9 +404,9 @@ void SpecialFunctionHandler::handleTrigger(ExecutionState &state,
 void SpecialFunctionHandler::handleTriggerAndTerminate(ExecutionState &state,
                                            KInstruction *target,
                                            std::vector<ref<Expr> > &arguments) {
-  assert(arguments.size()==4 && "invalid number of arguments to __klee_trigger");
-  bool result = false;
-  std::string info = readStringAtAddress(state, arguments[0]);
+//  assert(arguments.size()==4 && "invalid number of arguments to __klee_trigger");
+//  bool result = false;
+//  std::string info = readStringAtAddress(state, arguments[0]);
 //  if (passedTrigger.count(info)==1) return;
 //  if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC && state.txTreeNode->isSpeculationNode()) {
 //    result = executor.terminateStateOnError(state, "SPECULATION FAIL: " + info, Executor::TriggerAndTerminate);
