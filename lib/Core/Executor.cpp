@@ -6502,9 +6502,8 @@ void Executor::callExternalFunction(ExecutionState &state,
   if (specialFunctionHandler->passedTrigger.count(target)) {
     return;
   }
-  llvm::errs() << "ERROR ext func [" << function->getName() << "]\n";
+//  llvm::errs() << "ERROR ext func [" << function->getName() << "]\n";
   if (function->getName().str() == "__klee_trigger") {
-    llvm::errs() << "ERROR ret\n";
     return;
   }
 
