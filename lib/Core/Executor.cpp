@@ -6500,7 +6500,7 @@ void Executor::callExternalFunction(ExecutionState &state,
                                     Function *function,
                                     std::vector< ref<Expr> > &arguments) {
   if (specialFunctionHandler->passedTrigger.count(target)) {
-    llvm::errs() << "ERROR [Passed]!\n"
+    llvm::errs() << "ERROR [Passed]!\n";
     return;
   }
 
