@@ -39,7 +39,7 @@ namespace klee {
                      std::pair<Handler,bool> > handlers_ty;
 
     handlers_ty handlers;
-    std::set<const llvm::Function*> passedTrigger;
+    std::set<const KInstruction*> passedTrigger;
     bool isPassed = false;
     class Executor &executor;
 

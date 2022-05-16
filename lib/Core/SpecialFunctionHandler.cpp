@@ -268,7 +268,7 @@ bool SpecialFunctionHandler::handle(ExecutionState &state,
                                     Function *f,
                                     KInstruction *target,
                                     std::vector< ref<Expr> > &arguments) {
-  if (passedTrigger.count(f)==1) {
+  if (passedTrigger.count(target)==1) {
     return true;
   }
   handlers_ty::iterator it = handlers.find(f);
@@ -282,7 +282,7 @@ bool SpecialFunctionHandler::handle(ExecutionState &state,
     } else {
       (this->*h)(state, target, arguments);
       if (isPassed) {
-        passedTrigger.insert(f);
+        passedTrigger.insert(target);
         isPassed = false;
       }
     }
