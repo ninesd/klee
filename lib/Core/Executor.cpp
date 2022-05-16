@@ -6503,6 +6503,10 @@ void Executor::callExternalFunction(ExecutionState &state,
     return;
   }
   llvm::errs() << "ERROR ext func [" << function->getName() << "]\n";
+  if (function->getName().str() == "__klee_trigger") {
+    llvm::errs() << "ERROR ret\n";
+    return;
+  }
 
   // check if specialFunctionHandler wants it
   if (specialFunctionHandler->handle(state, function, target, arguments))
