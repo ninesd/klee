@@ -278,7 +278,7 @@ bool SpecialFunctionHandler::handle(ExecutionState &state,
       executor.terminateStateOnExecError(state, 
                                          "expected return value from void special function");
     } else {
-      (this->*h)(state, target, arguments, f);
+      (this->*h)(state, target, arguments);
       if (isPassed) {
         passedTrigger.insert(f);
         isPassed = false;
