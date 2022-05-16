@@ -268,6 +268,7 @@ bool SpecialFunctionHandler::handle(ExecutionState &state,
                                     Function *f,
                                     KInstruction *target,
                                     std::vector< ref<Expr> > &arguments) {
+  if (passedTrigger.count(f)==1) return true;
   handlers_ty::iterator it = handlers.find(f);
   if (it != handlers.end()) {    
     Handler h = it->second.first;
@@ -277,7 +278,11 @@ bool SpecialFunctionHandler::handle(ExecutionState &state,
       executor.terminateStateOnExecError(state, 
                                          "expected return value from void special function");
     } else {
-      (this->*h)(state, target, arguments);
+      (this->*h)(state, target, arguments, f);
+      if (isPassed) {
+        passedTrigger.insert(f);
+        isPassed = false;
+      }
     }
     return true;
   } else {
@@ -393,7 +398,7 @@ void SpecialFunctionHandler::handleTrigger(ExecutionState &state,
                                    "SPECULATION FAIL: " + readStringAtAddress(state, arguments[0]),
                                    Executor::Trigger);
   } else {
-    executor.terminateStateOnError(state,
+    isPassed = executor.terminateStateOnError(state,
                                    "TRIGGER: " + readStringAtAddress(state, arguments[0]),
                                    Executor::Trigger);
   }
@@ -408,7 +413,7 @@ void SpecialFunctionHandler::handleTriggerAndTerminate(ExecutionState &state,
                                    "SPECULATION FAIL: " + readStringAtAddress(state, arguments[0]),
                                    Executor::TriggerAndTerminate);
   } else {
-    executor.terminateStateOnError(state,
+    isPassed = executor.terminateStateOnError(state,
                                    "TRIGGER: " + readStringAtAddress(state, arguments[0]),
                                    Executor::TriggerAndTerminate);
   }

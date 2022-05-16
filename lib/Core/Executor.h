@@ -520,7 +520,7 @@ private:
   // call exit handler and terminate state
   void terminateStateOnExit(ExecutionState &state);
   // call error handler and terminate state
-  void terminateStateOnError(ExecutionState &state, const llvm::Twine &message,
+  bool terminateStateOnError(ExecutionState &state, const llvm::Twine &message,
                              enum TerminateReason termReason,
                              const char *suffix = NULL,
                              const llvm::Twine &longMessage = "");

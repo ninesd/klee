@@ -6389,11 +6389,13 @@ bool Executor::shouldExitOn(enum TerminateReason termReason) {
   return false;
 }
 
-void Executor::terminateStateOnError(ExecutionState &state,
+bool Executor::terminateStateOnError(ExecutionState &state,
                                      const llvm::Twine &messaget,
                                      enum TerminateReason termReason,
                                      const char *suffix,
                                      const llvm::Twine &info) {
+  bool returnValue = false;
+
   std::string message = messaget.str();
   static std::set< std::pair<Instruction*, std::string> > emittedErrors;
   Instruction * lastInst;
@@ -6406,7 +6408,7 @@ void Executor::terminateStateOnError(ExecutionState &state,
     speculativeBackJump(state);
     klee_message("Speculation Failed: %s:%d: %s", ii.file.c_str(), ii.line,
                  message.c_str());
-    return;
+    return false;
   }
 
   interpreterHandler->incErrorTermination();
@@ -6416,6 +6418,9 @@ void Executor::terminateStateOnError(ExecutionState &state,
         state.txTreeNode->getInstructionsDepth());
 
     if (termReason == Executor::Assert || termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
+      if (termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
+        returnValue = true;
+      }
       TxTreeGraph::setError(state, TxTreeGraph::ASSERTION);
       if (DebugTracerX)
         llvm::errs() << "[terminateStateOnError:setError] ASSERTION, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
@@ -6483,6 +6488,8 @@ void Executor::terminateStateOnError(ExecutionState &state,
 
   if (shouldExitOn(termReason))
     haltExecution = true;
+
+  return false;
 }
 
 // XXX shoot me
