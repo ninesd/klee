@@ -269,7 +269,7 @@ bool SpecialFunctionHandler::handle(ExecutionState &state,
                                     KInstruction *target,
                                     std::vector< ref<Expr> > &arguments) {
   if (passedTrigger.count(f)==1) {
-    llvm::errs() << "ERROR [passedTrigger] !\n"
+    llvm::errs() << "ERROR [passedTrigger] !\n";
     return true;
   }
   handlers_ty::iterator it = handlers.find(f);
