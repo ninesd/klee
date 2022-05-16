@@ -6394,12 +6394,14 @@ void Executor::terminateStateOnError(ExecutionState &state,
                                      enum TerminateReason termReason,
                                      const char *suffix,
                                      const llvm::Twine &info) {
-  bool returnValue = false;
-
   std::string message = messaget.str();
   static std::set< std::pair<Instruction*, std::string> > emittedErrors;
   Instruction * lastInst;
   const InstructionInfo &ii = getLastNonKleeInternalInstruction(state, &lastInst);
+
+  if (termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
+    return;
+  }
 
   if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
       SpecStrategyToUse != TIMID && state.txTreeNode->isSpeculationNode()) {
