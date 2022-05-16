@@ -17,6 +17,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <unordered_set>
 
 namespace llvm {
   class Function;
@@ -39,7 +40,7 @@ namespace klee {
                      std::pair<Handler,bool> > handlers_ty;
 
     handlers_ty handlers;
-    std::set<const KInstruction*> passedTrigger;
+    std::unordered_set<KInstruction*> passedTrigger;
     class Executor &executor;
 
     struct HandlerInfo {
