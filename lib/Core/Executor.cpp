@@ -6499,10 +6499,10 @@ void Executor::callExternalFunction(ExecutionState &state,
                                     KInstruction *target,
                                     Function *function,
                                     std::vector< ref<Expr> > &arguments) {
-  return;
   if (specialFunctionHandler->passedTrigger.count(target)) {
     return;
   }
+  llvm::errs() << "ERROR ext func [" << function->getName() << "]\n";
 
   // check if specialFunctionHandler wants it
   if (specialFunctionHandler->handle(state, function, target, arguments))
