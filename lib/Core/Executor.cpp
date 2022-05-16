@@ -6475,7 +6475,7 @@ bool Executor::terminateStateOnError(ExecutionState &state,
     }
 
     interpreterHandler->incErrorTerminationTest();
-    interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
+//    interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
 
     if (termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
       triggerLog.insert(message.c_str());
