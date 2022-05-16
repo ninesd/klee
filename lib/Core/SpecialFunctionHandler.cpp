@@ -281,10 +281,6 @@ bool SpecialFunctionHandler::handle(ExecutionState &state,
                                          "expected return value from void special function");
     } else {
       (this->*h)(state, target, arguments);
-      if (isPassed) {
-        passedTrigger.insert(target);
-        isPassed = false;
-      }
     }
     return true;
   } else {
@@ -400,9 +396,10 @@ void SpecialFunctionHandler::handleTrigger(ExecutionState &state,
                                    "SPECULATION FAIL: " + readStringAtAddress(state, arguments[0]),
                                    Executor::Trigger);
   } else {
-    isPassed = executor.terminateStateOnError(state,
+    executor.terminateStateOnError(state,
                                    "TRIGGER: " + readStringAtAddress(state, arguments[0]),
                                    Executor::Trigger);
+    passedTrigger.insert(target);
   }
 }
 
@@ -415,9 +412,10 @@ void SpecialFunctionHandler::handleTriggerAndTerminate(ExecutionState &state,
                                    "SPECULATION FAIL: " + readStringAtAddress(state, arguments[0]),
                                    Executor::TriggerAndTerminate);
   } else {
-    isPassed = executor.terminateStateOnError(state,
+    executor.terminateStateOnError(state,
                                    "TRIGGER: " + readStringAtAddress(state, arguments[0]),
                                    Executor::TriggerAndTerminate);
+    passedTrigger.insert(target);
   }
 }
 

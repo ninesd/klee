@@ -40,7 +40,6 @@ namespace klee {
 
     handlers_ty handlers;
     std::set<const KInstruction*> passedTrigger;
-    bool isPassed = false;
     class Executor &executor;
 
     struct HandlerInfo {

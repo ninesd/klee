@@ -6389,7 +6389,7 @@ bool Executor::shouldExitOn(enum TerminateReason termReason) {
   return false;
 }
 
-bool Executor::terminateStateOnError(ExecutionState &state,
+void Executor::terminateStateOnError(ExecutionState &state,
                                      const llvm::Twine &messaget,
                                      enum TerminateReason termReason,
                                      const char *suffix,
@@ -6408,14 +6408,10 @@ bool Executor::terminateStateOnError(ExecutionState &state,
     speculativeBackJump(state);
     klee_message("Speculation Failed: %s:%d: %s", ii.file.c_str(), ii.line,
                  message.c_str());
-    return false;
+    return;
   }
 
   interpreterHandler->incErrorTermination();
-
-  if (termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
-    returnValue = true;
-  }
 
   if (INTERPOLATION_ENABLED) {
     interpreterHandler->incBranchingDepthOnErrorTermination(state.depth);
@@ -6475,7 +6471,7 @@ bool Executor::terminateStateOnError(ExecutionState &state,
     }
 
     interpreterHandler->incErrorTerminationTest();
-//    interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
+    interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
 
     if (termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
       triggerLog.insert(message.c_str());
@@ -6490,8 +6486,6 @@ bool Executor::terminateStateOnError(ExecutionState &state,
 
   if (shouldExitOn(termReason))
     haltExecution = true;
-
-  return returnValue;
 }
 
 // XXX shoot me
