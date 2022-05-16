@@ -6489,7 +6489,7 @@ bool Executor::terminateStateOnError(ExecutionState &state,
   if (shouldExitOn(termReason))
     haltExecution = true;
 
-  return false;
+  return returnValue;
 }
 
 // XXX shoot me
