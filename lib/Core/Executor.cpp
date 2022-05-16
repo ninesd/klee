@@ -6412,16 +6412,18 @@ bool Executor::terminateStateOnError(ExecutionState &state,
   }
 
   interpreterHandler->incErrorTermination();
+
+  if (termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
+    llvm::errs() << "ERROR [Trigger]!\n";
+    returnValue = true;
+  }
+
   if (INTERPOLATION_ENABLED) {
     interpreterHandler->incBranchingDepthOnErrorTermination(state.depth);
     interpreterHandler->incInstructionsDepthOnErrorTermination(
         state.txTreeNode->getInstructionsDepth());
 
     if (termReason == Executor::Assert || termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
-      if (termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
-        llvm::errs() << "ERROR [Trigger]!\n";
-        returnValue = true;
-      }
       TxTreeGraph::setError(state, TxTreeGraph::ASSERTION);
       if (DebugTracerX)
         llvm::errs() << "[terminateStateOnError:setError] ASSERTION, Node:" << state.txTreeNode->getNodeSequenceNumber() << "\n";
