@@ -405,6 +405,7 @@ void SpecialFunctionHandler::handleTrigger(ExecutionState &state,
     isPassed = executor.terminateStateOnError(state,
                                    "TRIGGER: " + readStringAtAddress(state, arguments[0]),
                                    Executor::Trigger);
+    llvm::errs() << "ERROR isPassed = [" << isPassed << "]\n";
   }
 }
 
@@ -420,6 +421,7 @@ void SpecialFunctionHandler::handleTriggerAndTerminate(ExecutionState &state,
     isPassed = executor.terminateStateOnError(state,
                                    "TRIGGER: " + readStringAtAddress(state, arguments[0]),
                                    Executor::TriggerAndTerminate);
+    llvm::errs() << "ERROR isPassed = [" << isPassed << "]\n";
   }
 }
 
