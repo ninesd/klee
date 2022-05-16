@@ -6414,7 +6414,6 @@ bool Executor::terminateStateOnError(ExecutionState &state,
   interpreterHandler->incErrorTermination();
 
   if (termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
-    llvm::errs() << "ERROR [Trigger]!\n";
     returnValue = true;
   }
 
