@@ -6399,10 +6399,6 @@ void Executor::terminateStateOnError(ExecutionState &state,
   Instruction * lastInst;
   const InstructionInfo &ii = getLastNonKleeInternalInstruction(state, &lastInst);
 
-  if (termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
-    return;
-  }
-
   if (INTERPOLATION_ENABLED && SpecTypeToUse != NO_SPEC &&
       SpecStrategyToUse != TIMID && state.txTreeNode->isSpeculationNode()) {
     //    llvm::outs() << "=== start jumpback because of error \n";
@@ -6503,6 +6499,11 @@ void Executor::callExternalFunction(ExecutionState &state,
                                     KInstruction *target,
                                     Function *function,
                                     std::vector< ref<Expr> > &arguments) {
+  if (specialFunctionHandler->passedTrigger.count(target)) {
+    llvm::errs() << "ERROR [Passed]!\n"
+    return;
+  }
+
   // check if specialFunctionHandler wants it
   if (specialFunctionHandler->handle(state, function, target, arguments))
     return;
