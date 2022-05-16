@@ -6499,10 +6499,16 @@ void Executor::callExternalFunction(ExecutionState &state,
                                     KInstruction *target,
                                     Function *function,
                                     std::vector< ref<Expr> > &arguments) {
+  if (IgnorePrintf && function->getName().str() == "printf") {
+    klee_warning_once(function, "Ignored external function: %s\n",
+                      function->getName().str().c_str());
+    return;
+  }
   if (specialFunctionHandler->passedTrigger.count(target)) {
     return;
   }
-  llvm::errs() << "ERROR ext func [" << function->getName() << "]\n";
+
+//  llvm::errs() << "ERROR ext func [" << function->getName() << "]\n";
   if (function->getName().str() == "__klee_trigger") {
     return;
   }
@@ -6510,13 +6516,6 @@ void Executor::callExternalFunction(ExecutionState &state,
   // check if specialFunctionHandler wants it
   if (specialFunctionHandler->handle(state, function, target, arguments))
     return;
-
-  if (IgnorePrintf)
-    if (function->getName().str() == "printf") {
-      klee_warning_once(function, "Ignored external function: %s\n",
-                        function->getName().str().c_str());
-      return;
-    }
 
   if (ExternalCalls == ExternalCallPolicy::None &&
       !okExternals.count(function->getName().str())) {
