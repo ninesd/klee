@@ -6499,6 +6499,7 @@ void Executor::callExternalFunction(ExecutionState &state,
                                     KInstruction *target,
                                     Function *function,
                                     std::vector< ref<Expr> > &arguments) {
+  return;
   if (specialFunctionHandler->passedTrigger.count(target)) {
     return;
   }
