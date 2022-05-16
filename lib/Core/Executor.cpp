@@ -6419,6 +6419,7 @@ bool Executor::terminateStateOnError(ExecutionState &state,
 
     if (termReason == Executor::Assert || termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
       if (termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
+        llvm::errs() << "ERROR [Trigger]!\n";
         returnValue = true;
       }
       TxTreeGraph::setError(state, TxTreeGraph::ASSERTION);
