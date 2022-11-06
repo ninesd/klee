@@ -4038,7 +4038,7 @@ void Executor::terminateStateOnError(ExecutionState &state,
       suffix = suffix_buf.c_str();
     }
 
-    interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
+    interpreterHandler->processTestCase(state, msg.str().c_str(), suffix, state.getID());
 
     if (termReason == Executor::Trigger || termReason == Executor::TriggerAndTerminate) {
       triggerLog.insert(message.c_str());

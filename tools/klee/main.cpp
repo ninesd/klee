@@ -338,7 +338,8 @@ public:
 
     void processTestCase(const ExecutionState  &state,
                          const char *errorMessage,
-                         const char *errorSuffix);
+                         const char *errorSuffix,
+                         const uint32_t stateID);
 
     std::string getOutputFilename(const std::string &filename);
     std::unique_ptr<llvm::raw_fd_ostream> openOutputFile(const std::string &filename);
@@ -484,7 +485,8 @@ KleeHandler::openTestFile(const std::string &suffix, unsigned id) {
 /* Outputs all files (.ktest, .kquery, .cov etc.) describing a test case */
 void KleeHandler::processTestCase(const ExecutionState &state,
                                   const char *errorMessage,
-                                  const char *errorSuffix) {
+                                  const char *errorSuffix,
+                                  const uint32_t stateID) {
     if (!WriteNone) {
         std::vector< std::pair<std::string, std::vector<unsigned char> > > out;
         bool success = m_interpreter->getSymbolicSolution(state, out);
@@ -517,6 +519,7 @@ void KleeHandler::processTestCase(const ExecutionState &state,
             if (!kTest_toFile(&b, getOutputFilename(getTestFilename("ktest", id)).c_str())) {
                 klee_warning("unable to write output test case, losing it");
             } else {
+                klee_message("GENERATE: %s, stateID=%d", getOutputFilename(getTestFilename("ktest", id)).c_str()), stateID);
                 ++m_numGeneratedTests;
             }
 
