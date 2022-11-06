@@ -339,7 +339,7 @@ public:
     void processTestCase(const ExecutionState  &state,
                          const char *errorMessage,
                          const char *errorSuffix,
-                         const uint32_t stateID);
+                         uint32_t stateID);
 
     std::string getOutputFilename(const std::string &filename);
     std::unique_ptr<llvm::raw_fd_ostream> openOutputFile(const std::string &filename);
@@ -486,7 +486,7 @@ KleeHandler::openTestFile(const std::string &suffix, unsigned id) {
 void KleeHandler::processTestCase(const ExecutionState &state,
                                   const char *errorMessage,
                                   const char *errorSuffix,
-                                  const uint32_t stateID) {
+                                  uint32_t stateID) {
     if (!WriteNone) {
         std::vector< std::pair<std::string, std::vector<unsigned char> > > out;
         bool success = m_interpreter->getSymbolicSolution(state, out);
