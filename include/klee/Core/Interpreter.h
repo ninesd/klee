@@ -45,7 +45,8 @@ public:
 
   virtual void processTestCase(const ExecutionState &state,
                                const char *err,
-                               const char *suffix) = 0;
+                               const char *suffix,
+                               uint32_t) = 0;
 };
 
 class Interpreter {
