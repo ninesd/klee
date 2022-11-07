@@ -519,7 +519,7 @@ void KleeHandler::processTestCase(const ExecutionState &state,
             if (!kTest_toFile(&b, getOutputFilename(getTestFilename("ktest", id)).c_str())) {
                 klee_warning("unable to write output test case, losing it");
             } else {
-                klee_message("GENERATE: %s, stateID=%d", getOutputFilename(getTestFilename("ktest", id)).c_str()), (int)stateID);
+                klee_message("GENERATE: %s, stateID=%d", getOutputFilename(getTestFilename("ktest", id)).c_str(), (int)stateID);
                 ++m_numGeneratedTests;
             }
 
