@@ -3929,14 +3929,14 @@ void Executor::terminateStateEarly(ExecutionState &state,
   if (!OnlyOutputTrigger && (!OnlyOutputStatesCoveringNew || state.coveredNew ||
       (AlwaysOutputSeeds && seedMap.count(&state))))
     interpreterHandler->processTestCase(state, (message + "\n").str().c_str(),
-                                        "early");
+                                        "early", state.getID());
   terminateState(state);
 }
 
 void Executor::terminateStateOnExit(ExecutionState &state) {
   if (!OnlyOutputTrigger && (!OnlyOutputStatesCoveringNew || state.coveredNew ||
       (AlwaysOutputSeeds && seedMap.count(&state))))
-    interpreterHandler->processTestCase(state, 0, 0);
+    interpreterHandler->processTestCase(state, 0, 0, state.getID());
   interpreterHandler->incPathsCompleted();
   terminateState(state);
 }
