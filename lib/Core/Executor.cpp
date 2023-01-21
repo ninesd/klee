@@ -939,9 +939,9 @@ bool Executor::branchingPermitted(const ExecutionState &state) const {
   unsigned id = state.pc->info->id;
   if (MaxLoopTimes!=~0u) {
     if (Executor::loopTimesLog.count(id) > 0)
-      Executor::loopTimesLog.insert({id, Executor::loopTimesLog[id]+1});
+      Executor::loopTimesLog[id] = Executor::loopTimesLog[id]+1;
     else
-      Executor::loopTimesLog.insert({id, 1});
+      Executor::loopTimesLog[id] = 1;
   }
 
   if ((MaxMemoryInhibit && atMemoryLimit) ||
