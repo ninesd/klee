@@ -333,6 +333,12 @@ cl::opt<unsigned>
              cl::init(~0u),
              cl::cat(TerminationCat));
 
+cl::opt<unsigned>
+    MaxLoopTimes("max-loop-times",
+             cl::desc("Only loop this many times.  Set to -1 to disable (default=-1)"),
+             cl::init(~0u),
+             cl::cat(TerminationCat));
+
 cl::opt<unsigned> MaxDepth(
     "max-depth",
     cl::desc("Only allow this many symbolic branches.  Set to 0 to disable (default=0)"),
@@ -466,6 +472,7 @@ extern "C" unsigned dumpStates, dumpPTree;
 unsigned dumpStates = 0, dumpPTree = 0;
 
 std::set<std::string> Executor::triggerLog = std::set<std::string>();
+std::map<KInstIterator, int> loopTimesLog = std::map<KInstIterator, int>();
 
 const char *Executor::TerminateReasonNames[] = {
   [ Abort ] = "abort",
@@ -929,10 +936,18 @@ void Executor::initializeGlobalObjects(ExecutionState &state) {
 
 
 bool Executor::branchingPermitted(const ExecutionState &state) const {
+  if (MaxLoopTimes!=~0u) {
+    if (state.loopTimesLog.count(state.pc) > 0)
+      state.loopTimesLog.insert({state.pc, state.loopTimesLog[state.pc]+1});
+    else
+      state.loopTimesLog.insert({state.pc, 1});
+  }
+
   if ((MaxMemoryInhibit && atMemoryLimit) ||
       state.forkDisabled ||
       inhibitForking ||
-      (MaxForks!=~0u && stats::forks >= MaxForks)) {
+      (MaxForks!=~0u && stats::forks >= MaxForks) ||
+      (MaxLoopTimes!=~0u && state.loopTimesLog[state.pc] > MaxLoopTimes)) {
 
     if (MaxMemoryInhibit && atMemoryLimit)
       klee_warning_once(0, "skipping fork (memory cap exceeded)");
@@ -940,8 +955,10 @@ bool Executor::branchingPermitted(const ExecutionState &state) const {
       klee_warning_once(0, "skipping fork (fork disabled on current path)");
     else if (inhibitForking)
       klee_warning_once(0, "skipping fork (fork disabled globally)");
-    else
+    else if (MaxForks!=~0u && stats::forks >= MaxForks)
       klee_warning_once(0, "skipping fork (max-forks reached)");
+    else
+      klee_warning_once(0, "skipping fork (max-loop-times reached)");
 
     return false;
   }
