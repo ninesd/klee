@@ -126,7 +126,7 @@ public:
 
 private:
   static std::set<std::string> triggerLog;
-  static std::map<KInstIterator, int> loopTimesLog;
+  static std::map<unsigned, unsigned> loopTimesLog;
   static const char *TerminateReasonNames[];
   /* Set of Intrinsic::ID. Plain type is used here to avoid including llvm in the header */
   static const std::unordered_set <llvm::Intrinsic::ID> supportedFPIntrinsics;

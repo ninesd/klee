@@ -472,7 +472,7 @@ extern "C" unsigned dumpStates, dumpPTree;
 unsigned dumpStates = 0, dumpPTree = 0;
 
 std::set<std::string> Executor::triggerLog = std::set<std::string>();
-std::map<KInstIterator, int> loopTimesLog = std::map<KInstIterator, int>();
+std::map<unsigned, unsigned> loopTimesLog = std::map<unsigned, unsigned>();
 
 const char *Executor::TerminateReasonNames[] = {
   [ Abort ] = "abort",
@@ -936,18 +936,19 @@ void Executor::initializeGlobalObjects(ExecutionState &state) {
 
 
 bool Executor::branchingPermitted(const ExecutionState &state) const {
+  unsigned id = state.pc->info->id;
   if (MaxLoopTimes!=~0u) {
-    if (loopTimesLog.count(state.pc) > 0)
-      loopTimesLog.insert({state.pc, loopTimesLog[state.pc]+1});
+    if (loopTimesLog.count(id) > 0)
+      loopTimesLog.insert({id, loopTimesLog[id]+1});
     else
-      loopTimesLog.insert({state.pc, 1});
+      loopTimesLog.insert({id, 1});
   }
 
   if ((MaxMemoryInhibit && atMemoryLimit) ||
       state.forkDisabled ||
       inhibitForking ||
       (MaxForks!=~0u && stats::forks >= MaxForks) ||
-      (MaxLoopTimes!=~0u && loopTimesLog[state.pc] > MaxLoopTimes)) {
+      (MaxLoopTimes!=~0u && loopTimesLog[id] > MaxLoopTimes)) {
 
     if (MaxMemoryInhibit && atMemoryLimit)
       klee_warning_once(0, "skipping fork (memory cap exceeded)");
