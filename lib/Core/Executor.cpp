@@ -937,17 +937,17 @@ void Executor::initializeGlobalObjects(ExecutionState &state) {
 
 bool Executor::branchingPermitted(const ExecutionState &state) const {
   if (MaxLoopTimes!=~0u) {
-    if (state.loopTimesLog.count(state.pc) > 0)
-      state.loopTimesLog.insert({state.pc, state.loopTimesLog[state.pc]+1});
+    if (loopTimesLog.count(state.pc) > 0)
+      loopTimesLog.insert({state.pc, loopTimesLog[state.pc]+1});
     else
-      state.loopTimesLog.insert({state.pc, 1});
+      loopTimesLog.insert({state.pc, 1});
   }
 
   if ((MaxMemoryInhibit && atMemoryLimit) ||
       state.forkDisabled ||
       inhibitForking ||
       (MaxForks!=~0u && stats::forks >= MaxForks) ||
-      (MaxLoopTimes!=~0u && state.loopTimesLog[state.pc] > MaxLoopTimes)) {
+      (MaxLoopTimes!=~0u && loopTimesLog[state.pc] > MaxLoopTimes)) {
 
     if (MaxMemoryInhibit && atMemoryLimit)
       klee_warning_once(0, "skipping fork (memory cap exceeded)");
