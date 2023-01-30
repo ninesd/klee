@@ -334,10 +334,16 @@ cl::opt<unsigned>
              cl::cat(TerminationCat));
 
 cl::opt<unsigned>
-    MaxLoopTimes("max-loop-times",
-             cl::desc("Only loop this many times.  Set to -1 to disable (default=-1)"),
+    MaxLoopForkTimes("max-loop-fork-times",
+             cl::desc("Only fork this many times in loop.  Set to -1 to disable (default=-1)"),
              cl::init(~0u),
              cl::cat(TerminationCat));
+
+cl::opt<unsigned>
+    MaxLoopTimes("max-loop-times",
+                 cl::desc("Only loop this many times.  Set to -1 to disable (default=-1)"),
+                 cl::init(~0u),
+                 cl::cat(TerminationCat));
 
 cl::opt<unsigned> MaxDepth(
     "max-depth",
@@ -473,6 +479,7 @@ unsigned dumpStates = 0, dumpPTree = 0;
 
 std::set<std::string> Executor::triggerLog = std::set<std::string>();
 std::map<unsigned, unsigned> Executor::loopTimesLog = std::map<unsigned, unsigned>();
+std::map<unsigned, unsigned> Executor::loopForkTimesLog = std::map<unsigned, unsigned>();
 
 const char *Executor::TerminateReasonNames[] = {
   [ Abort ] = "abort",
@@ -937,18 +944,19 @@ void Executor::initializeGlobalObjects(ExecutionState &state) {
 
 bool Executor::branchingPermitted(const ExecutionState &state) const {
   unsigned id = state.pc->info->id;
-  if (MaxLoopTimes!=~0u) {
-    if (Executor::loopTimesLog.count(id) > 0)
-      Executor::loopTimesLog[id] = Executor::loopTimesLog[id]+1;
+  if (MaxLoopForkTimes!=~0u) {
+    if (Executor::loopForkTimesLog.count(id) > 0)
+      Executor::loopForkTimesLog[id] = Executor::loopForkTimesLog[id]+1;
     else
-      Executor::loopTimesLog[id] = 1;
+      Executor::loopForkTimesLog[id] = 1;
   }
 
   if ((MaxMemoryInhibit && atMemoryLimit) ||
       state.forkDisabled ||
       inhibitForking ||
       (MaxForks!=~0u && stats::forks >= MaxForks) ||
-      (MaxLoopTimes!=~0u && Executor::loopTimesLog[id] > MaxLoopTimes)) {
+      (MaxLoopTimes!=~0u && Executor::loopTimesLog[id] > MaxLoopTimes)||
+      (MaxLoopForkTimes!=~0u && Executor::loopForkTimesLog[id] > MaxLoopForkTimes)) {
 
     if (MaxMemoryInhibit && atMemoryLimit)
       klee_warning_once(0, "skipping fork (memory cap exceeded)");
@@ -958,8 +966,10 @@ bool Executor::branchingPermitted(const ExecutionState &state) const {
       klee_warning_once(0, "skipping fork (fork disabled globally)");
     else if (MaxForks!=~0u && stats::forks >= MaxForks)
       klee_warning_once(0, "skipping fork (max-forks reached)");
-    else
+    else if (MaxLoopTimes!=~0u && Executor::loopTimesLog[id] > MaxLoopTimes)
       klee_warning_once(0, "skipping fork (max-loop-times reached)");
+    else
+      klee_warning_once(0, "skipping fork (max-loop-fork-times reached)");
 
     return false;
   }
@@ -2307,6 +2317,13 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       ref<Expr> cond = eval(ki, 0, state).value;
 
       cond = optimizer.optimizeExpr(cond, false);
+      unsigned id = state.pc->info->id;
+      if (MaxLoopTimes!=~0u) {
+        if (Executor::loopTimesLog.count(id) > 0)
+          Executor::loopTimesLog[id] = Executor::loopTimesLog[id]+1;
+        else
+          Executor::loopTimesLog[id] = 1;
+      }
       Executor::StatePair branches = fork(state, cond, false);
 
       // NOTE: There is a hidden dependency here, markBranchVisited
